@@ -6,7 +6,7 @@
 | ID | Título | Rol | Depende de | Estado |
 |---|---|---|---|---|
 | T-040 | SPEC de inventory | claude-leader | D-017, D-023, D-027 | DONE |
-| T-041 | Esquema `0005`, dominio, repositorios, settings y vista `product_availability` | backend-dev | T-026 | READY (tras T-031, para no cruzar pruebas de integración) |
+| T-041 | Esquema `0005`, dominio, repositorios, settings y vista `product_availability` | backend-dev | T-026 | IN_REVIEW |
 | T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | BACKLOG |
 | T-043 | API de administración (stock, movimientos, settings) con auditoría | backend-dev | T-041 | BACKLOG |
 
@@ -27,9 +27,34 @@ IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalo
 
 ## Traspasos
 
-_(ninguno todavía)_
+#### Traspaso T-041 — 2026-10-27 — backend-dev
+1. Estado final: IN_REVIEW (revisa claude-leader).
+2. Cambios: migración `0005` con las cuatro tablas de la SPEC §6 (CHECK, FK `RESTRICT` a `app.products`, índices), la fila única de ajustes (umbral 2) y la vista `app.product_availability` (INVENTORY-R1 y R2; de `app.products` solo lee `id`, `order_policy` y `lead_time_days`; la suma de reservas vigentes va en un `LATERAL` que usa el índice `(product_id, status, expires_at)`). Dominio puro: `availability_status` (R2), `admin_movement` (R5 y R6: delta calculado en el ajuste, nota obligatoria 1–500 sin caracteres de control, `venta` reservada al sistema, `insufficient_stock` gana a `stock_reserved`), `StockItem`, `StockMovement` (mismos invariantes que los CHECK), `InventorySettings`, `Availability`. Puertos en `application.py` (sin casos de uso). Repositorios SQL: `SqlStockRepository.lock` (`INSERT … SELECT id FROM app.products … ON CONFLICT DO NOTHING` + `SELECT … FOR UPDATE`; `None` si el producto no existe, sin violar la FK) y `update`; `SqlMovementRepository.add` (devuelve `id` y `created_at`) y `list_recent`; `SqlSettingsRepository.get(lock)` y `update`; `SqlAvailabilityReader.get`. Sin endpoints ni casos de uso de reserva.
+3. Archivos modificados: `backend/src/valmont/modules/inventory/{__init__,domain,application}.py`, `backend/src/valmont/modules/inventory/adapters/{__init__,persistence}.py`, `backend/migrations/versions/0005_inventory.py`, `backend/migrations/env.py` (una línea de registro), `backend/tests/inventory/{__init__,test_domain,test_persistence}.py`, este STATUS (fila de T-041 y traspaso).
+4. Decisiones tomadas: ninguna nueva. Interpretaciones anotadas en "Discrepancias y riesgos" (I-1…I-4).
+5. Pruebas ejecutadas → resultado observado (desde `backend/`):
+   - línea base `uv run pytest -q` → 548 passed, 141 deselected; `uv run pytest -m integration -q` → 141 passed, 548 deselected
+   - `uv run pytest -q tests/inventory` antes de `domain.py` → 1 error de colección (rojo esperado); después → 49 passed
+   - `uv run ruff format --check .` → 83 files already formatted
+   - `uv run ruff check .` → All checks passed!
+   - `uv run pytest -q` → 597 passed, 182 deselected in 7.15s
+   - `uv run pytest -m integration -q` → 182 passed, 597 deselected in 8.08s (incluye `test_migrations`: base → head → base → head con `0005` en `valmont_test`, y la tabla de CA-INVENTORY-05 con 19 casos: políticas, sin fila de stock, reservas vigentes, vencidas, consumidas y liberadas, umbral 5 y 1; cada caso compara además la vista con `availability_status`)
+   - capas `grep -rnE "^(from|import) (fastapi|pydantic|sqlalchemy|httpx|supabase)" src/valmont/modules/*/domain* src/valmont/modules/*/application*` → sin salida (exit 1)
+   - BD de desarrollo: `uv run alembic upgrade head` → `Running upgrade 0004 -> 0005`; `uv run alembic check` → No new upgrade operations detected; `uv run alembic downgrade 0004` + `uv run alembic upgrade head` → `0005 (head)` y `alembic check` limpio otra vez
+   - vista en desarrollo (12 productos de demostración, sin stock): backorder → on_request 3, made_to_order → on_request 2, stock → out_of_stock 7; `inventory_settings` = una fila (1, 2)
+6. Pruebas no ejecutadas y motivo: `alembic downgrade base` contra la BD de desarrollo (borraría las semillas de catalog; el ida y vuelta completo se hizo en `valmont_test`); prueba de concurrencia de `lock()` con dos conexiones reales (es de T-042, con qa-reviewer; aquí solo se comprueba que emite `ON CONFLICT (product_id) DO NOTHING` y `FOR UPDATE`).
+7. Dependencias pendientes: T-042 (reservas: la entidad `Reservation` del dominio y el repositorio de reservas se crean allí), T-043 (API de administración), T-030 (catalog lee la vista). Las semillas de desarrollo no crean stock: todos los productos de demostración salen `out_of_stock` u `on_request` hasta que alguien registre entradas.
+8. Riesgos conocidos: ver I-1…I-4. La vista calcula todo el catálogo si se filtra por `status` sin acotar productos; con el volumen de una relojería es aceptable (cada suma es un escaneo de índice).
+9. Preguntas que requieren decisión: I-1 (respuesta de la API a un recuento igual a `on_hand`) — decide claude-leader antes de T-043; I-2 (mostrar `lead_time_days` solo en `on_request`) — decide claude-leader en T-030.
+10. Documentación actualizada: este STATUS.
+11. Siguiente acción recomendada: revisar y aceptar T-041 y lanzar T-042 (reservas con pruebas de concurrencia de dos conexiones) usando `SqlStockRepository.lock`.
+12. Commits: el que contiene este traspaso, `feat(inventory): esquema, dominio y vista de disponibilidad (T-041)` (el hash va en el traspaso al Leader).
 
 ## Discrepancias y riesgos
 
 - `stock_reservations.order_id` no tiene FK hasta que exista `app.orders` (la añadirá la migración de orders).
 - INVENTORY-R4 refina la letra de D-017 ("una única sentencia UPDATE") por un bloqueo de fila + suma + inserción, necesario para que las reservas venzan solas; la garantía (sin carreras) es la misma.
+- I-1 (T-041): un `ajuste_inventario` con la cantidad contada igual a `on_hand` da delta 0, que prohíbe `CHECK (quantity_delta <> 0)`; el dominio lo rechaza con `InvalidMovement`. La SPEC no dice si la API responde 422 o 200 sin movimiento — decide claude-leader antes de T-043.
+- I-2 (T-041): la vista devuelve `lead_time_days` del producto tal cual, también cuando el estado no es `on_request` (p. ej. un `backorder` con stock); catalog decide en T-030 si solo lo muestra con "Bajo pedido".
+- I-3 (T-041): `available` es `on_hand − reservas vigentes` sin recortar a 0; R4 y R6 lo mantienen ≥ 0, y si no, el estado cae en `out_of_stock`/`on_request`.
+- I-4 (T-041): `SqlStockRepository.lock` lee `app.products.id` (la misma columna que la vista) para no violar la FK con un producto inexistente. Para R6, T-043 puede obtener lo reservado como `on_hand − available` leyendo la vista tras `lock()` en la misma transacción.

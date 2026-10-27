@@ -8,6 +8,7 @@ from sqlalchemy import create_engine, pool, text
 import valmont.modules.audit.adapters.persistence  # noqa: F401
 import valmont.modules.catalog.adapters.persistence  # noqa: F401
 import valmont.modules.identity.adapters.persistence  # noqa: F401
+import valmont.modules.inventory.adapters.persistence  # noqa: F401
 from valmont.shared.db import Base, get_engine
 
 config = context.config
