@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from valmont.modules.catalog.adapters import http as catalog_http
 from valmont.modules.identity.adapters import http as identity_http
 from valmont.shared.config import get_settings
 from valmont.shared.errors import register_error_handlers
@@ -18,6 +19,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(identity_http.router)
+    app.include_router(catalog_http.router)
     return app
 
 

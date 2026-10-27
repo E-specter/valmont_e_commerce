@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     # porque en producción Auth se alcanza por la red interna y el emisor es la URL pública.
     supabase_url: str | None = None
     supabase_jwt_issuer: str | None = None  # None → f"{supabase_url}/auth/v1"
+    # Base de las URL públicas de Storage que ve el navegador (SPEC catalog §6). None → supabase_url
+    storage_public_url: str | None = None
 
 
 @cache

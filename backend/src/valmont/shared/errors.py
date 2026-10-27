@@ -33,6 +33,7 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     for status, description in {
         401: "`unauthenticated`: falta el token o no es válido.",
         403: "`forbidden`: el rol no basta.",
+        404: "`not_found`: el recurso no existe o no es visible.",
         422: "`validation_error`: datos de entrada no válidos.",
         503: "`auth_unavailable`: no se pudo verificar el token.",
     }.items()
@@ -73,6 +74,7 @@ def register_error_handlers(app: FastAPI) -> None:
     async def handle_validation_error(
         request: Request, exc: RequestValidationError
     ) -> JSONResponse:
-        # Sin "input": no se devuelve al cliente lo que envió (RNF10, p. ej. contraseñas).
-        details = [{k: v for k, v in e.items() if k != "input"} for e in exc.errors()]
+        # Solo loc, type y msg (T-019): sin "input", que devolvería lo que envió el cliente
+        # (RNF10, p. ej. contraseñas), ni "url" o "ctx", que son detalles de Pydantic.
+        details = [{key: e[key] for key in ("loc", "type", "msg")} for e in exc.errors()]
         return error_response(422, "validation_error", "Datos de entrada no válidos.", details)

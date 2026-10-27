@@ -40,8 +40,9 @@ def test_validation_error_returns_422_with_errors_in_details(app: FastAPI) -> No
     assert response.status_code == 422
     error = response.json()["error"]
     assert error["code"] == "validation_error"
-    assert error["details"][0]["loc"] == ["path", "item_id"]
-    assert "input" not in error["details"][0]
+    [detail] = error["details"]
+    assert set(detail) == {"loc", "type", "msg"}  # T-019: sin input, url ni ctx
+    assert (detail["loc"], detail["type"]) == (["path", "item_id"], "int_parsing")
 
 
 @pytest.mark.parametrize(

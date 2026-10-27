@@ -22,13 +22,13 @@
 | T-015 | Capa de datos: SQLAlchemy + Alembic, esquema `app`, BD de pruebas | backend | backend-dev (revisa claude-leader) | D-010 | modules.md §4 | DONE | Traspaso abajo; 17 pruebas unitarias + 5 de integración |
 | T-016 | Autenticación: verificación del JWT, `app.profiles`, `current_user` / `require_admin` | backend, seguridad | backend-dev + qa-reviewer | RF01.05, RF13.01, RF13.02, D-009, D-018 | docs/modules/identity/STATUS.md | DONE | 2 rondas; qa-reviewer APROBADO; E2E con token ES256 real OK |
 | T-017 | Ficha de lanzamiento `docs/deploy.md` (Windows 11 / Linux) | docs, arquitectura | claude-leader | D-011 | docs/deploy.md | IN_PROGRESS | Sección A verificada (A-11 parcial hasta la Fase 5); B pendiente de un equipo Linux; C en el hito M1 |
-| T-019 | Ajustes de contrato de identity tras la revisión de frontend-lead: `validation_error.details` sin `url` (solo `loc`, `type`, `msg`) y `Money.currency` obligatorio en el OpenAPI | backend | backend-dev | RF01.06 | docs/modules/identity/SPEC.md §7 | IN_PROGRESS | Se hace junto con T-027 (mismos esquemas compartidos) |
+| T-019 | Ajustes de contrato de identity tras la revisión de frontend-lead: `validation_error.details` sin `url` (solo `loc`, `type`, `msg`) y `Money.currency` obligatorio en el OpenAPI | backend | backend-dev | RF01.06 | docs/modules/identity/SPEC.md §7 | DONE | Hecho con T-027: `Money-Output` exige `amount` y `currency`; `details` = `loc`, `type`, `msg` |
 | T-018 | Endurecimiento antes del lanzamiento: JWKS no-JSON → 503 con aviso; no registrar el `DETAIL` de PostgreSQL (solo `sqlstate` y restricción); rechazar controles bidireccionales y nombres invisibles; límites de longitud documentados en el OpenAPI | backend, seguridad | backend-dev + qa-reviewer | RNF02, RNF10 | docs/modules/identity/STATUS.md | BACKLOG | Hallazgos menores de qa-reviewer en T-016; antes del hito M1 |
 
 | T-020 | SPEC de audit | requisitos, backend | claude-leader | RF14 | docs/modules/audit/SPEC.md | DONE | Sin preguntas de negocio bloqueantes |
 | T-021 | `app.audit_log` de solo inserción, `AuditRecorder` y `AuditRecorderDep` | backend | backend-dev (revisa claude-leader) | RF14.01, RF14.02 | docs/modules/audit/STATUS.md | DONE | 147 pruebas unitarias + 22 de integración; migración 0003 |
 | T-025 | SPEC de catalog | requisitos, backend | claude-leader | RF02, RF06.01–03, RF06.07, D-019…D-023 | docs/modules/catalog/SPEC.md | DONE | Contrato revisado por frontend-lead; cambios incorporados |
-| T-026…T-031 | Implementación de catalog | backend | backend-dev (+ qa-reviewer en T-028) | ver STATUS de catalog | docs/modules/catalog/STATUS.md | IN_PROGRESS | T-026 DONE; T-027 en curso (backend-dev) |
+| T-026…T-031 | Implementación de catalog | backend | backend-dev (+ qa-reviewer en T-028) | ver STATUS de catalog | docs/modules/catalog/STATUS.md | IN_PROGRESS | T-026 y T-027 DONE; T-028 y T-029 siguientes |
 
 **Rangos reservados para la Fase 2** (PROTOCOL §6): audit T-020–T-024 · catalog T-025–T-039 · inventory T-040–T-049 · promotions T-050–T-054 · cart T-055–T-064 · wishlist T-065–T-069 · orders T-070–T-089 · payments T-090–T-099 · hito M1 de lanzamiento T-100–T-104.
 

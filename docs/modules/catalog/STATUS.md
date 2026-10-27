@@ -7,7 +7,7 @@
 |---|---|---|---|---|
 | T-025 | SPEC de catalog | claude-leader | D-019…D-023 | DONE (contrato aprobado por frontend-lead con cambios incorporados) |
 | T-026 | Esquema `0004`, dominio y repositorios de catalog | backend-dev | T-021 | DONE (2 rondas; verificado por claude-leader: 319 unitarias + 71 integración) |
-| T-027 | API pública: listado con filtros, búsqueda, orden y paginación; ficha con relacionados; categorías y atributos (incluye T-019) | backend-dev | T-026 | IN_PROGRESS |
+| T-027 | API pública: listado con filtros, búsqueda, orden y paginación; ficha con relacionados; categorías y atributos (incluye T-019) | backend-dev | T-026 | DONE (verificado por claude-leader: 355 unitarias + 94 integración) |
 | T-028 | API de administración: productos, publicación, categorías y listas de valores, con auditoría | backend-dev + qa-reviewer | T-026, T-021 | BACKLOG |
 | T-029 | Activar Supabase Storage (puerta Docker) e imágenes: subida, orden y retirada | claude-leader + backend-dev | T-028 | BACKLOG |
 | T-030 | Conectar la disponibilidad con inventory (`AvailabilityReader`) | backend-dev | módulo inventory | BACKLOG |
@@ -16,6 +16,24 @@
 IDs reservados del módulo: T-025–T-039 (libres: T-032–T-039).
 
 ## Paquetes de tarea
+
+### T-028 — API de administración de catalog (sin imágenes)
+- Objetivo: el administrador gestiona productos (crear, leer, editar, publicar, despublicar), categorías y listas de valores por la API de §7 (administración), con las reglas de §4 y la auditoría de CATALOG-R7.
+- Responsable: backend-dev (revisan claude-leader y qa-reviewer) · Módulo: catalog · Requisitos: RF06.01, RF06.02, RF06.07, RF13.02, RF14.01 · Decisiones: D-021…D-023
+- Leer: `docs/modules/catalog/SPEC.md` §4, §5 y §7 (administración); `docs/modules/audit/SPEC.md` §4 y §8; `docs/modules.md` §3 (excepciones de auth y audit) y §4; el código de catalog (T-026, T-027), identity (`require_admin`) y audit (`AuditRecorderDep`).
+- Puede modificar: `backend/src/valmont/modules/catalog/**` (incluidas las operaciones de repositorio de administración que falten: `get`, `update`, listado con borradores) y `backend/tests/catalog/**`. `main.py` solo si hace falta registrar un router nuevo.
+- Protegido: `shared/**`, otros módulos, migraciones (si hiciera falta un cambio de esquema → escalar), `docs/**`.
+- Resultado esperado:
+  1. Router `/api/v1/catalog/admin` con todas las rutas de §7, **excepto imágenes** (T-029), todas con `require_admin`.
+  2. Errores con los `code` de §7: `sku_taken`, `slug_taken`, `slug_locked`, `publish_requirements_unmet` (con `details.missing`), `category_in_use`, `code_taken`; 404 `not_found`; las referencias inexistentes (`category_id`, `movement_code`, `case_material_code`) → 422 con `loc` en el campo (nunca un 500 por la FK).
+  3. **Bloqueo del slug (CATALOG-R3):** `published_at` guarda la fecha de la **primera** publicación y no se borra al despublicar; si existe, cambiar el `slug` → 409 `slug_locked`.
+  4. Auditoría en la misma transacción (`AuditRecorderDep` + `SessionDep`): `catalog.product_created` (after: sku, price, order_policy), `catalog.price_changed` (before/after: price_cents), `catalog.product_published`, `catalog.product_unpublished`, `catalog.order_policy_changed` (before/after: order_policy, lead_time_days). `actor_id` y `actor_role` = el admin.
+  5. Esquemas de entrada con campos extra prohibidos (incluido `status`); `price` como `Money`; en PATCH, `null` borra los atributos opcionales.
+- Criterios de aceptación: CA-CATALOG-05, CA-CATALOG-06 y CA-CATALOG-08 de la SPEC; un `customer` → 403 y sin token → 401 en todas las rutas.
+- Pruebas obligatorias: format, lint, `pytest -q`, `pytest -m integration -q` (incluida la auditoría real en la BD de pruebas), capas, `alembic check`, OpenAPI de las rutas de administración con `ErrorOut`.
+- Seguridad: autorización en cada ruta; el actor sale del token; nada de datos de otros módulos.
+- Estado inicial: BACKLOG (tras T-027) · IDs reservados: ninguno (tarea hoja)
+- Escalar si: hace falta cambiar el esquema, tocar `shared/` o el contrato no cubre un caso.
 
 ### T-026 — Esquema, dominio y repositorios de catalog
 - Objetivo: las tablas de catalog existen con todas sus restricciones e índices, el dominio aplica sus reglas y los repositorios leen y escriben productos, categorías, listas de valores e imágenes.
@@ -32,6 +50,19 @@ IDs reservados del módulo: T-025–T-039 (libres: T-032–T-039).
 - Escalar si: la SPEC no cubre un caso, hace falta una dependencia, o hay que tocar `shared/` u otro módulo.
 
 ## Traspasos
+
+#### Traspaso T-027 (+ T-019) — 2026-10-27 — backend-dev
+1. Estado final: IN_REVIEW.
+2. Cambios: router público `/api/v1/catalog` con `GET /products`, `/products/{slug}`, `/categories` y `/attributes` según SPEC §7. `GET /products` valida `page` 1–1000, `page_size` 1–48 (24), `sort`, `relevance` sin `q`, `q` ≤ 100 (vacío = sin búsqueda), `min > max`, precios enteros ≥ 0 y caracteres de control (dominio) → 422. La ficha devuelve imágenes por posición, `specs` en orden y hasta 4 `related`; borrador, inexistente o slug mal formado → el mismo 404 `not_found`. URL de imagen = `<storage_public_url o supabase_url>/storage/v1/object/public/products/<storage_path>`; sin ninguna de las dos → 500 `internal_error`. T-019: `Money` con `json_schema_serialization_defaults_required` (`Money-Output` exige `currency`, `Money-Input` no); `validation_error.details` = solo `loc`, `type`, `msg`.
+3. Archivos: `backend/src/valmont/modules/catalog/adapters/http.py` (nuevo), `backend/src/valmont/main.py` (una línea + import), `backend/src/valmont/shared/config.py` (`storage_public_url`), `backend/src/valmont/shared/money.py`, `backend/src/valmont/shared/errors.py` (T-019 y la entrada 404 de `ERROR_RESPONSES`), `backend/.env.example` (comentario + `# STORAGE_PUBLIC_URL=`), `backend/tests/catalog/{catalog_helpers,conftest,test_http,test_http_db}.py` (nuevos), `backend/tests/catalog/test_persistence.py` (datos movidos a `catalog_helpers`), `backend/tests/shared/test_errors.py`.
+4. Decisiones: esquemas con sufijo `Out` (convención de la skill; el componente es `ProductSummaryOut`, no `ProductSummary`); el router llama a los puertos directamente, porque son lecturas sin reglas y `application.py` estaba protegido; la ruta de la ficha declara 422 solo para sustituir el `HTTPValidationError` que FastAPI añade a toda ruta con parámetros (en la práctica no ocurre); los parámetros desconocidos (p. ej. `available`) se ignoran, como hace FastAPI por defecto; `ERROR_RESPONSES` gana la entrada 404 (`shared/errors.py`, fuera de T-019). Sin cambios en `domain.py` ni `persistence.py`.
+5. Pruebas (desde `backend/`): `uv run ruff format --check .` → 59 files already formatted · `uv run ruff check .` → All checks passed! · `uv run pytest -q` → 355 passed, 94 deselected · `uv run pytest -m integration -q` → 94 passed, 355 deselected · capas → vacío · `uv run alembic current` → 0004 (head) · `uv run alembic check` → No new upgrade operations detected. · `app.openapi()` → `GET /products` {200, 422}, `GET /products/{slug}` {200, 404, 422}, `GET /categories` {200}, `GET /attributes` {200}; `Money-Output.required = [amount, currency]`, `Money-Input.required = [amount]`; sin `HTTPValidationError` en todo el documento.
+6. No ejecutadas: E2E y tipos (no configurados); prueba con Supabase Storage real (llega con T-029).
+7. Dependencias: T-030 añade `availability` y el filtro `available`; T-029 y T-031 deben dejar al menos una imagen en cada publicado (`main_image` es obligatorio en el contrato: un publicado sin imagen hoy rompe el listado con 500).
+8. Riesgos: los componentes del OpenAPI `Money` pasan a `Money-Input` y `Money-Output` (afecta a tipos generados del frontend, si los hay); `available=true` se ignora en silencio hasta T-030.
+9. Decisión pendiente: ninguna.
+10. Documentación: este STATUS y la fila T-019 de `docs/agents/tasks.md`.
+11. Siguiente acción: claude-leader revisa T-027 y T-019; después, T-028.
 
 #### Traspaso T-026 (ronda 2) — 2026-10-27 — backend-dev
 1. Estado final: IN_REVIEW.
