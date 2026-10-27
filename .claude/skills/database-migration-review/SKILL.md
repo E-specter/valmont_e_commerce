@@ -37,6 +37,7 @@ La elección se registra en `docs/decisions.md` con la primera migración. Una t
 - [ ] Tablas grandes: `CREATE INDEX CONCURRENTLY` (fuera de transacción) y nada de reescrituras con bloqueo largo.
 - [ ] Los datos semilla no contienen datos personales reales.
 - [ ] Aplicada sobre una BD de pruebas: subir → bajar → subir, y después las pruebas de integración del módulo.
+- [ ] Cada tabla, vista o secuencia nueva en `app` se concede de forma explícita al rol `valmont_app` (T-101, D-029). Las tablas de solo inserción, como `audit_log` y `stock_movements`, solo reciben `SELECT, INSERT`. Además se añade al mapa de `backend/tests/test_app_role.py`; si no, esa prueba falla. Nunca se usan `GRANT` por columna.
 
 ## 4. Prohibido para agentes
 
