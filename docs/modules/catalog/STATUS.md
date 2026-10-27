@@ -11,7 +11,7 @@
 | T-028 | API de administración: productos, publicación, categorías y listas de valores, con auditoría | backend-dev + qa-reviewer | T-026, T-021 | DONE (`6d66054`; qa-reviewer APROBADO en la re-verificación) |
 | T-029 | Activar Supabase Storage (puerta Docker) e imágenes: subida, orden y retirada | claude-leader + backend-dev | T-028 | DONE (`b86a17a`; verificado por claude-leader: 545 unitarias + 140 integración, Storage real) |
 | T-030 | Conectar la disponibilidad con inventory (`AvailabilityReader`) | backend-dev | módulo inventory | BACKLOG |
-| T-031 | Semillas de demostración para `dev` (aprobadas por el usuario, P-CATALOG-1) | backend-dev | T-029 | IN_PROGRESS |
+| T-031 | Semillas de demostración para `dev` (aprobadas por el usuario, P-CATALOG-1) | backend-dev | T-029 | IN_REVIEW (entregada por backend-dev el 2026-10-27; ejecutada dos veces en `dev`) |
 
 IDs reservados del módulo: T-025–T-039 (libres: T-032–T-039).
 
@@ -74,6 +74,57 @@ IDs reservados del módulo: T-025–T-039 (libres: T-032–T-039).
 - Escalar si: la SPEC no cubre un caso, hace falta una dependencia, o hay que tocar `shared/` u otro módulo.
 
 ## Traspasos
+
+#### Traspaso T-031 — 2026-10-27 — backend-dev
+1. Estado final: IN_REVIEW (revisa claude-leader).
+2. Cambios:
+   - `uv run python -m valmont.scripts.seed_dev` crea, mediante los casos de uso de catalog:
+     - 4 categorías: `demo-vestir`, `demo-deportivos`, `demo-buceo` y `demo-aviador`, con nombres "… (demo)".
+     - Movimientos: `automatic` y `manual`. Materiales: `steel`, `gold-18k`, `titanium` y `ceramic`.
+     - 12 relojes, `DEMO-001`…`DEMO-012`, llamados "Demo Alba 38"…"Demo Lira 37", repartidos 3 por categoría.
+   - Contenido de cada reloj:
+     - Descripción de tres líneas que dice que es ficticio y que no es un producto de Valmont.
+     - `specs` ordenadas (Calibre, Cristal, Garantía) y precios en céntimos de PEN.
+     - Política de venta: 7 `stock`, 2 `made_to_order` (60 y 90 días) y 3 `backorder` (14, 21 y 30 días).
+     - Dos productos sin algunos atributos, para probar los `null` de CATALOG-R5: Eco no tiene movimiento y Lira no tiene ninguno.
+   - Cada producto recibe una imagen PNG de 400×400 de un color liso (distinto por producto), generada en el script, con `alt` "Imagen de marcador (demo)". Se sube con `AddProductImage` y `get_image_storage()` y después se publica con `PublishProduct` (CATALOG-R2).
+   - Idempotencia: el script busca por `slug` (categorías), `code` (valores) y `sku` (productos), estos últimos leyendo `list_all` página a página. Solo crea lo que falta. Además, sube la imagen a un producto que no la tenga y publica un borrador.
+   - Confirma una vez tras las categorías y los valores, y otra después de cada producto.
+   - Con `ENVIRONMENT=prod` termina con código 1 antes de abrir la BD o Storage.
+3. Archivos modificados:
+   - `backend/src/valmont/scripts/__init__.py` y `backend/src/valmont/scripts/seed_dev.py` (nuevos).
+   - `backend/tests/catalog/test_seed_dev.py` (nuevo).
+4. Decisiones tomadas (supuestos a revisar):
+   - Las categorías llevan el prefijo `demo-` para no chocar con las reales.
+   - Si algo ya existe, no se actualiza: solo se crea lo que falta.
+   - Las entradas de auditoría del sistema llevan `actor_id` y `actor_role` nulos (AUDIT-R5).
+   - Los valores de atributo se crean con `AttributeRepository.add`, como hace el router: no hay caso de uso de alta.
+   - Cada producto se confirma por separado: si algo falla, lo ya hecho se queda y una nueva ejecución sigue sin volver a subir imágenes.
+5. Pruebas ejecutadas → resultado observado (desde `backend/`):
+   - `uv run ruff format --check .` → 74 files already formatted
+   - `uv run ruff check .` → All checks passed!
+   - `uv run pytest -q` → 548 passed, 141 deselected (línea base: 545 passed, 140 deselected)
+   - `uv run pytest -m integration -q` → 141 passed, 548 deselected. Incluye la idempotencia en `valmont_test` con Storage en memoria. Las dos ejecuciones dejan las mismas cifras: 12 productos, 12 publicados, 12 imágenes, 4 categorías, 2 + 4 valores, 24 entradas de auditoría con `actor_id` nulo y 12 archivos. La API devuelve los 12 con `main_image`, y la ficha, imágenes y relacionados.
+   - Capas → vacío · `uv run alembic check` → No new upgrade operations detected.
+   - En `dev` (BD vacía al empezar, Storage real):
+     - 1.ª ejecución → "nuevos: 4 categorías, 6 valores, 12 productos, 12 imágenes, 12 publicados".
+     - 2.ª ejecución → "nuevos: 0 …" en todo.
+     - Recuento tras cada ejecución (idéntico): categories 4, movement_types 2, case_materials 4, products 12 (12 publicados), product_images 12, audit_log 24 (24 con `actor_id` nulo) y `storage.objects` del bucket `products` 12.
+   - `TestClient` sobre la app en `dev`:
+     - `GET /api/v1/catalog/products?page_size=48` → 200, total 12, los 12 con `main_image`.
+     - Las 12 fichas → 200. `demo-lira-37` tiene 1 imagen, 2 relacionados y `specs` [Calibre, Cristal, Garantía].
+     - La URL pública de la imagen → 200 `image/png`, 1061 bytes.
+     - `/categories` → las 4. `/attributes` → los 2 + 4.
+   - `ENVIRONMENT=prod uv run python -m valmont.scripts.seed_dev` → "seed_dev: se niega a correr con ENVIRONMENT=prod; no se ha escrito nada." y exit=1.
+6. Pruebas no ejecutadas y motivo: E2E y tipos (no configurados).
+7. Dependencias pendientes: ninguna. Kombai y el frontend ya pueden usar la API real en `dev`.
+8. Riesgos conocidos:
+   - Si el script falla después de subir una imagen pero antes del commit de ese producto, el archivo queda huérfano (es el caso de T-018).
+   - La salida del script, con tildes, se ve mal en una consola de Windows que la redirige con cp1252. Es solo visual: los datos están bien.
+9. Preguntas que requieren decisión: discrepancia de tipos. `Actor.user_id` está tipado como `UUID`, pero AUDIT-R5 necesita un actor nulo; el script usa `Actor(None, None)` con `type: ignore`. Propuesta: `Actor.user_id: UUID | None` en `application.py`. Decide claude-leader (está fuera de "Puede modificar").
+10. Documentación actualizada: este STATUS (fila T-031 y este traspaso).
+11. Siguiente acción recomendada: claude-leader revisa T-031 y avisa a frontend de que `dev` ya tiene datos de demostración.
+12. Commits: el que contiene este traspaso, `feat(catalog): semillas de demostración para desarrollo (T-031)` (el hash va en el traspaso al Leader).
 
 #### Traspaso T-029 — 2026-10-27 — backend-dev
 1. Estado final: IN_REVIEW (revisa claude-leader).
