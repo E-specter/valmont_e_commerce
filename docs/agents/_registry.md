@@ -19,6 +19,7 @@
 | docs/agents/tasks.md | Doc | Tablero de tareas + paquetes transversales | TASK_BOARD | todos (aditivo) | 2026-10-26 |
 | docs/agents/PROTOCOL.md | Doc | Jerarquía, inicio, paquete de tarea, traspaso, estados, contexto | AGENT_PROTOCOL, AGENT_REGISTRY, HANDOFF_PROTOCOL, CONTEXT_POLICY | claude-leader | 2026-10-26 |
 | docs/agents/claude-leader/profile.md | Doc | Perfil y nota de continuidad del Leader | — | claude-leader | 2026-10-26 |
+| docs/deploy.md | Doc | Ficha de lanzamiento: desarrollo en Windows 11 y Linux, y lanzamiento con Docker Compose | RUNBOOK (lanzamiento) | claude-leader | 2026-10-26 |
 | docs/modules/identity/ | Carpeta | SPEC y STATUS del módulo identity | 03-modules/identity | claude-leader | 2026-10-26 |
 | docs/modules/<módulo>/ | Carpeta (se crea al especificar cada módulo) | `SPEC.md` (especificación, contrato y plan de pruebas) + `STATUS.md` (plan, tareas y traspasos) | 03-modules/* | module-coordinator | — |
 
