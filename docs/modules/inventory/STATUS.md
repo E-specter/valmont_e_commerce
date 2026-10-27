@@ -9,7 +9,7 @@
 | T-041 | Esquema `0005`, dominio, repositorios, settings y vista `product_availability` | backend-dev | T-026 | DONE (`84d60d8`; verificado por claude-leader: 597 unitarias + 182 integración) |
 | T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | DONE (`f641107`, `615189d`, `4e04053`; ronda 3 APROBADA por qa-reviewer con D-028: 624 unitarias + 202 integración, mutantes detectados) |
 | T-043 | API de administración (stock, movimientos, settings) con auditoría | backend-dev + qa-reviewer | T-041 | DONE (`327828c`; APROBADA por qa-reviewer con D-028: 691 unitarias + 232 integración, OpenAPI igual a la §7) |
-| T-044 | Seguimiento de QA en T-043: búsqueda con `unaccent` (M1), pruebas de `/` y de la carrera con `ReserveStock` (M2), `available` ≥ 0 (M3) e `InsufficientStock` sin ceros falsos (M4) | backend-dev + qa-reviewer | T-043 | IN_REVIEW (preparado sin commit, D-028; pendiente de que qa-reviewer ejecute las pruebas) |
+| T-044 | Seguimiento de QA en T-043: búsqueda con `unaccent` (M1), pruebas de `/` y de la carrera con `ReserveStock` (M2), `available` ≥ 0 (M3) e `InsufficientStock` sin ceros falsos (M4) | backend-dev + qa-reviewer | T-043 | DONE (`08cefce`; APROBADA por qa-reviewer con D-028: 691 unitarias + 236 integración, sin hallazgos) |
 
 IDs reservados del módulo: T-040–T-049 (libres: T-045–T-049). T-030 (catalog) consumirá la vista de T-041.
 
@@ -71,6 +71,16 @@ IDs reservados del módulo: T-040–T-049 (libres: T-045–T-049). T-030 (catalo
 - Escalar si: la vista no puede expresar R2 de forma eficiente o hace falta tocar catalog.
 
 ## Traspasos
+
+#### Verificación T-044 — 2026-10-27 — qa-reviewer (anotada por claude-leader)
+- **Veredicto:** APROBADO y sin hallazgos.
+  - Base `c94c9f4`; la huella `8876903` coincide al empezar y al terminar.
+  - Puertas: `pytest -q` → 691 passed, `pytest -m integration -q` → 236 passed; `ruff`, capas y `alembic check` limpios. El OpenAPI no cambia.
+  - Mutantes detectados: escapar antes de `unaccent`, no escapar `/`, sin el `max` de `available` y leer antes de `lock`. Este último lo detecta ya la carrera real.
+  - `app.f_unaccent('½')` sigue dando ` 1/2`, así que la prueba de M1 ejercita el caso.
+  - `test_concurrency` pasa 10 de 10 y `valmont_test` queda limpia.
+- **Commit:** `08cefce`, hecho por el Leader con la huella verificada.
+- **Módulo inventory completo** (T-040–T-044). Queda por fuera T-030: catalog consumirá la vista.
 
 #### Traspaso T-044 — 2026-10-27 — backend-dev
 1. Estado final: IN_REVIEW. Preparado sin commit (D-028): qa-reviewer ejecuta las pruebas y los mutantes de M1 y M2; acepta claude-leader. Base `c94c9f4`.
