@@ -17,11 +17,16 @@ IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalo
 ### T-043 — API de administración de inventory
 - Objetivo: el admin consulta el stock (con reservado, disponible y estado), registra movimientos con su motivo y cambia el umbral, por la API de la SPEC §7, con auditoría.
 - Responsable: backend-dev (verifica qa-reviewer, acepta claude-leader) · Módulo: inventory · Requisitos: RF06.04, RF06.06, RF14.01 · Decisiones: D-027, D-028 · **Entrega:** preparada sin commit, con el mensaje propuesto (PROTOCOL §11.2)
-- Leer: `docs/modules/inventory/SPEC.md` §3 (UC-01…03), §4 (R5, R6, R7, R9), §7; patrones de `catalog/adapters/admin_http.py` (router con `require_admin`, `_domain_errors`, `ERROR_RESPONSES`, 409 por ruta) y `AuditRecorderDep`.
+- Leer: `docs/modules/inventory/SPEC.md` §3 (UC-01…03), §4 (R5, R6, R7, R9), §7; patrones de `catalog/adapters/admin_http.py` (router con `require_admin`, `_domain_errors`, `ERROR_RESPONSES`, 409 por ruta) y `AuditRecorderDep`; `docs/modules.md` §3, excepción (4): las columnas de `app.products` que inventory puede leer.
 - Puede modificar: `backend/src/valmont/modules/inventory/**`, `backend/src/valmont/main.py` (registrar el router), `backend/tests/inventory/**`, tu traspaso en este STATUS.
-- Resultado esperado: router `/api/v1/inventory/admin` con las 5 rutas de §7; `POST …/movements` bajo `lock()` del producto: R5 (delta del ajuste calculado por el servidor, nota obligatoria), R6 (409 `insufficient_stock` / `stock_reserved`, con lo reservado leído tras el bloqueo), R9 (422 `no_change`); producto inexistente → 404; auditoría `inventory.stock_adjusted` (before/after `on_hand`, `kind`) y `inventory.threshold_changed` en la misma transacción, con el actor del token; listado con `q` (SKU o nombre), filtro `status` y paginación como en catalog.
+- Resultado esperado: router `/api/v1/inventory/admin` con las 5 rutas de §7; `POST …/movements` bajo `lock()` del producto: R5 (delta del ajuste calculado por el servidor, nota obligatoria), R6 (409 `insufficient_stock` / `stock_reserved`, con lo reservado leído tras el bloqueo), R9 (422 `no_change`); producto inexistente → 404; auditoría `inventory.stock_adjusted` (before/after `on_hand`, `kind`) y `inventory.threshold_changed` en la misma transacción, con el actor del token; listado con `q` (SKU o nombre), filtro `status` y paginación como en catalog. Todo según la §7 APROBADA por frontend-lead, incluidos O1 (`details` con `on_hand` y `reserved` en los dos 409) y O3 (`product_status` en `StockItemOut`).
 - Criterios: CA-INVENTORY-01 y 05 por HTTP contra `valmont_test`; 401/403 en todas las rutas; OpenAPI con `ErrorOut`; una prueba de integración en la que una `merma` deja el stock por debajo de una reserva ya creada (lo impide R6, con 409) y otra que llega a la comprobación de R11 de `ConsumeReservations`. Para la segunda: una `merma` registrada cuando una reserva activa ya venció (no cuenta para R6), seguida de un `ConsumeReservations` de ese pedido con un reloj anterior a su vencimiento, debe dar `ReservationExpired` sin escrituras (Nota 2 de QA en la ronda 3 de T-042).
 - Pruebas obligatorias: las escribe backend-dev; qa-reviewer ejecuta format, lint, `pytest -q`, `pytest -m integration -q`, capas, `alembic check` y OpenAPI (D-028).
+- Atención (revisión de contrato de frontend-lead):
+  - `StockMovement.__post_init__` lanza un `InvalidMovement` genérico cuando el delta es 0. Tradúcelo a 422 `no_change`, no a `validation_error`.
+  - Los `InvalidMovement` de nota y de cantidad salen con el `loc` de su campo (patrón `_invalid` de `catalog/adapters/admin_http.py`).
+  - Escapa `%` y `_` del `q` en el `LIKE`.
+  - Tope `INT4_MAX` en el `on_hand` resultante, como hace catalog.
 
 ### T-042 — Reservas de stock para orders (con concurrencia)
 - Objetivo: orders puede reservar, consumir y liberar stock de un pedido sin vender nunca dos veces la misma unidad y sin interbloqueos (RN-06, RN-16, D-017).
@@ -50,6 +55,17 @@ IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalo
 - Escalar si: la vista no puede expresar R2 de forma eficiente o hace falta tocar catalog.
 
 ## Traspasos
+
+#### Revisión del contrato §7 — 2026-10-27 — frontend-lead (anotada por claude-leader)
+- **Veredicto:** CAMBIOS REQUERIDOS, con la §7 corregida lista para pegar. Faltaban:
+  - los campos del movimiento;
+  - qué significa `quantity` según el motivo;
+  - los valores de `status` y el orden del listado;
+  - el código de cada 422;
+  - qué devuelve un producto sin fila de stock.
+- **Aplicado tal cual por el Leader**, con los opcionales O1 y O3 que recomendó frontend-lead. Así la §7 queda APROBADA.
+- **Decisión del Leader (9.1):** inventory puede leer de `app.products` en SQL, en solo lectura, las columnas `id`, `sku`, `name`, `status`, `order_policy` y `lead_time_days` (`docs/modules.md` §3, excepción 4).
+- **Quedan para después:** O2, O4, O5 y O6.
 
 #### Verificación T-042 ronda 3 — 2026-10-27 — qa-reviewer (anotada por claude-leader)
 - **Veredicto:** APROBADO sobre lo preparado.

@@ -74,17 +74,86 @@ VIEW app.product_availability (product_id, available, status, lead_time_days)
 
 - Migración `0005`. La vista es el **contrato de lectura** de inventory para catalog (excepción documentada en `docs/modules.md` §3).
 
-## 7. Contrato API (PROPUESTO; administración, prefijo `/api/v1/inventory/admin`, todas con `require_admin`)
+## 7. Contrato API (APROBADO 2026-10-27 por frontend-lead, con sus opcionales O1 y O3 recomendados)
+
+Prefijo `/api/v1/inventory/admin`. Todas las rutas van con `require_admin`, que añade 401 `unauthenticated`, 403 `forbidden` y 503 `auth_unavailable`.
+
+Esquemas. Las fechas van en UTC ISO 8601, como `UtcDatetime` de catalog. Un campo extra en el cuerpo → 422.
+
+```jsonc
+// StockItemOut
+{"product_id": "uuid", "sku": "DEMO-H38", "name": "Heritage 38",
+ "product_status": "published", // "draft" | "published" (estado en catalog; O3)
+ "on_hand": 5,           // int ≥ 0; sin fila de stock = 0
+ "reserved": 2,          // int ≥ 0; Σ reservas activas no vencidas (INVENTORY-R1)
+ "available": 3,         // int ≥ 0; on_hand − reserved
+ "status": "in_stock"}   // "in_stock" | "low_stock" | "out_of_stock" | "on_request"; lo calcula el servidor (INVENTORY-R2)
+// StockItemDetailOut = StockItemOut + {"movements": [StockMovementOut]}   // de 0 a 50, el más reciente primero (created_at desc, id desc)
+// StockMovementOut
+{"id": 1234,                  // int (bigint de §6; excepción documentada a "UUID en texto")
+ "product_id": "uuid",
+ "kind": "merma",             // "entrada" | "ajuste_inventario" | "merma" | "devolucion" | "venta"
+ "quantity_delta": -1,        // int ≠ 0, con signo: cuánto cambió on_hand
+ "on_hand_after": 4,          // int ≥ 0
+ "note": "Cristal rayado",    // texto plano (puede llevar \n) o null
+ "actor_id": "uuid",          // admin que lo registró; null en venta
+ "order_id": null,            // pedido de la venta; null en los movimientos del admin
+ "created_at": "2026-10-27T15:04:05Z"}
+// MovementIn                  {"kind": "merma", "quantity": 1, "note": "Cristal rayado"}
+// SettingsOut / SettingsIn    {"low_stock_threshold": 2}
+```
 
 | Método | Ruta | Request | Respuesta | Errores |
 |---|---|---|---|---|
-| GET | `/stock?q&status&page&page_size` | — | página de `StockItemOut` `{product_id, sku, name, on_hand, reserved, available, status}` | 422 |
-| GET | `/stock/{product_id}` | — | `StockItemOut` + `movements` (últimos 50) | 404 |
-| POST | `/stock/{product_id}/movements` | `{kind, quantity, note?}` | 201 `StockMovementOut` | 404, 409 `insufficient_stock` / `stock_reserved`, 422 |
-| GET | `/settings` | — | `{low_stock_threshold}` | — |
-| PATCH | `/settings` | `{low_stock_threshold}` | `{low_stock_threshold}` | 422 |
+| GET | `/stock?q&status&page&page_size` | — | `{items: [StockItemOut], total, page, page_size}` | 422 |
+| GET | `/stock/{product_id}` | — | `StockItemDetailOut` | 404, 422 |
+| POST | `/stock/{product_id}/movements` | `MovementIn` | 201 `StockMovementOut` | 404, 409 `insufficient_stock` / `stock_reserved`, 422 `validation_error` / `no_change` |
+| GET | `/settings` | — | `SettingsOut` | — |
+| PATCH | `/settings` | `SettingsIn` | `SettingsOut` | 422 |
 
-Los casos de uso UC-04…06 son internos (los llama orders en su transacción); no hay endpoints públicos.
+**Listado (`GET /stock`)**
+- Incluye todos los productos de catalog, en borrador o publicados, tengan o no fila de stock.
+- `q`: hasta 100 caracteres; vacío equivale a no buscar. Coincidencia parcial en el SKU o el nombre, sin distinguir tildes ni mayúsculas. `%` y `_` se escapan en el `LIKE`.
+- `status`: uno de los cuatro valores de `StockItemOut.status`; cualquier otro → 422.
+- Orden: `sku` ascendente. Es único, así que la paginación es estable.
+- Paginación como en el listado de administración de catalog: `page` de 1 a 1000 y `page_size` de 1 a 48, con 24 por defecto. Una página más allá de la última devuelve `items: []` con el `total` real.
+
+**Detalle (`GET /stock/{product_id}`)**
+- 404 `not_found` solo si el producto no existe.
+- Un producto sin fila de stock responde con `on_hand` 0, `reserved` 0 y `movements: []`.
+- Un `product_id` mal formado → 422.
+
+**Cuerpo del movimiento (`MovementIn`)**
+- `kind` ∈ {`entrada`, `ajuste_inventario`, `merma`, `devolucion`}; `venta` → 422.
+- `quantity` es un entero estricto:
+  - En `ajuste_inventario` es la cantidad contada, de 0 a 2 147 483 647. El servidor calcula el delta (INVENTORY-R5).
+  - En los demás motivos son las unidades que entran (`entrada`, `devolucion`) o salen (`merma`), de 1 a 2 147 483 647.
+  - Si el `on_hand` resultante supera 2 147 483 647 → 422.
+- `note` es texto plano de 1 a 500 caracteres después de recortar los espacios:
+  - `\r\n` se normaliza a `\n`; cualquier otro carácter de control → 422.
+  - Una nota vacía cuenta como ausente.
+  - Es obligatoria en `ajuste_inventario` y `merma`.
+
+**Errores de `POST …/movements`**
+- 422 `validation_error`, con `details[].loc` = `["body", "<campo>"]` (`kind`, `quantity` o `note`) para que el formulario marque el campo.
+- 409 `insufficient_stock` si `on_hand` quedaría por debajo de 0. Tiene prioridad sobre el siguiente.
+- 409 `stock_reserved` si `on_hand` quedaría por debajo de lo reservado vigente (INVENTORY-R6).
+- Los dos 409 llevan `details: {"on_hand": int, "reserved": int}`, leídos bajo el bloqueo (O1), para que la interfaz diga cuánto se puede retirar como máximo.
+- 422 `no_change` (código propio, `details: null`) si la cantidad contada de un `ajuste_inventario` coincide con `on_hand` (INVENTORY-R9).
+
+**Después de un 201**, la interfaz vuelve a leer `GET /stock/{product_id}` para obtener `reserved`, `available` y `status`; nunca los calcula ella.
+
+**Umbral (`SettingsIn`)**
+- `low_stock_threshold` es obligatorio: entero estricto de 1 a 2 147 483 647 (INVENTORY-R3).
+- Enviar el mismo valor → 200 sin entrada de auditoría.
+
+**Formato**
+- Los errores usan el formato común y se declaran en el OpenAPI (`ERROR_RESPONSES`). El 409 de cada ruta lista solo sus propios códigos.
+- `note` es texto plano: la interfaz nunca la inyecta como HTML.
+
+**Sin endpoints:** UC-04 a UC-06 son internos; los llama orders dentro de su transacción.
+
+**Pendientes de una versión posterior** (compatibles con este contrato): O2 `order_policy` en `StockItemOut`, O4 `status` repetible, O5 actor legible y O6 historial paginado.
 
 ## 8. Dependencias
 
