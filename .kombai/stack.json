@@ -6,10 +6,10 @@
   "Authentication": "Supabase Auth",
   "ORM/Client Library": "Supabase",
   "HTTP Server Framework": "FastAPI",
-  "Server Runtime": "Python 3.13 latest",
+  "Server Runtime": "Python 3.14",
   "Package Manager": [
     "uv",
-    "pnpm"
+    "npm"
   ],
   "CI/CD Platform": "GitHub Actions",
   "Icon Set": "Lucide",
