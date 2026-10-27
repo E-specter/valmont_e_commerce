@@ -17,6 +17,30 @@ IDs reservados del módulo: T-025–T-039 (libres: T-032–T-039).
 
 ## Paquetes de tarea
 
+### T-029 — Imágenes de producto (Supabase Storage)
+- Objetivo: el administrador sube, corrige el `alt`, ordena y retira imágenes de un producto, que se guardan en el bucket `products` y se sirven por su URL pública (D-019).
+- Responsable: backend-dev (revisa claude-leader) · Módulo: catalog · Requisitos: RF06.03 · Decisiones: D-019
+- Leer: `docs/modules/catalog/SPEC.md` §4 (CATALOG-R11), §5, §6 (URL de imagen), §7 (rutas de imágenes) y §9 (subida); tu código de T-026…T-028.
+- Estado del entorno (verificado por el Leader): Storage activo, bucket público `products` (5 MiB; JPEG, PNG, WebP), `backend/.env` con `SUPABASE_SERVICE_ROLE_KEY` y `STORAGE_PUBLIC_URL` (no los imprimas).
+- Puede modificar: `backend/src/valmont/modules/catalog/**`, `backend/src/valmont/shared/config.py` (solo `supabase_service_role_key: SecretStr | None = None`), `backend/pyproject.toml` + `uv.lock` (solo para declarar como directas `httpx` y `python-multipart`, que hoy llegan de forma transitiva), `backend/tests/**`.
+- Resultado esperado:
+  1. Puerto `ImageStorage` (`put(path, data, content_type)`, `delete(path)`) y adaptador `SupabaseImageStorage` (httpx con la clave de servicio; timeouts; errores de Storage → 503 `storage_unavailable` sin detalles).
+  2. `POST /admin/products/{id}/images` (multipart `file` + `alt` 1–150): tipo por **firma del archivo** (JPEG `FF D8 FF`, PNG `89 50 4E 47 0D 0A 1A 0A`, WebP `RIFF….WEBP`; otro → 415 `unsupported_media_type`), tamaño ≤ 5 MiB leyendo como mucho límite + 1 bytes (→ 413 `file_too_large`); ruta `{product_id}/{uuid4}.{ext}` generada por el servidor; posición = siguiente libre. Orden: subir el archivo y después insertar la fila; si la inserción falla, borrar el archivo.
+  3. `PATCH …/images/{image_id}` (`{alt}`), `PUT …/images/order` (exactamente todos los ids del producto, si no → 422) y `DELETE …/images/{image_id}` (toma el producto con `lock()`; si está publicado y es la última imagen → 409 `last_image`). El borrado del archivo en Storage va en una `BackgroundTask` (después de confirmar la transacción); si falla, se registra un aviso sin datos sensibles.
+  4. Respuestas `ProductImage` `{id, url, alt}` con la URL de §6; errores declarados en el OpenAPI.
+- Criterios de aceptación: CA-CATALOG-07 y CATALOG-R11; una prueba de integración contra el Storage real (sube un PNG mínimo, lo lee por la URL pública y lo borra; marcador `integration`); fakes para el resto.
+- Pruebas obligatorias: format, lint, `pytest -q`, `pytest -m integration -q`, capas, `alembic check`, OpenAPI.
+- Seguridad: la clave de servicio nunca sale del backend ni de los logs; nombres de archivo del cliente ignorados; sin seguir redirecciones; límites de tamaño antes de leer todo el cuerpo.
+- Estado inicial: BACKLOG (tras la revisión de T-028) · IDs reservados: ninguno (tarea hoja)
+
+### T-031 — Semillas de demostración para desarrollo
+- Objetivo: con un comando, la BD local tiene un catálogo ficticio coherente para que Kombai y el frontend trabajen con la API real (P-CATALOG-1, aprobado por el usuario).
+- Responsable: backend-dev · Módulo: catalog
+- Puede modificar: `backend/src/valmont/scripts/__init__.py` y `backend/src/valmont/scripts/seed_dev.py` (nuevos; se ejecuta con `uv run python -m valmont.scripts.seed_dev`), `backend/tests/**`.
+- Resultado esperado: se niega a correr si `ENVIRONMENT=prod`; idempotente (por `sku`, `slug` y `code`); usa los casos de uso de catalog (no SQL directo) para crear 4 categorías, los movimientos (`automatic`, `manual`) y los materiales (`steel`, `gold-18k`, `titanium`, `ceramic`), y unas 12 referencias con SKU `DEMO-…`, nombres ficticios, descripciones de varias líneas, `specs` ordenadas, precios en céntimos de PEN y una mezcla de políticas de venta (`stock`, `made_to_order` y `backorder`, con `lead_time_days`); cada producto con al menos una imagen de marcador (PNG generado en el propio script, con `alt` "Imagen de marcador (demo)") subida a Storage, y publicado. Nada se presenta como producto o activo oficial de Valmont.
+- Criterios de aceptación: dos ejecuciones seguidas dejan el mismo número de filas; `GET /api/v1/catalog/products` devuelve los 12 con imagen; con `ENVIRONMENT=prod` termina con error sin escribir nada.
+- Estado inicial: BACKLOG (tras T-029)
+
 ### T-028 — API de administración de catalog (sin imágenes)
 - Objetivo: el administrador gestiona productos (crear, leer, editar, publicar, despublicar), categorías y listas de valores por la API de §7 (administración), con las reglas de §4 y la auditoría de CATALOG-R7.
 - Responsable: backend-dev (revisan claude-leader y qa-reviewer) · Módulo: catalog · Requisitos: RF06.01, RF06.02, RF06.07, RF13.02, RF14.01 · Decisiones: D-021…D-023
