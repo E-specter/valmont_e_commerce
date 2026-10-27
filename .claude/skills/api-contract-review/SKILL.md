@@ -33,7 +33,7 @@ Política: `docs/modules.md` §6. El contrato vive en la sección "Contrato API"
 | Aspecto | Convención |
 |---|---|
 | Nombres JSON | `snake_case` de punta a punta (el mismo que en Python; sin capa de mapeo) |
-| Dinero | entero en céntimos + código ISO 4217: `{"amount": 125000, "currency": "PEN"}` = S/ 1 250,00 |
+| Dinero | entero en céntimos + código ISO 4217: `{"amount": 125000, "currency": "PEN"}` = S/ 1,250.00 (formato `es-PE`; lo aplica el frontend con `Intl`) |
 | Fechas | ISO 8601 en UTC (`2026-10-26T20:00:00Z`) |
 | Paginación | `?page=1&page_size=20` → `{"items": [...], "total": N, "page": 1, "page_size": 20}` |
 | Identificadores | UUID en texto |

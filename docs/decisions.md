@@ -27,6 +27,9 @@
 | D-020 | 2026-10-27 | Atributos de relojería: columnas para filtros + ficha técnica libre | APROBADA |
 | D-021 | 2026-10-27 | Catálogo con categorías planas y sin variantes | APROBADA |
 | D-022 | 2026-10-27 | Precios guardados con IGV incluido | APROBADA |
+| D-023 | 2026-10-27 | Estados de disponibilidad y política de venta por producto (incluye "Bajo pedido") | APROBADA |
+| D-024 | 2026-10-27 | Frontend: SSR con `@astrojs/node` para listado, categoría y ficha | APROBADA |
+| D-025 | 2026-10-27 | Sesión en cookies con `@supabase/ssr`; el servidor de Astro reenvía el Bearer a FastAPI | APROBADA |
 
 ---
 
@@ -95,7 +98,7 @@
 - **Opciones:** TypeScript sin framework vs Preact. Se decide con la primera isla real (carrito o asistente); el prompt maestro pide no añadir un framework sin justificación.
 
 ### D-015 — País de operación: Perú (APROBADA)
-- **Decisión:** importes en soles como entero en céntimos con código ISO 4217 (`{"amount": 125000, "currency": "PEN"}` = S/ 1 250,00). Fechas guardadas y transmitidas en UTC; los períodos de los reportes se calculan en `America/Lima` (RF07.04). La protección de datos personales sigue la Ley 29733 y su reglamento (RNF10).
+- **Decisión:** importes en soles como entero en céntimos con código ISO 4217 (`{"amount": 125000, "currency": "PEN"}` = S/ 1,250.00 en formato `es-PE`; corregido el 2026-10-27, el ejemplo original decía "S/ 1 250,00"). Fechas guardadas y transmitidas en UTC; los períodos de los reportes se calculan en `America/Lima` (RF07.04). La protección de datos personales sigue la Ley 29733 y su reglamento (RNF10).
 
 ### D-016 — Cancelación de pedidos (APROBADA)
 - **Decisión:** el cliente solo cancela pedidos en `pendiente_pago`. Un administrador puede cancelar un pedido pagado antes del envío; esa cancelación registra un reembolso simulado (RF05.05, ahora MVP). Los reportes de ventas cuentan lo pagado menos lo reembolsado.
@@ -125,3 +128,15 @@
 
 ### D-022 — Precio con IGV incluido (APROBADA)
 - **Decisión del usuario:** el precio guardado y mostrado es el precio final al consumidor, en céntimos de PEN, con IGV incluido. El desglose del IGV (18 %) solo se calculará cuando haya comprobantes electrónicos (fuera del MVP).
+
+### D-023 — Disponibilidad y política de venta por producto (APROBADA)
+- **Decisión del usuario:** el cliente ve cuatro estados: **Disponible**, **Últimas unidades**, **Agotado** y **Bajo pedido** (con su plazo estimado). Cada producto tiene una política de venta configurable: `stock` (solo se vende con stock; sin stock = Agotado), `made_to_order` (siempre Bajo pedido) o `backorder` (con stock se vende normal; al agotarse pasa a Bajo pedido). Los productos bajo pedido llevan `lead_time_days`.
+- **Consecuencias:** catalog guarda la política y el plazo (T-026); inventory calcula el estado (T-030), con un umbral de "últimas unidades" por decidir (propuesta: 2); orders crea pedidos bajo pedido sin reserva de stock y con fecha estimada (RF04.07, RN-16). Las condiciones comerciales del bajo pedido (adelanto, cancelación, plazos) se preguntarán en la SPEC de orders.
+
+### D-024 — Renderizado en servidor del catálogo (APROBADA)
+- **Decisión del usuario:** listado, categoría y ficha se renderizan en el servidor con `@astrojs/node` (standalone) y caché corta; portada y páginas legales, estáticas. Motivos: filtros y paginación por URL, SEO completo y precio y disponibilidad siempre al día (RN-14).
+- **Consecuencias:** nueva dependencia de frontend (`@astrojs/node`); en el hito M1 el frontend corre como contenedor Node.
+
+### D-025 — Sesión en cookies con @supabase/ssr (APROBADA)
+- **Decisión del usuario:** la sesión de Supabase viaja en cookies seguras (httpOnly) gestionadas con `@supabase/ssr`. El servidor de Astro lee la sesión y reenvía `Authorization: Bearer` a FastAPI.
+- **Consecuencias:** FastAPI no necesita CORS para el sitio; el token no queda expuesto a scripts del navegador; cuenta y carrito se pueden renderizar en el servidor. Requiere D-024.

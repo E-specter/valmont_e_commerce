@@ -1,54 +1,57 @@
 # catalog — Especificación
-> Estado: PROPUESTO (modelo aprobado por el usuario en D-019…D-022; contrato API pendiente de revisión por el consumidor frontend) · Requisitos: RF02.01–RF02.07, RF06.01–RF06.03 · Decisiones: D-010, D-015, D-019, D-020, D-021, D-022 · Dueño: backend · Última actualización: 2026-10-27 claude-leader
+> Estado: APROBADO (modelo: decisiones del usuario D-019…D-023; contrato: revisado por frontend-lead el 2026-10-27 y cambios incorporados) · Requisitos: RF02.01–RF02.08, RF06.01–RF06.03, RF06.07 · Decisiones: D-010, D-015, D-019…D-024 · Dueño: backend · Última actualización: 2026-10-27 claude-leader
 
 ## 1. Problema y alcance
 
 Los visitantes deben encontrar y conocer cada reloj de Valmont con precisión, y el administrador debe mantener el catálogo.
 
-- **Incluye:** productos, categorías planas, listas de valores de los atributos filtrables, ficha técnica libre, imágenes, búsqueda, filtros, orden, paginación, productos relacionados y la administración de todo ello con auditoría.
-- **No incluye:** stock y disponibilidad (`inventory`; se conecta en T-030 mediante un puerto), precio con promoción (`promotions`) y la interfaz (frontend).
+- **Incluye:** productos, categorías planas, listas de valores de los atributos filtrables, ficha técnica ordenada, política de venta y plazo, imágenes, búsqueda sin tildes, filtros, orden, paginación, productos relacionados y la administración de todo ello con auditoría.
+- **No incluye:** el cálculo del estado de disponibilidad (depende de `inventory`; T-030), el precio con promoción (`promotions`) y la interfaz (frontend).
 
 ## 2. Actores y permisos
 
 | Actor | Puede | No puede |
 |---|---|---|
-| Visitante y cliente | Listar, buscar, filtrar y ver productos **publicados**, categorías activas y listas de valores | Ver borradores ni datos de administración |
-| Administrador (`require_admin`) | Crear y editar productos, categorías y listas de valores; publicar y despublicar; subir y retirar imágenes | Borrar productos con historial (se despublican) |
+| Visitante y cliente | Listar, buscar, filtrar y ver productos **publicados**, categorías activas y listas de valores activas | Ver borradores ni datos de administración |
+| Administrador (`require_admin`) | Crear y editar productos, categorías y listas de valores; publicar y despublicar; gestionar imágenes; configurar la política de venta | Borrar productos (se despublican) |
 
 ## 3. Casos de uso
 
 | ID | Actor | Entrada | Resultado | Errores | RF |
 |---|---|---|---|---|---|
 | UC-CATALOG-01 | Visitante | `GET /products` con filtros, orden y página | Página de resúmenes de productos publicados | 422 | RF02.01, RF02.03, RF02.04 |
-| UC-CATALOG-02 | Visitante | `GET /products?q=…` | Resultados ordenados por relevancia (búsqueda de texto en español) | 422 | RF02.02 |
-| UC-CATALOG-03 | Visitante | `GET /products/{slug}` | Ficha completa con imágenes, atributos, `specs` y relacionados | 404 si no existe o no está publicado | RF02.05, RF02.06, RF02.07 |
-| UC-CATALOG-04 | Visitante | `GET /categories`, `GET /attributes` | Categorías activas y listas de valores para los filtros | — | RF02.03 |
-| UC-CATALOG-05 | Admin | Crear o editar un producto | Producto en borrador o actualizado; el cambio de precio queda auditado | 401, 403, 404, 409 (SKU o slug repetido), 422 | RF06.01 |
-| UC-CATALOG-06 | Admin | Publicar o despublicar | Cambio de estado auditado | 401, 403, 404, 409 (requisitos de publicación) | RF06.01 |
-| UC-CATALOG-07 | Admin | Gestionar categorías y listas de valores | Altas, ediciones, activación y desactivación | 401, 403, 409, 422 | RF06.02 |
-| UC-CATALOG-08 | Admin | Subir, ordenar o retirar imágenes | Imagen en Supabase Storage y en `product_images` | 401, 403, 404, 413, 415, 422 | RF06.03 |
+| UC-CATALOG-02 | Visitante | `GET /products?q=…` | Resultados por relevancia; sin distinguir tildes ni mayúsculas | 422 | RF02.02 |
+| UC-CATALOG-03 | Visitante | `GET /products/{slug}` | Ficha con imágenes, atributos, `specs`, disponibilidad y relacionados | 404 | RF02.05, RF02.06, RF02.07, RF02.08 |
+| UC-CATALOG-04 | Visitante | `GET /categories`, `GET /attributes` | Categorías y listas de valores activas | — | RF02.03 |
+| UC-CATALOG-05 | Admin | Crear, leer o editar un producto (incluida su política de venta) | Producto en borrador o actualizado; precio auditado | 401, 403, 404, 409, 422 | RF06.01, RF06.07 |
+| UC-CATALOG-06 | Admin | Publicar o despublicar | Cambio de estado auditado | 401, 403, 404, 409 | RF06.01 |
+| UC-CATALOG-07 | Admin | Listar y gestionar categorías y listas de valores (incluidas las inactivas) | Altas, ediciones, activación y desactivación | 401, 403, 404, 409, 422 | RF06.02 |
+| UC-CATALOG-08 | Admin | Subir, editar el `alt`, ordenar o retirar imágenes | Imagen en Supabase Storage y en `product_images` | 401, 403, 404, 409, 413, 415, 422 | RF06.03 |
 
 ## 4. Reglas de negocio
 
-- **Globales:** RN-09 (los importes los decide el servidor), RN-14 (precio y disponibilidad salen de la BD), RN-15 (céntimos de PEN), D-022 (precio final con IGV).
-- **CATALOG-R1:** solo los productos `published` son visibles en la API pública; un borrador responde 404 (no se revela que existe).
-- **CATALOG-R2:** publicar exige nombre, descripción, categoría activa, precio > 0 y al menos una imagen.
-- **CATALOG-R3:** `sku` y `slug` son únicos. El `slug` se genera del nombre si no se envía (minúsculas, sin acentos, guiones) y no cambia al editar el nombre.
-- **CATALOG-R4:** los productos no se borran; se despublican. Así los pedidos y la auditoría conservan sus referencias.
-- **CATALOG-R5:** cada atributo filtrable es opcional (RF02.07). Si un producto no lo tiene, no aparece en el filtro correspondiente y la ficha no lo muestra.
-- **CATALOG-R6:** productos relacionados = hasta 4 publicados de la misma categoría, excluido el propio, los más recientes primero.
-- **CATALOG-R7:** se auditan `catalog.product_created`, `catalog.price_changed`, `catalog.product_published` y `catalog.product_unpublished` (RF14.01; skill de audit: `AuditRecorder`).
-- **CATALOG-R8:** orden permitido: `newest` (por defecto; `published_at` desc), `price_asc`, `price_desc` y `relevance` (solo con `q`).
-- **CATALOG-R9:** `page_size` entre 1 y 48 (por defecto 24).
+- **Globales:** RN-09, RN-14, RN-15, RN-16; D-022 (precio final con IGV); D-023 (disponibilidad y política de venta).
+- **CATALOG-R1:** la API pública solo muestra productos `published`; un borrador responde 404 (no se revela que existe).
+- **CATALOG-R2:** publicar exige nombre, descripción, categoría activa, precio > 0, al menos una imagen y, si `order_policy` ≠ `stock`, `lead_time_days`. Si falta algo → 409 `publish_requirements_unmet` con `details.missing` (lista de claves: `name`, `description`, `category`, `price`, `image`, `lead_time_days`).
+- **CATALOG-R3:** `sku` y `slug` son únicos (409 `sku_taken` / `slug_taken`). El `slug` es opcional al crear (se genera del nombre: minúsculas, sin tildes, guiones). **No cambia después de la primera publicación** (PATCH → 409 `slug_locked`).
+- **CATALOG-R4:** los productos no se borran; se despublican.
+- **CATALOG-R5:** los atributos filtrables son opcionales (RF02.07). En la respuesta siempre aparecen, con `null` si no aplican; esos productos quedan fuera del filtro correspondiente.
+- **CATALOG-R6:** relacionados = hasta 4 publicados de la misma categoría, excluido el propio, los más recientes primero (aprobado por el usuario).
+- **CATALOG-R7:** se auditan `catalog.product_created`, `catalog.price_changed`, `catalog.product_published`, `catalog.product_unpublished` y `catalog.order_policy_changed`.
+- **CATALOG-R8:** orden: `newest` (por defecto sin `q`; `published_at` desc), `price_asc`, `price_desc` y `relevance` (por defecto con `q`; sin `q` → 422). Empates resueltos por `id` para que la paginación sea estable.
+- **CATALOG-R9:** `page_size` entre 1 y 48 (por defecto 24); `page` ≥ 1; una página más allá de la última devuelve `items: []` con el `total` real.
+- **CATALOG-R10:** no se puede desactivar una categoría que tiene productos publicados (409 `category_in_use`), aprobado por el usuario.
+- **CATALOG-R11:** borrar la última imagen de un producto publicado → 409 `last_image`.
+- **CATALOG-R12:** `description` es texto plano con saltos de línea; nunca HTML.
+- **CATALOG-R13:** el `price` es el precio que se cobra. Cuando exista promotions, `price` será el precio vigente con descuento (y filtro y orden lo usarán; aprobado por el usuario); un precio anterior tachado llegará como campo opcional nuevo.
 
 ## 5. Modelo de dominio
 
-- **Product:** `id`, `sku`, `slug`, `name`, `description`, `category_id`, `price` (céntimos, IGV incluido), `status` (`draft` | `published`), `movement_code?`, `case_material_code?`, `case_diameter_mm?` (> 0, un decimal), `water_resistance_m?` (≥ 0), `specs` (objeto de texto clave → valor), `published_at?`.
-  - Invariantes: CATALOG-R2 al publicar; precio ≥ 0 siempre.
+- **Product:** `id`, `sku` (1–40), `slug`, `name` (1–120), `description` (texto plano, 1–5000), `category_id`, `price` (céntimos, IGV incluido, ≥ 0), `status` (`draft` | `published`), `order_policy` (`stock` | `made_to_order` | `backorder`), `lead_time_days?` (> 0), `movement_code?`, `case_material_code?`, `case_diameter_mm?` (> 0, un decimal), `water_resistance_m?` (≥ 0), `specs` (lista ordenada de pares `label` 1–60 / `value` 1–200; máx. 40; `label` único), `published_at?`.
 - **Category:** `id`, `slug`, `name`, `description?`, `position`, `is_active`.
 - **AttributeValue** (movimiento y material de la caja): `code`, `label`, `position`, `is_active`.
-- **ProductImage:** `id`, `product_id`, `storage_path`, `url`, `alt`, `position`.
-- Los textos de entrada rechazan caracteres de control (mismo criterio que identity).
+- **ProductImage:** `id`, `product_id`, `storage_path`, `alt` (1–150), `position`. La URL pública **no se guarda**: se calcula al responder (§6).
+- Los textos de entrada rechazan caracteres de control (criterio de identity).
 
 ## 6. Persistencia
 
@@ -60,91 +63,116 @@ app.products         id uuid PK · sku text UNIQUE · slug text UNIQUE · name t
                      category_id uuid FK → categories ON DELETE RESTRICT
                      price_cents integer CHECK (price_cents >= 0)
                      status text CHECK (status IN ('draft','published')) DEFAULT 'draft'
+                     order_policy text CHECK (order_policy IN ('stock','made_to_order','backorder')) DEFAULT 'stock'
+                     lead_time_days integer NULL CHECK (lead_time_days > 0)
                      movement_code text NULL FK → movement_types · case_material_code text NULL FK → case_materials
                      case_diameter_mm numeric(4,1) NULL CHECK (> 0) · water_resistance_m integer NULL CHECK (>= 0)
-                     specs jsonb DEFAULT '{}' CHECK (jsonb_typeof(specs) = 'object')
-                     search tsvector GENERATED ALWAYS AS (to_tsvector('spanish', name || ' ' || sku || ' ' || coalesce(description, ''))) STORED
+                     specs jsonb NOT NULL DEFAULT '[]' CHECK (jsonb_typeof(specs) = 'array')
+                     search tsvector GENERATED ALWAYS AS (to_tsvector('spanish', app.f_unaccent(name || ' ' || sku || ' ' || coalesce(description, '')))) STORED
                      published_at timestamptz NULL · created_at · updated_at
                      INDEX GIN(search) · INDEX (status, published_at) · INDEX (category_id) · INDEX (price_cents)
-app.product_images   id uuid PK · product_id uuid FK → products ON DELETE RESTRICT · storage_path text · url text · alt text
+app.product_images   id uuid PK · product_id uuid FK → products ON DELETE RESTRICT · storage_path text · alt text
                      position int · created_at · UNIQUE (product_id, position)
 ```
 
+- `app.f_unaccent(text)`: envoltorio IMMUTABLE sobre la extensión `unaccent` (la columna generada lo exige); la consulta aplica la misma función al término.
+- **URL de imagen** = `<STORAGE_PUBLIC_URL>/storage/v1/object/public/products/<storage_path>`, con `STORAGE_PUBLIC_URL` como ajuste del backend (la URL que alcanza el navegador, distinta de la interna de Docker en producción). Llega con T-029.
 - Migración `0004`. Revisión: skill `database-migration-review`.
-- La moneda no se guarda: es `PEN` en todo el sistema (D-015); la API la expone en el objeto `Money`.
 
-## 7. Contrato API (PROPUESTO)
+## 7. Contrato API (APROBADO)
 
-Pública, prefijo `/api/v1/catalog`:
+Esquemas comunes (todas las fechas en UTC ISO 8601; `Money` = `{amount: int, currency: "PEN"}`, ambos obligatorios):
+
+```jsonc
+// Category (público)        {"slug": "clasicos", "name": "Clásicos", "description": null}
+// AttributeValue (público)  {"code": "automatic", "label": "Automático"}
+// ProductImage              {"id": "…", "url": "https://…", "alt": "…"}          // por position; sin storage_path
+// Availability (desde T-030) {"status": "in_stock" | "low_stock" | "out_of_stock" | "on_request", "lead_time_days": 42 | null}
+// ProductSummary
+{"id": "…", "slug": "heritage-38", "sku": "DEMO-H38", "name": "Heritage 38",
+ "category": {"slug": "clasicos", "name": "Clásicos"},
+ "price": {"amount": 1250000, "currency": "PEN"},          // precio que se cobra (CATALOG-R13)
+ "movement": {"code": "automatic", "label": "Automático"},  // o null
+ "case_material": {"code": "steel", "label": "Acero"},      // o null
+ "case_diameter_mm": 38.0,                                  // número (float) o null
+ "water_resistance_m": 50,                                  // o null
+ "main_image": {"id": "…", "url": "https://…", "alt": "…"}, // nunca null en publicados
+ "availability": {…}}                                       // opcional hasta T-030
+// ProductDetail = ProductSummary + {"description": "texto plano", "specs": [{"label": "Calibre", "value": "VM-01"}],
+//                                   "images": [ProductImage] (≥ 1), "related": [ProductSummary] (0–4)}
+```
+
+**Pública** (prefijo `/api/v1/catalog`):
 
 | Método | Ruta | Respuesta | Errores |
 |---|---|---|---|
-| GET | `/products?q&category&movement&case_material&diameter_min&diameter_max&water_resistance_min&price_min&price_max&sort&page&page_size` | `{items: [ProductSummary], total, page, page_size}` | 422 |
+| GET | `/products` | `{items: [ProductSummary], total, page, page_size}` | 422 |
 | GET | `/products/{slug}` | `ProductDetail` | 404 |
 | GET | `/categories` | `[Category]` (activas, por `position`) | — |
-| GET | `/attributes` | `{movements: [AttributeValue], case_materials: [AttributeValue]}` (activos) | — |
+| GET | `/attributes` | `{movements: [AttributeValue], case_materials: [AttributeValue]}` (activos, por `position`) | — |
 
-Administración, prefijo `/api/v1/catalog/admin` (todas con `require_admin`; errores 401 y 403 además de los indicados):
+Parámetros de `GET /products`: `q` (≤ 100; vacío = sin búsqueda) · `category` (un slug; desconocido → `items: []`) · `movement` · `case_material` · `case_diameter_mm_min` / `case_diameter_mm_max` · `water_resistance_m_min` · `price_min` / `price_max` (céntimos) · `available=true` (desde T-030; incluye `on_request`) · `sort` · `page` · `page_size`. Rangos inclusivos; `min > max` → 422; filtros combinados con AND.
+
+**Administración** (prefijo `/api/v1/catalog/admin`; todas con `require_admin`, que añade 401 y 403):
 
 | Método | Ruta | Request | Respuesta | Errores |
 |---|---|---|---|---|
 | GET | `/products?status&q&page&page_size` | — | página de `AdminProduct` | 422 |
-| POST | `/products` | `ProductCreateIn` | 201 `AdminProduct` (borrador) | 409, 422 |
-| PATCH | `/products/{id}` | `ProductUpdateIn` (parcial) | `AdminProduct` | 404, 409, 422 |
-| POST | `/products/{id}/publish` · `/unpublish` | — | `AdminProduct` | 404, 409 |
-| POST | `/products/{id}/images` | multipart `file` + `alt` | 201 `ProductImage` | 404, 413, 415, 422 |
-| DELETE | `/products/{id}/images/{image_id}` | — | 204 | 404 |
-| PUT | `/products/{id}/images/order` | `[image_id]` | `[ProductImage]` | 404, 422 |
-| POST / PATCH | `/categories` · `/categories/{id}` | `CategoryIn` | `Category` | 404, 409, 422 |
-| POST / PATCH | `/movement-types` · `/movement-types/{code}` y `/case-materials` · `/case-materials/{code}` | `AttributeValueIn` | `AttributeValue` | 404, 409, 422 |
+| GET | `/products/{id}` | — | `AdminProduct` | 404 |
+| POST | `/products` | `ProductCreateIn` | 201 `AdminProduct` (borrador) | 409 `sku_taken`/`slug_taken`, 422 |
+| PATCH | `/products/{id}` | `ProductUpdateIn` (parcial) | `AdminProduct` | 404, 409 `sku_taken`/`slug_taken`/`slug_locked`, 422 |
+| POST | `/products/{id}/publish` · `/unpublish` | — | `AdminProduct` | 404, 409 `publish_requirements_unmet` |
+| POST | `/products/{id}/images` | multipart `file` + `alt` (1–150) | 201 `ProductImage` | 404, 413 `file_too_large`, 415 `unsupported_media_type`, 422 |
+| PATCH | `/products/{id}/images/{image_id}` | `{alt}` | `ProductImage` | 404, 422 |
+| DELETE | `/products/{id}/images/{image_id}` | — | 204 | 404, 409 `last_image` |
+| PUT | `/products/{id}/images/order` | `[image_id]` (exactamente todos) | `[ProductImage]` | 404, 422 |
+| GET | `/categories` | — | `[AdminCategory]` (incluye inactivas) | — |
+| POST / PATCH | `/categories` · `/categories/{id}` | `CategoryIn` | `AdminCategory` | 404, 409 `slug_taken`/`category_in_use`, 422 |
+| GET | `/attributes` | — | `{movements: [AdminAttributeValue], case_materials: [AdminAttributeValue]}` (incluye inactivos) | — |
+| POST / PATCH | `/movement-types` · `/movement-types/{code}` y `/case-materials` · `/case-materials/{code}` | `AttributeValueIn` | `AdminAttributeValue` | 404, 409 `code_taken`, 422 |
 
-```jsonc
-// ProductSummary
-{"id": "…", "slug": "valmont-heritage-38", "sku": "VH-38-ST", "name": "Heritage 38",
- "category": {"slug": "clasicos", "name": "Clásicos"},
- "price": {"amount": 1250000, "currency": "PEN"},
- "movement": {"code": "automatic", "label": "Automático"},
- "case_material": {"code": "steel", "label": "Acero"},
- "case_diameter_mm": 38.0, "water_resistance_m": 50,
- "main_image": {"url": "https://…", "alt": "…"}}
-// ProductDetail = ProductSummary + description, specs {texto: texto}, images [ProductImage], related [ProductSummary]
-```
-
-Errores con el formato común y declarados en el OpenAPI (`ERROR_RESPONSES`).
+- `AdminProduct` = `ProductDetail` sin `related` ni `availability`, + `status`, `order_policy`, `lead_time_days`, `category_id`, `movement_code`, `case_material_code`, `published_at`, `created_at`, `updated_at`.
+- `ProductCreateIn` / `ProductUpdateIn`: `sku`, `slug?`, `name`, `description`, `category_id`, `price: Money`, `order_policy`, `lead_time_days?`, `movement_code?`, `case_material_code?`, `case_diameter_mm?`, `water_resistance_m?`, `specs`. En PATCH, `null` borra un atributo opcional. Campos extra (incluido `status`) → 422.
+- `AdminCategory` = `Category` + `id`, `position`, `is_active`; `AdminAttributeValue` = `AttributeValue` + `position`, `is_active`.
+- Errores con el formato común, declarados en el OpenAPI (`ERROR_RESPONSES`).
 
 ## 8. Dependencias
 
-- **Consume:** `identity` (`require_admin`), `audit` (`AuditRecorder`, `AuditRecorderDep`), Supabase Storage (D-019) mediante un puerto `ImageStorage` con su adaptador.
-- **Expone (para cart, orders y assistant):** consulta de productos publicados por id con su precio vigente; puerto `AvailabilityReader` que implementará `inventory` (T-030).
+- **Consume:** `identity` (`require_admin`), `audit` (`AuditRecorder`, `AuditRecorderDep`), Supabase Storage (D-019) mediante un puerto `ImageStorage`.
+- **Expone (para cart, orders y assistant):** consulta de productos publicados por id con precio y política de venta.
+- **Disponibilidad (T-030):** el filtro `available` y la paginación necesitan el stock en la misma consulta del listado. Se resolverá con una vista de lectura de inventory que catalog consulta en el mismo SQL (no producto a producto); se especifica en la SPEC de inventory. Umbral de "Últimas unidades": por decidir (propuesta: 2).
 
 ## 9. Seguridad
 
-- Solo los productos publicados llegan a la API pública (CATALOG-R1); `status` y fechas internas no salen en la respuesta pública.
-- La búsqueda usa `websearch_to_tsquery` / `plainto_tsquery` parametrizado; nunca SQL concatenado.
-- Subida de imágenes: se valida por contenido (firma del archivo), no por la extensión; tamaño ≤ 5 MB; nombre de archivo generado por el servidor (UUID); la clave de servicio de Storage nunca sale del backend ni de su `.env`.
-- Auditoría de precio y publicación (CATALOG-R7).
+- CATALOG-R1; `status` y fechas internas no salen en la API pública.
+- Búsqueda con `websearch_to_tsquery('spanish', app.f_unaccent(:q))` parametrizado; nunca SQL concatenado.
+- Subida de imágenes: se valida por contenido (firma del archivo), no por la extensión; ≤ 5 MB; nombre generado por el servidor (UUID); la clave de servicio de Storage nunca sale del backend.
+- `description` en texto plano (CATALOG-R12): el frontend no la inyecta como HTML.
+- Auditoría (CATALOG-R7).
 
 ## 10. Criterios de aceptación
 
-- [ ] CA-CATALOG-01 (UC-01; RF02.01, RF02.04): el listado devuelve solo publicados, paginados, con los cuatro órdenes y `total` correcto.
-- [ ] CA-CATALOG-02 (UC-02; RF02.02): `q` encuentra por nombre, SKU y descripción, sin distinguir acentos ni mayúsculas en lo posible, y ordena por relevancia.
-- [ ] CA-CATALOG-03 (UC-01; RF02.03, RF02.07): cada filtro (categoría, movimiento, material, rango de diámetro, resistencia mínima, rango de precio) restringe los resultados; los productos sin el atributo quedan fuera de ese filtro.
-- [ ] CA-CATALOG-04 (UC-03; RF02.05, RF02.06): la ficha incluye imágenes ordenadas, atributos, `specs` y hasta 4 relacionados de la misma categoría; un borrador o un slug inexistente → 404.
-- [ ] CA-CATALOG-05 (UC-05, UC-06; RF06.01): el admin crea un borrador, lo edita y lo publica solo si cumple CATALOG-R2; SKU o slug repetido → 409; un no admin → 403.
-- [ ] CA-CATALOG-06 (UC-07; RF06.02): el admin gestiona categorías y listas de valores; un valor desactivado deja de aparecer en `/attributes`.
-- [ ] CA-CATALOG-07 (UC-08; RF06.03): subir una imagen válida la guarda en Storage y en `product_images`; tipo no permitido → 415; > 5 MB → 413.
-- [ ] CA-CATALOG-08 (CATALOG-R7): crear, cambiar el precio, publicar y despublicar dejan sus entradas en `app.audit_log` en la misma transacción.
+- [ ] CA-CATALOG-01 (UC-01; RF02.01, RF02.04): el listado devuelve solo publicados, paginados de forma estable, con los cuatro órdenes y `total` correcto.
+- [ ] CA-CATALOG-02 (UC-02; RF02.02): `q` encuentra por nombre, SKU y descripción sin distinguir tildes ni mayúsculas ("automatico" encuentra "Automático").
+- [ ] CA-CATALOG-03 (UC-01; RF02.03, RF02.07): cada filtro restringe los resultados; los productos sin el atributo quedan fuera de ese filtro; `min > max` → 422.
+- [ ] CA-CATALOG-04 (UC-03; RF02.05, RF02.06): la ficha incluye imágenes ordenadas, atributos (con `null` explícitos), `specs` en orden y hasta 4 relacionados; un borrador o un slug inexistente → 404.
+- [ ] CA-CATALOG-05 (UC-05, UC-06; RF06.01, RF06.07): el admin crea, lee, edita y publica según CATALOG-R2 y R3, con los códigos de error de §7; un no admin → 403.
+- [ ] CA-CATALOG-06 (UC-07; RF06.02): el admin gestiona categorías y listas de valores (también las inactivas); CATALOG-R10.
+- [ ] CA-CATALOG-07 (UC-08; RF06.03): subida, edición del `alt`, orden y retirada de imágenes con los códigos de §7 y CATALOG-R11.
+- [ ] CA-CATALOG-08 (CATALOG-R7): las operaciones auditadas dejan su entrada en `app.audit_log` en la misma transacción.
+- [ ] CA-CATALOG-09 (RF02.08, D-023): con inventory (T-030), el estado de disponibilidad y el filtro `available` siguen D-023.
 
 ## 11. Plan de pruebas
 
-- **Unitarias:** generación de slug, CATALOG-R2, validación de filtros y orden.
-- **HTTP:** contratos públicos y de administración, 401, 403 y 404, OpenAPI con `ErrorOut`.
-- **Integración:** filtros y búsqueda contra Postgres real (con datos de prueba), unicidad, auditoría en la misma transacción, `EXPLAIN` de la búsqueda usando el índice GIN.
-- **Storage:** adaptador real contra Supabase Storage local (integración) y fake en las pruebas unitarias.
+- **Unitarias:** slug, CATALOG-R2/R3/R10/R11, validación de filtros, orden y `specs`.
+- **HTTP:** contratos públicos y de administración, 401/403/404/409/422 con sus `code`, OpenAPI con `ErrorOut` y `Money.currency` obligatorio.
+- **Integración:** filtros y búsqueda sin tildes contra Postgres real, unicidad, auditoría en la misma transacción, `EXPLAIN` con el índice GIN.
+- **Storage:** adaptador real contra Supabase Storage local (integración) y fake en las unitarias.
 
 ## 12. Preguntas abiertas
 
 | ID | Pregunta | Hipótesis conservadora | Decide |
 |---|---|---|---|
-| P-CATALOG-1 | ¿Se cargan datos de demostración (relojes ficticios marcados como tales) para el desarrollo del frontend con Kombai? | Sí, un script de semillas solo para `dev`, con datos claramente ficticios | usuario |
-| P-CATALOG-2 | ¿Los relacionados los elige el admin en vez de la regla CATALOG-R6? | Regla automática en el MVP | usuario |
+| P-CATALOG-1 | ¿Datos de demostración para el frontend? | **Resuelta:** sí, `backend/scripts/seed_dev.py`, ficticios (`DEMO-…`), solo fuera de `prod`, idempotente (T-031) | usuario |
+| P-CATALOG-2 | ¿Relacionados elegidos por el admin? | **Resuelta:** regla automática CATALOG-R6 | usuario |
+| P-CATALOG-3 | Umbral de "Últimas unidades" | 2 unidades, configurable; se decide en la SPEC de inventory | usuario |

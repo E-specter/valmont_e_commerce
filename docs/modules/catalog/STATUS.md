@@ -5,13 +5,13 @@
 
 | ID | Título | Rol | Depende de | Estado |
 |---|---|---|---|---|
-| T-025 | SPEC de catalog | claude-leader | D-019…D-022 | IN_REVIEW (contrato pendiente del consumidor frontend) |
+| T-025 | SPEC de catalog | claude-leader | D-019…D-023 | DONE (contrato aprobado por frontend-lead con cambios incorporados) |
 | T-026 | Esquema `0004`, dominio y repositorios de catalog | backend-dev | T-021 | IN_PROGRESS |
 | T-027 | API pública: listado con filtros, búsqueda, orden y paginación; ficha con relacionados; categorías y atributos | backend-dev | T-026 | BACKLOG |
 | T-028 | API de administración: productos, publicación, categorías y listas de valores, con auditoría | backend-dev + qa-reviewer | T-026, T-021 | BACKLOG |
 | T-029 | Activar Supabase Storage (puerta Docker) e imágenes: subida, orden y retirada | claude-leader + backend-dev | T-028 | BACKLOG |
 | T-030 | Conectar la disponibilidad con inventory (`AvailabilityReader`) | backend-dev | módulo inventory | BACKLOG |
-| T-031 | Semillas de demostración para `dev` (si el usuario las aprueba, P-CATALOG-1) | backend-dev | T-026 | BACKLOG |
+| T-031 | Semillas de demostración para `dev` (aprobadas por el usuario, P-CATALOG-1) | backend-dev | T-026 | BACKLOG |
 
 IDs reservados del módulo: T-025–T-039 (libres: T-032–T-039).
 

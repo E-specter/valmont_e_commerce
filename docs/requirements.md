@@ -71,6 +71,7 @@
 | RF02.05 | Mostrar la ficha de producto: características técnicas y estéticas, precio vigente, disponibilidad e imágenes. | MVP | PROPUESTO |
 | RF02.06 | Mostrar productos relacionados. | MVP | PROPUESTO |
 | RF02.07 | Admitir atributos de relojería opcionales por producto. Si un atributo no aplica, no se muestra. | MVP | PROPUESTO |
+| RF02.08 | Mostrar el estado de disponibilidad de cada producto: Disponible, Últimas unidades, Agotado o Bajo pedido con su plazo estimado (D-023). | MVP | APROBADO |
 
 ### RF03 — Carrito · módulo `cart`
 
@@ -94,6 +95,7 @@
 | RF04.04 | Permitir que el cliente cancele un pedido propio si su estado lo admite (RN-08). | MVP | PROPUESTO |
 | RF04.05 | Calcular y validar el importe en el servidor (RN-09). | MVP | PROPUESTO |
 | RF04.06 | Si un pedido sigue sin pagar 30 minutos después de crearse, pasa a `expirado` y su reserva deja de contar (RN-06). | MVP | APROBADO |
+| RF04.07 | Permitir pedidos de productos Bajo pedido sin reservar stock, informando la fecha estimada de entrega (RN-16). | MVP | APROBADO |
 
 ### RF05 — Pagos · módulo `payments`
 
@@ -115,6 +117,7 @@
 | RF06.04 | Registrar entradas y ajustes de stock con motivo y actor (RF14.01). | MVP | PROPUESTO |
 | RF06.05 | Reservar o descontar stock al confirmar un pedido según RN-06. | MVP | PROPUESTO |
 | RF06.06 | Impedir que el stock quede por debajo de cero (RN-06). | MVP | PROPUESTO |
+| RF06.07 | Permitir al administrador configurar por producto su política de venta (solo con stock, siempre bajo pedido o bajo pedido al agotarse) y su plazo de entrega (D-023). | MVP | APROBADO |
 
 ### RF07 — Reportes · módulo `reports`
 
@@ -223,6 +226,7 @@ Los umbrales son **propuestas** pendientes de validación por el usuario; no son
 | RN-13 | Un cliente puede recibir múltiples recomendaciones; se registran para trazabilidad. | PROPUESTO |
 | RN-14 | Precio, stock, disponibilidad y estado de pedidos se obtienen siempre de la fuente de datos autorizada, nunca de la memoria del modelo. | PROPUESTO |
 | RN-15 | Los importes se expresan en soles (PEN) como enteros en céntimos. | APROBADO (D-015) |
+| RN-16 | Los artículos Bajo pedido no reservan ni descuentan stock; su entrega se estima con el plazo del producto. | APROBADO (D-023) |
 
 ### Hipótesis abiertas
 
@@ -234,6 +238,7 @@ Los umbrales son **propuestas** pendientes de validación por el usuario; no son
 
 ## Registro de cambios
 
+- **2026-10-27 — v0.4 (claude-leader):** decisión del usuario D-023. Nuevos: RF02.08 (estados de disponibilidad), RF04.07 (pedidos bajo pedido), RF06.07 (política de venta por producto) y RN-16. RF14.01 y RF14.02 actualizados a IMPLEMENTADO tras T-021. Ningún ID cambia.
 - **2026-10-27 — v0.3 (claude-leader):** estados actualizados tras la Fase 1. IMPLEMENTADO: RF01.01 y RF01.02 (Supabase Auth, verificados E2E), RF01.05, RF01.06, RF11.02, RF13.01 y RF13.02 (backend, T-016). Ningún texto ni ID cambia.
 - **2026-10-26 — v0.2 (claude-leader):** decisiones del usuario D-015, D-016 y D-017. Nuevos: RF04.06, RF07.04 y RN-15. Modificados: RN-06 (reserva atómica con vencimiento), RN-08 (quién cancela), RF05.05 (POSTERIOR → MVP, reembolso simulado) y RNF10 (Ley 29733). H-03 resuelta. Ningún ID cambió de número.
 - **2026-10-26 — v0.1 (claude-leader):** documento creado desde cero a partir del prompt maestro. RF01–RF14 desglosados en requisitos atómicos, RNF01–RNF12 con umbrales propuestos, RN-01–RN-14 y H-01–H-03. Todo en estado `PROPUESTO`.

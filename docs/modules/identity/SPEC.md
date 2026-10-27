@@ -97,6 +97,13 @@ app.profiles
 {"full_name": "…", "phone": "…", "preferences": {…}, "marketing_opt_in": true, "accept_privacy_version": "2026-10"}
 ```
 
+**Notas de contrato (revisión de frontend-lead, 2026-10-27; APROBADO CON CAMBIOS):**
+- `preferences` en `PATCH` **reemplaza el objeto entero**: el cliente envía siempre el objeto completo.
+- `full_name: null` y `phone: null` borran el dato; `preferences`, `marketing_opt_in` y `accept_privacy_version` no admiten `null` (422).
+- `preferences.materials` contiene códigos de `/api/v1/catalog/attributes` (`case_materials[].code`), aprobado por el usuario.
+- `validation_error.details` = `[{"loc": ["body", campo…], "type": str, "msg": str}]` (sin `input` ni `url`); el frontend traduce por `type` (T-019).
+- `Money.currency` es obligatorio en el esquema de salida del OpenAPI (T-019).
+
 Errores con el formato común `{"error": {"code", "message", "details"}}`, declarados en el OpenAPI: `unauthenticated` (401), `forbidden` (403), `validation_error` (422), `auth_unavailable` (503).
 
 ## 8. Dependencias
