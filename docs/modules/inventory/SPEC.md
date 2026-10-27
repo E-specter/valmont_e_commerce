@@ -86,6 +86,7 @@ Los casos de uso UC-04…06 son internos (los llama orders en su transacción); 
 
 - **Consume:** `catalog` (productos y su `order_policy`/`lead_time_days`, por la vista y el caso de uso público de catalog), `identity` (`require_admin`), `audit`.
 - **Expone:** casos de uso `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` (para orders) y la vista `app.product_availability` (para catalog, T-030).
+- **Obligaciones de orders al usarlos (decisiones del Leader tras T-042):** validar antes con catalog que los productos existen y están publicados (un producto inexistente es un error de programación, I-5); agrupar las líneas por producto antes de reservar (I-7); obtener `now` de la BD en la misma transacción (`SELECT now()`), la misma fuente que usa la vista (I-8); y tratar `ReservationExpired` también cuando las reservas fueron liberadas, porque cobrar sin reserva no está permitido (I-6).
 
 ## 9. Seguridad
 
