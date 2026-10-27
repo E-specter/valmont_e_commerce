@@ -25,7 +25,7 @@
 | T-105 | Protocolo de control de versiones: PROTOCOL §11, skill `version-control` y hooks de `.githooks/` (petición del usuario) | docs, arquitectura | claude-leader | D-026 | docs/agents/PROTOCOL.md §11 | DONE | Hooks probados (9/9 casos) y activos con `core.hooksPath` |
 | T-106 | Las pruebas las ejecuta solo qa-reviewer, y el Leader hace el commit tras su APROBADO (petición del usuario) | docs, arquitectura | claude-leader | D-028 | docs/agents/PROTOCOL.md §1, §3, §5, §11 | DONE | Rige desde 2026-10-27; la ronda 2 de T-042 (`615189d`) es anterior |
 | T-101 | Rol de BD `valmont_app` con privilegios mínimos (migración 0006) | backend, seguridad | backend-dev + qa-reviewer | D-029, RNF02 | paquete abajo | DONE | `b8eb2f9`; APROBADA por qa-reviewer con D-028 (704 + 267, 3 mutantes detectados). Los dos MENOR: uno en la skill de migraciones y otro en T-100 |
-| T-102 | Imagen del frontend: `@astrojs/node` (D-024), `output: 'server'` y `frontend/Dockerfile` | frontend, arquitectura | frontend-dev + qa-reviewer | D-024, D-029 | — | BACKLOG | Puerta Docker para los archivos |
+| T-102 | Imagen del frontend: `@astrojs/node` (D-024), `output: 'server'` y `frontend/Dockerfile` | frontend, arquitectura | frontend-dev + qa-reviewer | D-024, D-029 | paquete abajo | READY | Ficha de archivos de M1 confirmada por el usuario (2026-10-27) |
 | T-100 | Imagen del backend y stack de despliegue `deploy/`: compose, Caddyfile, Supabase autohospedado fijado, `.env.example` y alta de la contraseña de `valmont_app` | backend, arquitectura | backend-dev + qa-reviewer | D-011, D-018, D-029 | — | BACKLOG | Puerta Docker para los archivos; riesgo ES256. Pendiente de T-101: `ALTER ROLE valmont_app LOGIN PASSWORD` con el rol propietario (que necesita `CREATEROLE`); decidir si se revoca `CONNECT` en las BD ajenas; y su MENOR-1, que la prueba del mapa use `has_any_column_privilege` para SELECT, INSERT, UPDATE y REFERENCES |
 | T-103 | Copias de seguridad: `pg_dump` diario y restauración probada (RNF12) | arquitectura | backend-dev + qa-reviewer | D-029, RNF12 | — | BACKLOG | — |
 | T-104 | Prueba de lanzamiento en este Windows 11 (`https://localhost`) y sección C de la ficha verificada | arquitectura | claude-leader + qa-reviewer | D-029 | docs/deploy.md §C | BACKLOG | Build y arranque con puerta Docker |
@@ -44,6 +44,38 @@
 Estados válidos: `BACKLOG` · `SPECIFICATION` · `READY` · `IN_PROGRESS` · `BLOCKED` · `IN_REVIEW` · `INTEGRATION` · `DONE` · `CANCELLED`.
 
 ## Paquetes de tareas transversales
+
+### T-102 — Imagen del frontend (Astro SSR con `@astrojs/node`)
+- **Objetivo:** el frontend se construye y arranca como contenedor Node, listo para el compose de T-100. Ficha de auditoría de archivos confirmada por el usuario el 2026-10-27.
+- **Responsable:** frontend-dev (verifica qa-reviewer, acepta claude-leader) · Decisiones: D-024, D-028, D-029 · **Entrega:** preparada sin commit, con el mensaje propuesto (PROTOCOL §11.2).
+- **Leer:**
+  - `docs/decisions.md`: D-024 (SSR solo en listado, categoría y ficha; portada y legales estáticas) y D-029.
+  - `frontend/astro.config.mjs` y `frontend/package.json`.
+  - `docs/modules.md` §5.
+  - La documentación oficial de `@astrojs/node` y de los modos de salida de Astro 7.
+- **Puede modificar:**
+  - `frontend/package.json` y `frontend/package-lock.json`;
+  - `frontend/astro.config.mjs`;
+  - `frontend/Dockerfile` y `frontend/.dockerignore` (nuevos);
+  - tu traspaso debajo de este paquete y la fila de T-102.
+- **Resultado esperado:**
+  1. **Adaptador.** `@astrojs/node` instalado con `npm install --save-exact`, en una versión compatible con `astro` 7.4 que anotes con su fuente. Lo aprueba D-024.
+  2. **Configuración.** Adaptador `node({ mode: 'standalone' })`, con el modo de salida que pide D-024: las páginas estáticas se prerenderizan y las del catálogo, cuando existan, se renderizan bajo demanda. El build debe dejar el servidor en `dist/server/entry.mjs`; compruébalo en la documentación, porque no puedes ejecutar el build.
+  3. **`frontend/Dockerfile`** multietapa, con una imagen base de Node fijada a la misma versión mayor que la local (Node 26, etiqueta `-slim` exacta):
+     - etapa de build: `npm ci` y `npm run build`;
+     - etapa final: `dist/` y dependencias de producción (`npm ci --omit=dev`), usuario no root, `HOST=0.0.0.0`, `PORT=4321`, `EXPOSE 4321`;
+     - `HEALTHCHECK` con `node` (la imagen slim no trae curl);
+     - arranque con `node ./dist/server/entry.mjs`.
+  4. **`frontend/.dockerignore`:** `node_modules`, `dist`, `.astro`, `.env*` y lo que no deba entrar en la imagen.
+  5. **Sin valores de entorno horneados en la imagen.** Astro sustituye `PUBLIC_*` en el build. Documenta en el traspaso cómo se pasará la configuración en tiempo de ejecución cuando haga falta (por ejemplo, `astro:env` con contexto server). El esqueleto aún no la necesita.
+- **Criterios** (los ejecuta qa-reviewer):
+  - `npm run check` sin errores;
+  - `npm run build` correcto, dejando `dist/server/entry.mjs`;
+  - `node ./dist/server/entry.mjs` sirve la portada en el puerto 4321;
+  - revisión estática del Dockerfile: base fijada, no root, sin secretos, caché de capas razonable.
+  - La imagen se construye en T-104, con su propia ficha Docker.
+- **D-028:** frontend-dev puede ejecutar `npm install` (para añadir la dependencia) y `npm run check` (análisis estático). No ejecuta `npm run build`, el servidor ni Docker.
+- **Estado inicial:** READY · IDs reservados: ninguno.
 
 ### T-101 — Rol de BD `valmont_app` con privilegios mínimos
 - **Objetivo:** el backend desplegado se conecta con un rol que no puede cambiar el esquema ni alterar el registro de auditoría (defensa en profundidad, además de los triggers de `audit_log`).
