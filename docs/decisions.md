@@ -185,5 +185,6 @@
   - Supabase autohospedado con los archivos oficiales en una versión fijada y sin los servicios que no se usan (realtime, functions, analytics/vector, y studio en producción).
   - El backend se conecta con el rol `valmont_app`, de privilegios mínimos. Las migraciones corren con el rol propietario.
   - Cada paso de Docker pasa la puerta D-011: ficha de auditoría y confirmación del usuario.
+- **Puertos configurables (refinamiento de T-104, a petición del usuario):** Caddy publica `HTTP_PORT` y `HTTPS_PORT`, y Mailpit (solo con el perfil `local`) `MAILPIT_PORT`. Por defecto son 80/443/8025, como pide D-029. La primera prueba corrió en `127.0.0.1:18080/18443/18025`, con `PUBLIC_URL=https://localhost:18443`.
 - **Riesgo principal (T-100):** el backend solo acepta tokens ES256 verificados por JWKS (D-018). El Auth autohospedado debe firmar con una clave asimétrica; si la versión oficial no lo permite, se escala antes de tocar D-018.
 - **Tareas:** T-100–T-104 (`docs/agents/tasks.md`).

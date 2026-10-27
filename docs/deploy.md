@@ -1,7 +1,7 @@
 # Ficha de lanzamiento — Valmont_E_Commerce
 
 > Pasos para poner el sistema en marcha en un equipo **Windows 11** o **Linux** (D-011).
-> Leyenda: ✅ verificado en el equipo de desarrollo (2026-10-26) · 🕒 se verifica al terminar la tarea indicada · 🧭 diseño previsto para el hito M1 (T-100–T-104), aún no construido.
+> Leyenda: ✅ verificado en el equipo de desarrollo (A: 2026-10-26; C: 2026-10-27, T-104) · 🕒 se verifica al terminar la tarea indicada · 🧭 previsto, aún sin verificar.
 > Comandos detallados: [setup.md](setup.md) §3. Nunca pegues claves ni secretos en chats, tickets ni en este documento.
 
 ## A. Desarrollo en Windows 11
@@ -18,7 +18,7 @@
 | 8 | Crear las tablas | `uv run alembic upgrade head` → `uv run alembic current` muestra `(head)` | ✅ |
 | 9 | Levantar la API | `uv run fastapi dev src/valmont/main.py` → http://127.0.0.1:8000/docs | ✅ |
 | 10 | Levantar el frontend | `cd frontend` → `npm install` → `npx astro dev` → http://localhost:4321 | ✅ build verificado (`astro dev` aún sin abrir) |
-| 11 | Primer administrador | Registrar el usuario desde la app (o Studio → Authentication → Add user), llamar una vez a `GET /api/v1/identity/me` para crear su perfil, y en Studio → SQL: `update app.profiles set role = 'admin' where user_id = '<uuid>';` | ✅ perfil al vuelo (T-016) · 🕒 la promoción se prueba con la primera ruta de administración (Fase 5) |
+| 11 | Primer administrador | Registrar el usuario desde la app (o Studio → Authentication → Add user), llamar una vez a `GET /api/v1/identity/me` para crear su perfil, y en Studio → SQL: `update app.profiles set role = 'admin' where user_id = '<uuid>';` | ✅ perfil al vuelo (T-016) y promoción probada con rutas de administración reales (C-8, T-104) |
 | 12 | Apagar | `npm run db:stop` (conserva los datos) | ✅ |
 
 **Servicios locales:** API y Auth `:54321` · Postgres `:54322` · Studio `:54323` · Mailpit `:54324` (aquí llegan los correos de registro y recuperación).
@@ -31,34 +31,40 @@
 | 2 | Node y uv | Node ≥ 22.23 (repositorio de NodeSource o `nvm`) · `curl -LsSf https://astral.sh/uv/install.sh \| sh` | 🕒 sin verificar aún |
 | 3 | Resto | Los pasos 4–12 de la sección A son idénticos; en el paso 6 usa `cp .env.example .env` | 🕒 sin verificar aún |
 
-## C. Lanzamiento en un equipo (Windows 11 o Linux) 🧭
+## C. Lanzamiento en un equipo (Windows 11 o Linux)
 
-Arquitectura prevista, con los mismos archivos de Docker Compose en los dos sistemas:
+Los mismos archivos de Docker Compose sirven en los dos sistemas (D-029). **Verificado de punta a punta en este Windows 11 el 2026-10-27 (T-104)**, con puertos poco comunes a petición del usuario: `127.0.0.1:18080/18443` y Mailpit en `18025`.
 
 ```
-navegador ──HTTPS──► Caddy (D-029)
-                        ├── /            → frontend (build de Astro)
-                        ├── /api/v1/...  → backend (FastAPI, contenedor propio)
-                        └── /auth/v1/... → Supabase Auth (vía su gateway)
-                                              │
+navegador ──HTTPS──► Caddy (D-029; el único que publica puertos)
+                        ├── /api/v1/...     → backend (FastAPI, rol de BD valmont_app)
+                        ├── /auth/v1/...    → Kong → Supabase Auth (tokens ES256, JWKS)
+                        ├── /storage/v1/... → Kong → Supabase Storage (bucket products)
+                        └── /               → frontend (Astro con @astrojs/node)
                        backend ──────────────► Postgres de Supabase autohospedado (esquema app)
 ```
 
 | # | Paso | Detalle | Estado |
 |---|---|---|---|
-| 1 | Requisitos del equipo | Mínimo 4 GB RAM, 2 núcleos y 40 GB SSD; recomendado 8 GB, 4 núcleos y 80 GB (documentación de Supabase autohospedado) | 🧭 |
-| 2 | Docker | Windows 11: Docker Desktop (sección A, pasos 2–3). Linux: Docker Engine (sección B, paso 1) | 🧭 |
-| 3 | Código | `git clone <repo>` en la rama de la versión a lanzar | 🧭 |
-| 4 | Secretos | `deploy/.env` generado con los scripts de claves de Supabase (`generate-keys.sh`; en Windows, desde Git Bash o WSL): contraseña de Postgres, secreto JWT, claves de API. **Nunca** los valores de desarrollo | 🧭 |
-| 5 | Arrancar | `docker compose -f deploy/compose.yml up -d` | 🧭 |
-| 6 | Migraciones | `docker compose -f deploy/compose.yml run --rm backend alembic upgrade head` | 🧭 |
-| 7 | Rol de BD de la app | El backend se conecta con el rol `valmont_app`, con privilegios mínimos (sin UPDATE/DELETE en `audit_log`) | 🧭 |
-| 8 | Primer administrador | Como en el paso A-11, pero contra la BD del servidor | 🧭 |
-| 9 | Comprobar | `GET /health` → 200; registro de prueba; `GET /api/v1/identity/me` → 200 | 🧭 |
-| 10 | Copias de seguridad | `pg_dump` diario a un disco distinto (Linux: `cron`; Windows: Programador de tareas) y una restauración probada antes de abrir al público (RNF12) | 🧭 |
-| 11 | Actualizar | `git pull` → `docker compose … up -d --build` → paso 6 | 🧭 |
-| 13 | Proxy y subida de imágenes | El proxy inverso debe conservar `Content-Length` en las subidas; el backend rechaza con 413 los cuerpos sin esa cabecera (T-029) | 🧭 |
-| 12 | Rotar o revocar claves de firma de Auth | Tras revocar una clave en Supabase, reiniciar el backend: cachea las claves públicas por `kid` sin caducidad (D-018) | 🧭 |
+| 1 | Requisitos del equipo | Mínimo 4 GB de RAM, 2 núcleos y 40 GB SSD; recomendado 8 GB, 4 núcleos y 80 GB (documentación de Supabase autohospedado). Las imágenes ocupan unos 3–4 GB. | 🧭 |
+| 2 | Docker | Windows 11: Docker Desktop (sección A, pasos 2–3). Linux: Docker Engine (sección B, paso 1). | ✅ Windows 11 |
+| 3 | Código | `git clone <repo>` en la rama de la versión a lanzar → `git config core.hooksPath .githooks`. | 🧭 |
+| 4 | Secretos | `sh deploy/scripts/generate-env.sh` (en Windows, desde Git Bash o WSL; necesita Node ≥ 16 o Docker), o `node deploy/scripts/generate-env.mjs deploy/.env.example deploy/.env`. Genera contraseñas aleatorias y la clave EC P-256 de Auth (ES256, D-018) sin imprimirlas.<br>- **No sobrescribe** un `deploy/.env` existente, y no se puede regenerar después del primer arranque: la BD ya creada dejaría de aceptar a Auth y a Storage.<br>- Antes de arrancar, revisa `SITE_ADDRESS`, `BIND_ADDRESS`, `HTTP_PORT`, `HTTPS_PORT`, `MAILPIT_PORT`, `PUBLIC_URL` y `SMTP_*`.<br>- `PUBLIC_URL` lleva el puerto cuando no es el 443 (por ejemplo `https://localhost:18443`).<br>- **Nunca** reutilices los valores de desarrollo. | ✅ |
+| 5 | Arrancar | `docker compose -f deploy/compose.yml --profile local up -d --build --wait`. Sin `--profile local` no hay Mailpit y hace falta un SMTP real para los correos de confirmación. Resultado esperado: 7 servicios en `healthy`, más Caddy en marcha (no tiene healthcheck). | ✅ |
+| 6 | Migraciones | `sh deploy/scripts/migrate.sh`. Aplica las migraciones con el rol propietario, da `LOGIN` y contraseña a `valmont_app` y crea el bucket `products` (público, 5 MiB, jpeg/png/webp). **No** uses `run --rm backend alembic upgrade head`: correría como `valmont_app`, que no puede cambiar el esquema. | ✅ 0001 → 0006 |
+| 7 | Rol de BD de la app | El backend se conecta como `valmont_app` (T-101): sin poder de esquema, y solo `SELECT, INSERT` en `audit_log` y `stock_movements`. Para comprobarlo: `docker compose -f deploy/compose.yml exec -T db psql -U postgres -d postgres -c "select usename, count(*) from pg_stat_activity group by 1;"`. | ✅ |
+| 8 | Primer administrador | El usuario se registra en la app y llama una vez a `GET /api/v1/identity/me`. Después, como no hay Studio: `docker compose -f deploy/compose.yml exec -T db psql -U postgres -d postgres -c "update app.profiles set role = 'admin' where user_id = '<uuid>';"` | ✅ |
+| 9 | Comprobar | 1. `docker compose -f deploy/compose.yml ps` → todos en `healthy`.<br>2. `https://<sitio>/` → 200.<br>3. `/api/v1/catalog/products` → 200.<br>4. `/auth/v1/.well-known/jwks.json` → una clave EC.<br>5. Registro → correo (Mailpit en `http://127.0.0.1:<MAILPIT_PORT>`) → login → `/api/v1/identity/me` → 200.<br>Caddy no expone `/health`, a propósito. | ✅ |
+| 10 | Copias de seguridad | `pg_dump` diario a un disco distinto (Linux: `cron`; Windows: Programador de tareas) y una restauración probada antes de abrir al público (RNF12). | 🕒 T-103 |
+| 11 | Actualizar | `git pull` → `docker compose -f deploy/compose.yml up -d --build --wait` → `sh deploy/scripts/migrate.sh`. | 🧭 |
+| 12 | Proxy y subida de imágenes | Caddy conserva `Content-Length` (el backend rechaza con 413 los cuerpos sin ella, T-029). Verificado: HTTP/1.1 y HTTP/2 con la cabecera → 201; `chunked` → 413; exactamente 5 MiB → 201; 5 MiB + 1 → 413. | ✅ |
+| 13 | Rotar o revocar claves de firma de Auth | Tras revocar una clave, reinicia el backend: cachea las claves públicas por `kid` sin caducidad (D-018). | 🧭 |
+| 14 | Apagar | `docker compose -f deploy/compose.yml --profile local down` conserva los datos. Cada contenedor se detiene en menos de 1 s (`init: true`). **`down -v` borra la BD y las imágenes subidas**: pasa la puerta D-011. | ✅ |
+
+**Notas de la prueba local:**
+- El certificado de `localhost` lo emite la CA interna de Caddy. El navegador avisa: acepta el aviso o importa la raíz desde el volumen `valmont_caddy-data`.
+- Con puertos no estándar, entra directamente por `https://localhost:<HTTPS_PORT>`. La redirección desde HTTP apunta al 443 sin el puerto; en producción, con 80/443, es correcta.
+- Las filas de `app.audit_log` no se pueden borrar ni siquiera en pruebas (triggers de solo inserción). Un stack de prueba limpio exige recrear el volumen `valmont_db-data` (puerta D-011).
 
 ## D. Windows 11 frente a Linux para el lanzamiento
 
@@ -71,6 +77,9 @@ navegador ──HTTPS──► Caddy (D-029)
 
 ## E. Estado actual
 
-- **Funciona hoy:** sección A completa, salvo la promoción a administrador (A-11 parcial), y el flujo de registro → confirmación → token → perfil verificado de punta a punta con Supabase real.
-- **Pendiente:** promoción a admin por SQL (Fase 5), sección B (verificar en un equipo Linux) y sección C completa (hito M1, tras catalog + inventory).
+- **Funciona hoy:** sección A completa y sección C verificada de punta a punta en Windows 11 (T-104, 2026-10-27): stack con Caddy, frontend, backend con `valmont_app` y Supabase autohospedado; tokens ES256; subida de imágenes; disponibilidad y búsqueda.
+- **Pendiente:**
+  - sección B (verificar en un equipo Linux);
+  - C-10, las copias de seguridad (T-103);
+  - el endurecimiento antes de abrir al público (T-018): cabeceras de seguridad y error 502 con el formato común, entre otros.
 - **Puertos de Supabase en desarrollo:** Docker los publica en todas las interfaces (`0.0.0.0`). En Windows 11 se bloquean desde la red con `New-NetFirewallRule -DisplayName 'Valmont Supabase dev' -Direction Inbound -Protocol TCP -LocalPort 54321-54324 -Action Block` (como administrador; aplicada en el equipo de desarrollo el 2026-10-27). En Linux, el equivalente con `ufw` o `nftables`.
