@@ -36,7 +36,7 @@
 Arquitectura prevista, con los mismos archivos de Docker Compose en los dos sistemas:
 
 ```
-navegador ──HTTPS──► proxy inverso (por decidir en M1)
+navegador ──HTTPS──► Caddy (D-029)
                         ├── /            → frontend (build de Astro)
                         ├── /api/v1/...  → backend (FastAPI, contenedor propio)
                         └── /auth/v1/... → Supabase Auth (vía su gateway)

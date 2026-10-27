@@ -33,6 +33,7 @@
 | D-026 | 2026-10-27 | Protocolo de control de versiones: commits atómicos comunicados, paquete de push y push del usuario | APROBADA |
 | D-027 | 2026-10-27 | Inventory: umbral de "Últimas unidades" 2 (configurable), un solo almacén y motivos cerrados con nota | APROBADA |
 | D-028 | 2026-10-27 | Las pruebas las ejecuta solo qa-reviewer; el Leader hace el commit tras su APROBADO | APROBADA |
+| D-029 | 2026-10-27 | Lanzamiento portable (M1): Caddy, frontend en contenedor desde ya y primera prueba en https://localhost | APROBADA |
 
 ---
 
@@ -173,3 +174,16 @@
   - `docs/agents/PROTOCOL.md` §1, §3, §5, §6 y §11.
   - `.claude/agents/*`.
   - Las skills `testing-and-quality-gates`, `version-control`, `context-handoff`, `backend-module-implementation` y `frontend-module-implementation`.
+
+### D-029 — Lanzamiento portable, hito M1 (APROBADA)
+- **Decisiones del usuario (2026-10-27):**
+  - Proxy inverso **Caddy**: HTTPS automático cuando haya dominio; con `localhost`, su autoridad interna.
+  - El **contenedor del frontend** (Astro SSR con `@astrojs/node`, D-024) entra ya en M1, con el esqueleto actual.
+  - La primera prueba se hace en este Windows 11 con `https://localhost`. El dominio real se configura después cambiando una variable.
+- **Refinamiento técnico del Leader:**
+  - Solo Caddy publica puertos (80/443). En la prueba local se enlazan a `127.0.0.1`, así que no se exponen a la red.
+  - Supabase autohospedado con los archivos oficiales en una versión fijada y sin los servicios que no se usan (realtime, functions, analytics/vector, y studio en producción).
+  - El backend se conecta con el rol `valmont_app`, de privilegios mínimos. Las migraciones corren con el rol propietario.
+  - Cada paso de Docker pasa la puerta D-011: ficha de auditoría y confirmación del usuario.
+- **Riesgo principal (T-100):** el backend solo acepta tokens ES256 verificados por JWKS (D-018). El Auth autohospedado debe firmar con una clave asimétrica; si la versión oficial no lo permite, se escala antes de tocar D-018.
+- **Tareas:** T-100–T-104 (`docs/agents/tasks.md`).

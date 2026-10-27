@@ -24,6 +24,11 @@
 | T-017 | Ficha de lanzamiento `docs/deploy.md` (Windows 11 / Linux) | docs, arquitectura | claude-leader | D-011 | docs/deploy.md | IN_PROGRESS | Sección A verificada (A-11 parcial hasta la Fase 5); B pendiente de un equipo Linux; C en el hito M1 |
 | T-105 | Protocolo de control de versiones: PROTOCOL §11, skill `version-control` y hooks de `.githooks/` (petición del usuario) | docs, arquitectura | claude-leader | D-026 | docs/agents/PROTOCOL.md §11 | DONE | Hooks probados (9/9 casos) y activos con `core.hooksPath` |
 | T-106 | Las pruebas las ejecuta solo qa-reviewer, y el Leader hace el commit tras su APROBADO (petición del usuario) | docs, arquitectura | claude-leader | D-028 | docs/agents/PROTOCOL.md §1, §3, §5, §11 | DONE | Rige desde 2026-10-27; la ronda 2 de T-042 (`615189d`) es anterior |
+| T-101 | Rol de BD `valmont_app` con privilegios mínimos (migración 0006) | backend, seguridad | backend-dev + qa-reviewer | D-029, RNF02 | paquete abajo | READY | Primera tarea de M1; sin Docker |
+| T-102 | Imagen del frontend: `@astrojs/node` (D-024), `output: 'server'` y `frontend/Dockerfile` | frontend, arquitectura | frontend-dev + qa-reviewer | D-024, D-029 | — | BACKLOG | Puerta Docker para los archivos |
+| T-100 | Imagen del backend y stack de despliegue `deploy/`: compose, Caddyfile, Supabase autohospedado fijado, `.env.example` y alta de la contraseña de `valmont_app` | backend, arquitectura | backend-dev + qa-reviewer | D-011, D-018, D-029 | — | BACKLOG | Puerta Docker para los archivos; riesgo ES256 |
+| T-103 | Copias de seguridad: `pg_dump` diario y restauración probada (RNF12) | arquitectura | backend-dev + qa-reviewer | D-029, RNF12 | — | BACKLOG | — |
+| T-104 | Prueba de lanzamiento en este Windows 11 (`https://localhost`) y sección C de la ficha verificada | arquitectura | claude-leader + qa-reviewer | D-029 | docs/deploy.md §C | BACKLOG | Build y arranque con puerta Docker |
 | T-019 | Ajustes de contrato de identity tras la revisión de frontend-lead: `validation_error.details` sin `url` (solo `loc`, `type`, `msg`) y `Money.currency` obligatorio en el OpenAPI | backend | backend-dev | RF01.06 | docs/modules/identity/SPEC.md §7 | DONE | Hecho con T-027: `Money-Output` exige `amount` y `currency`; `details` = `loc`, `type`, `msg` |
 | T-018 | Endurecimiento antes del lanzamiento: limpieza periódica de archivos huérfanos en Storage (T-029); JWKS no-JSON → 503 con aviso; no registrar el `DETAIL` de PostgreSQL (solo `sqlstate` y restricción); rechazar controles bidireccionales y nombres invisibles; límites de longitud documentados en el OpenAPI | backend, seguridad | backend-dev + qa-reviewer | RNF02, RNF10 | docs/modules/identity/STATUS.md | BACKLOG | Hallazgos menores de qa-reviewer en T-016; antes del hito M1 |
 
@@ -39,6 +44,39 @@
 Estados válidos: `BACKLOG` · `SPECIFICATION` · `READY` · `IN_PROGRESS` · `BLOCKED` · `IN_REVIEW` · `INTEGRATION` · `DONE` · `CANCELLED`.
 
 ## Paquetes de tareas transversales
+
+### T-101 — Rol de BD `valmont_app` con privilegios mínimos
+- **Objetivo:** el backend desplegado se conecta con un rol que no puede cambiar el esquema ni alterar el registro de auditoría (defensa en profundidad, además de los triggers de `audit_log`).
+- **Responsable:** backend-dev (verifica qa-reviewer, acepta claude-leader) · Requisitos: RNF02 · Decisiones: D-010, D-028, D-029 · **Entrega:** preparada sin commit, con el mensaje propuesto (PROTOCOL §11.2).
+- **Leer:**
+  - `backend/migrations/versions/` (0001–0005; sobre todo 0001, por el `REVOKE` y los `IF EXISTS` en `pg_roles`).
+  - La skill `database-migration-review`.
+  - `backend/tests/conftest.py` (el fixture de la BD de pruebas).
+- **Puede modificar:**
+  - `backend/migrations/versions/0006_*.py` (nueva, `--rev-id 0006`);
+  - `backend/tests/**` (archivo de pruebas nuevo);
+  - tu traspaso debajo de este paquete.
+- **Resultado esperado** (migración 0006):
+  - **Rol:** crea `valmont_app NOLOGIN` si no existe. Los roles son del clúster y la BD de pruebas comparte clúster, así que debe ser idempotente. La contraseña y el `LOGIN` se fijan al desplegar (T-100), **nunca** en la migración.
+  - **Permisos:**
+    - `USAGE` en el esquema `app`.
+    - `SELECT, INSERT, UPDATE, DELETE` en las tablas de `app` que escribe el backend.
+    - En `app.audit_log`, **solo** `SELECT, INSERT`.
+    - `SELECT` en las vistas (`product_availability`).
+    - `USAGE, SELECT` en las secuencias.
+    - Lo necesario para ejecutar `app.f_unaccent` (comprueba si hace falta `USAGE` en el esquema `extensions`).
+  - **Sin poder de esquema:** sin `CREATE` en `app` y sin ser dueño de nada. `alembic_version` solo la toca el rol de migraciones.
+  - **Tablas futuras:** una tabla nueva sin permisos para `valmont_app` debe hacer **fallar una prueba**, que compara los privilegios reales de cada tabla de `app` con un mapa esperado. Así cada módulo nuevo tiene que concederlos de forma explícita.
+  - **`downgrade`:** retira los permisos de esta BD sin romper las demás del clúster.
+- **Criterios** (integración, con `SET ROLE valmont_app` dentro de la transacción de prueba):
+  - Lee y escribe las tablas del backend.
+  - `UPDATE`/`DELETE` en `audit_log` dan `permission denied`, antes de llegar al trigger.
+  - `CREATE TABLE` y `ALTER TABLE` en `app` fallan.
+  - La prueba del mapa de privilegios cubre todas las tablas.
+  - `alembic downgrade 0005` y después `upgrade head` funcionan.
+  - En desarrollo el backend sigue conectándose como hoy: no cambia `.env`.
+- **Pruebas obligatorias:** las escribe backend-dev; qa-reviewer ejecuta format, lint, `pytest -q`, `pytest -m integration -q`, capas, `alembic check` y las migraciones reversibles (D-028).
+- **Estado inicial:** READY · IDs reservados: ninguno (tarea hoja).
 
 ### T-007 — Base del backend (configuración, errores, logging)
 - Objetivo: el backend carga su configuración por entorno, responde a cualquier error con un formato JSON único y registra cada solicitud con un id.
