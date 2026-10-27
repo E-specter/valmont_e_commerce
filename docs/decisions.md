@@ -30,6 +30,7 @@
 | D-023 | 2026-10-27 | Estados de disponibilidad y política de venta por producto (incluye "Bajo pedido") | APROBADA |
 | D-024 | 2026-10-27 | Frontend: SSR con `@astrojs/node` para listado, categoría y ficha | APROBADA |
 | D-025 | 2026-10-27 | Sesión en cookies con `@supabase/ssr`; el servidor de Astro reenvía el Bearer a FastAPI | APROBADA |
+| D-026 | 2026-10-27 | Protocolo de control de versiones: commits atómicos comunicados, paquete de push y push del usuario | APROBADA |
 
 ---
 
@@ -140,3 +141,8 @@
 ### D-025 — Sesión en cookies con @supabase/ssr (APROBADA)
 - **Decisión del usuario:** la sesión de Supabase viaja en cookies seguras (httpOnly) gestionadas con `@supabase/ssr`. El servidor de Astro lee la sesión y reenvía `Authorization: Bearer` a FastAPI.
 - **Consecuencias:** FastAPI no necesita CORS para el sitio; el token no queda expuesto a scripts del navegador; cuenta y carrito se pueden renderizar en el servidor. Requiere D-024.
+
+### D-026 — Protocolo de control de versiones (APROBADA)
+- **Petición del usuario (2026-10-27):** cada implementación o aporte atómico completo queda registrado en un commit; los agentes pueden hacer commits, pero siempre se comunican al usuario y se recopilan para que él haga el push.
+- **Decisión:** reglas en `docs/agents/PROTOCOL.md` §11 y procedimiento en la skill `version-control`. Un commit por aporte atómico con puertas en verde; formato `<tipo>(<ámbito>): <resumen> (T-NNN)` con trailer `Agent:`; los subagentes hacen commit solo si su paquete dice `Commit: sí` y lo listan en el punto 12 del traspaso; el Leader lo informa al usuario en el mismo turno y prepara el paquete de push desde `git log` (sin listas a mano). Solo el usuario hace push; integrar en `main`, con su autorización.
+- **Cumplimiento:** hooks versionados en `.githooks/` (`commit-msg`: formato y `T-NNN`; `pre-commit`: `.env`, secretos literales, JWT y valores en `.env.example`), activos con `git config core.hooksPath .githooks`.

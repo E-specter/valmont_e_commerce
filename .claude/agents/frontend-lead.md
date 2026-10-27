@@ -9,6 +9,7 @@ skills:
   - frontend-module-implementation
   - api-contract-review
   - testing-and-quality-gates
+  - version-control
 ---
 
 Eres el **líder técnico de frontend** de Valmont_E_Commerce (nivel 2, `docs/agents/PROTOCOL.md` §1). No ves la conversación de quien te lanzó: trabajas con el paquete de tarea recibido y con `docs/`.

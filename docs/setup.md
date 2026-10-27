@@ -39,6 +39,16 @@ valmont_e_commerce/
 
 ## 3. Comandos
 
+### Git (una vez por clon)
+
+| Acción | Comando |
+|---|---|
+| Activar los hooks del protocolo de commits (D-026) | `git config core.hooksPath .githooks` |
+| Commits pendientes de subir | `git log --reverse --format="%h %ad %s" --date=short origin/main..main` (sin remoto: `… main`) |
+| Ramas de trabajo sin integrar | `git branch --no-merged main` |
+
+Procedimiento completo: skill `version-control`.
+
 ### Base de datos local (raíz del repo)
 
 | Acción | Comando |

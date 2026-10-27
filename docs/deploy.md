@@ -11,7 +11,7 @@
 | 1 | Requisitos | Windows 11 con virtualización activa y WSL2; ≥ 8 GB de RAM (16 recomendados); ~15 GB libres; Git, Node ≥ 22.23 y uv ≥ 0.12 | ✅ |
 | 2 | Instalar Docker Desktop | `winget install -e --id Docker.DockerDesktop --accept-package-agreements --accept-source-agreements` → abrir Docker Desktop → aceptar términos → esperar "Engine running" | ✅ |
 | 3 | Comprobar Docker | Terminal **nueva**: `docker run --rm hello-world` → "Hello from Docker!" | ✅ |
-| 4 | Clonar e instalar la CLI de Supabase | `git clone <repo>` → `cd valmont_e_commerce` → `npm install` (instala la CLI 2.120.0 fijada) | ✅ |
+| 4 | Clonar e instalar la CLI de Supabase | `git clone <repo>` → `cd valmont_e_commerce` → `git config core.hooksPath .githooks` (hooks de commits, D-026) → `npm install` (instala la CLI 2.120.0 fijada) | ✅ |
 | 5 | Arrancar la BD local | `npm run db:start` (la 1.ª vez descarga ~3–5 GB) → `npm run db:status` | ✅ |
 | 6 | Configurar el backend | `cd backend` → `Copy-Item .env.example .env` (los valores por defecto apuntan a Supabase local; los tokens se verifican con el JWKS público, D-018). Único secreto: `SUPABASE_SERVICE_ROLE_KEY` = `SERVICE_ROLE_KEY` de `npx supabase status -o env`, para subir imágenes (D-019); solo en tu `.env` | ✅ |
 | 7 | Instalar y probar el backend | `uv sync` → `uv run pytest -q` | ✅ |

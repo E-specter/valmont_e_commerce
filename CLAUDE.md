@@ -22,6 +22,7 @@ Delegar = enviar completo el paquete de `docs/agents/PROTOCOL.md` §3: el subage
 ## Entorno
 
 - Repositorio git con rama principal `main` (D-013). Cada tarea va en su propia rama (o worktree); integrar en `main` requiere autorización del usuario.
+- Control de versiones (D-026, `docs/agents/PROTOCOL.md` §11): commits atómicos con `T-NNN`, cada uno comunicado al usuario en el turno; el Leader prepara el paquete de push (skill `version-control`) y el push lo hace el usuario. Hooks: `git config core.hooksPath .githooks`.
 - Windows: no muevas `backend/` ni `frontend/` (bloqueos de archivos). Copia si hace falta.
 - Las terminales de VS Code de este workspace usan `CLAUDE_CONFIG_DIR=%USERPROFILE%\.claude-valmont`, fuera del proyecto.
 - **Puerta Docker (D-011):** antes de instalar, configurar, arrancar o detener contenedores, o borrar volúmenes, muestra una ficha de auditoría (qué hace, qué cambia, riesgos, cómo revertir) y espera la confirmación del usuario.

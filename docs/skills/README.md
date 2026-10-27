@@ -12,6 +12,7 @@
 | [`testing-and-quality-gates`](../../.claude/skills/testing-and-quality-gates/SKILL.md) | Puertas de calidad con comandos reales, política ante fallos y formato de evidencia | Antes de entregar o aceptar cualquier tarea | todos los subagentes | IMPLEMENTADA |
 | [`api-contract-review`](../../.claude/skills/api-contract-review/SKILL.md) | Proponer, revisar y versionar contratos de API | Antes de crear o cambiar un endpoint | backend-lead, frontend-lead, qa-reviewer | IMPLEMENTADA |
 | [`database-migration-review`](../../.claude/skills/database-migration-review/SKILL.md) | Revisar esquemas y migraciones: integridad, reversibilidad, riesgo destructivo | Antes de crear o aplicar una migración | backend-lead, backend-dev | IMPLEMENTADA (la herramienta depende de D-010) |
+| [`version-control`](../../.claude/skills/version-control/SKILL.md) | Commits atómicos, informe de commits, paquete de push, integración en `main` y hooks | Al cerrar cada aporte atómico y antes de cada push | backend-lead, frontend-lead, module-coordinator, backend-dev, frontend-dev | IMPLEMENTADA (D-026) |
 | `ai-tool-security-review` | Revisar herramientas del asistente: autorización, minimización, prompt injection | Fase 6 | — | PLANIFICADA (el prompt maestro §16.2 pide no crearla por anticipado) |
 
 ## Skills externas (nivel usuario, no versionadas en este repo)

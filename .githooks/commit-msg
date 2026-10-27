@@ -1,0 +1,14 @@
+#!/bin/sh
+# Protocolo de control de versiones (docs/agents/PROTOCOL.md §11): formato del mensaje.
+subject=$(head -n 1 "$1")
+case "$subject" in
+  Merge* | Revert*) exit 0 ;;
+esac
+if ! printf '%s\n' "$subject" | grep -Eq '^(feat|fix|docs|chore|refactor|test|perf)(\([a-z0-9-]+\))?: .{3,}'; then
+  echo "commit-msg: el asunto debe ser '<tipo>(<ámbito>): <resumen>' (tipos: feat fix docs chore refactor test perf)." >&2
+  exit 1
+fi
+if ! grep -Eq 'T-[0-9]{3}' "$1"; then
+  echo "commit-msg: el mensaje debe citar la tarea (T-NNN) en el asunto o en el cuerpo." >&2
+  exit 1
+fi

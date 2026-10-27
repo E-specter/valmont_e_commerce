@@ -25,6 +25,7 @@ Comercio electrónico de alta relojería mecánica (Valmont): catálogo, carrito
 3. No inventes endpoints, campos, reglas ni datos: marca `BLOCKED` y escala.
 4. Ejecuta las puertas de calidad y reporta `comando → resultado`. Sin evidencia, nada "pasa".
 5. Termina con el traspaso de `docs/agents/PROTOCOL.md` §5 y actualiza tu fila en `docs/agents/tasks.md` (escritura aditiva).
+6. Cada aporte atómico completo va en su propio commit (`<tipo>(<ámbito>): <resumen> (T-NNN)`), solo con tus archivos y comunicado en tu traspaso. Nunca `push`, `--no-verify` ni commits en `main` (`docs/agents/PROTOCOL.md` §11, skill `version-control`).
 
 ## Reglas no negociables
 
@@ -39,7 +40,7 @@ Comercio electrónico de alta relojería mecánica (Valmont): catálogo, carrito
 ## Skills (procedimientos)
 
 Viven en `.claude/skills/<nombre>/SKILL.md` y cualquier agente puede leerlas. Catálogo: `docs/skills/README.md`.
-`context-handoff` · `module-planning` · `backend-module-implementation` · `frontend-module-implementation` · `testing-and-quality-gates` · `api-contract-review` · `database-migration-review`
+`context-handoff` · `module-planning` · `backend-module-implementation` · `frontend-module-implementation` · `testing-and-quality-gates` · `api-contract-review` · `database-migration-review` · `version-control`
 
 ## Comandos
 
