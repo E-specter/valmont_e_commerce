@@ -14,7 +14,12 @@ import pytest
 from sqlalchemy import Engine, delete, insert, select, text
 from sqlalchemy.orm import Session
 
-from tests.inventory.inventory_helpers import add_product, consume_reservations, reserve_stock
+from tests.inventory.inventory_helpers import (
+    add_product,
+    consume_reservations,
+    release_reservations,
+    reserve_stock,
+)
 from valmont.modules.inventory.adapters.persistence import (
     InventoryItemRow,
     SqlProductPolicies,
@@ -28,6 +33,7 @@ from valmont.modules.inventory.domain import (
     InsufficientStock,
     OrderLine,
     ReservationExpired,
+    ReservationStatus,
     StockItem,
 )
 
@@ -78,7 +84,7 @@ def wait_until_blocked(engine: Engine, backend_pid: int) -> None:
             if waiting == "Lock":
                 return
             time.sleep(0.02)
-    pytest.fail("La segunda transacción nunca esperó el bloqueo de la primera.")
+    pytest.fail(f"La transacción {backend_pid} nunca llegó a esperar un bloqueo.")
 
 
 def active_reservations(engine: Engine, product_id: UUID) -> int:
@@ -191,3 +197,54 @@ def test_an_expired_reservation_stops_counting_and_its_unit_can_be_sold_again(
     in_transaction(db_engine, lambda s: consume_reservations(s)(on_time, now))
     with Session(db_engine) as session:
         assert session.get(InventoryItemRow, product_id).on_hand == 0  # type: ignore[union-attr]
+
+
+def test_consume_and_release_of_the_same_order_do_not_deadlock(
+    db_engine: Engine, stocked: Callable[[int], UUID]
+) -> None:
+    # I-1 de QA / INVENTORY-R12. Las líneas [B, A] dejan las reservas en orden físico B, A,
+    # distinto del de bloqueo (product_id, id). Un tercero retiene la reserva de A hasta ver
+    # esperando a Consume y después a Release; al soltarla, los dos deben terminar.
+    a, b = sorted((stocked(1), stocked(1)))
+    order_id = uuid4()
+    lines = [OrderLine(b, 1), OrderLine(a, 1)]
+    in_transaction(db_engine, lambda s: reserve_stock(s)(order_id, lines, datetime.now(UTC)))
+    pids: queue.Queue[int] = queue.Queue()
+
+    def reporting_pid(use_case: Callable[[Session], None]) -> Callable[[Session], None]:
+        def work(session: Session) -> None:
+            pids.put(session.scalars(text("SELECT pg_backend_pid()")).one())
+            use_case(session)
+
+        return work
+
+    consume = reporting_pid(lambda s: consume_reservations(s)(order_id, datetime.now(UTC)))
+    release = reporting_pid(lambda s: release_reservations(s)(order_id))
+    first_reservation = (
+        select(StockReservationRow.id).filter_by(order_id=order_id, product_id=a).with_for_update()
+    )
+
+    with db_engine.connect() as holder, ThreadPoolExecutor(2) as pool:
+        holder.execute(first_reservation)
+        try:
+            consuming = pool.submit(in_transaction, db_engine, consume)
+            wait_until_blocked(db_engine, pids.get(timeout=TIMEOUT))
+            releasing = pool.submit(in_transaction, db_engine, release)
+            wait_until_blocked(db_engine, pids.get(timeout=TIMEOUT))
+        finally:
+            holder.rollback()
+        consume_error = consuming.exception(TIMEOUT)
+        assert releasing.exception(TIMEOUT) is None
+    assert consume_error is None or isinstance(consume_error, ReservationExpired), consume_error
+
+    # Gana uno de los dos y el estado queda coherente: todo vendido o todo liberado.
+    with Session(db_engine) as session:
+        statuses = {r.status for r in SqlReservationRepository(session).for_order(order_id)}
+        stock = session.scalars(
+            select(InventoryItemRow.on_hand).where(InventoryItemRow.product_id.in_([a, b]))
+        ).all()
+        sales = session.scalars(select(StockMovementRow.id).filter_by(order_id=order_id)).all()
+    if consume_error is None:
+        assert (statuses, stock, len(sales)) == ({ReservationStatus.CONSUMED}, [0, 0], 2)
+    else:
+        assert (statuses, stock, len(sales)) == ({ReservationStatus.RELEASED}, [1, 1], 0)

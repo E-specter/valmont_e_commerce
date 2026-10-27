@@ -14,6 +14,7 @@ from valmont.modules.inventory.domain import (
     OrderLine,
     ProductPolicy,
     Reservation,
+    ReservationExpired,
     ReservationStatus,
     StockItem,
     StockMovement,
@@ -71,8 +72,8 @@ class ReservationRepository(Protocol):
         """Todas las reservas del pedido; lock=True las bloquea (FOR UPDATE)."""
         ...
 
-    def close_active(self, order_id: UUID, status: ReservationStatus) -> None:
-        """Pasa las reservas activas del pedido (vencidas o no) a `status`."""
+    def close(self, reservation_ids: Collection[UUID], status: ReservationStatus) -> None:
+        """Pasa exactamente esas reservas a `status`; quien llama ya las tiene bloqueadas."""
         ...
 
 
@@ -129,7 +130,7 @@ class ReserveStock:
 
 
 class ConsumeReservations:
-    """UC-INVENTORY-05: al pagar, convierte las reservas del pedido en ventas (R8)."""
+    """UC-INVENTORY-05: al pagar, convierte las reservas del pedido en ventas (R8, R11)."""
 
     def __init__(
         self,
@@ -142,13 +143,22 @@ class ConsumeReservations:
         self._movements = movements
 
     def __call__(self, order_id: UUID, now: datetime) -> None:
-        # Primero las reservas del pedido (frente a un Release simultáneo) y después el stock
-        # en orden de product_id, como ReserveStock.
+        # Primero las reservas del pedido, en el mismo orden que ReleaseReservations (R12), y
+        # después todo el stock implicado en orden de product_id, como ReserveStock (R4).
         consumed = to_consume(self._reservations.for_order(order_id, lock=True), now)
+        if not consumed:
+            return
+        product_ids = sorted({r.product_id for r in consumed})
+        on_hand = {p: _lock(self._stock, p).on_hand for p in product_ids}
+        # INVENTORY-R11: con el stock bloqueado y antes de escribir, on_hand debe cubrir todas
+        # las reservas vigentes, propias incluidas. Si no, otra transacción dio por vencida una
+        # de las nuestras y reservó esas unidades: pierde este pedido, que paga en el límite.
+        totals = self._reservations.active_totals(product_ids, now)
+        if any(on_hand[p] < totals.get(p, 0) for p in product_ids):
+            raise ReservationExpired
         for reservation in sorted(consumed, key=lambda r: r.product_id):
-            item = _lock(self._stock, reservation.product_id)
-            # StockItem rechaza un on_hand negativo: nunca se vende lo que no hay (RN-06).
-            after = StockItem(item.product_id, item.on_hand - reservation.quantity)
+            on_hand[reservation.product_id] -= reservation.quantity
+            after = StockItem(reservation.product_id, on_hand[reservation.product_id])
             self._stock.update(after)
             self._movements.add(
                 StockMovement(
@@ -159,8 +169,7 @@ class ConsumeReservations:
                     order_id=order_id,
                 )
             )
-        if consumed:
-            self._reservations.close_active(order_id, ReservationStatus.CONSUMED)
+        self._reservations.close([r.id for r in consumed], ReservationStatus.CONSUMED)
 
 
 class ReleaseReservations:
@@ -170,4 +179,8 @@ class ReleaseReservations:
         self._reservations = reservations
 
     def __call__(self, order_id: UUID) -> None:
-        self._reservations.close_active(order_id, ReservationStatus.RELEASED)
+        # Bloquea en el mismo orden que ConsumeReservations (R12): sin interbloqueo entre ambos.
+        reservations = self._reservations.for_order(order_id, lock=True)
+        active = [r.id for r in reservations if r.status == ReservationStatus.ACTIVE]
+        if active:
+            self._reservations.close(active, ReservationStatus.RELEASED)

@@ -7,7 +7,7 @@
 |---|---|---|---|---|
 | T-040 | SPEC de inventory | claude-leader | D-017, D-023, D-027 | DONE |
 | T-041 | Esquema `0005`, dominio, repositorios, settings y vista `product_availability` | backend-dev | T-026 | DONE (`84d60d8`; verificado por claude-leader: 597 unitarias + 182 integración) |
-| T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | IN_PROGRESS (ronda 2: B-1 e I-1 de qa-reviewer) |
+| T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | IN_REVIEW (ronda 2: B-1, I-1 y M-1 corregidos) |
 | T-043 | API de administración (stock, movimientos, settings) con auditoría | backend-dev | T-041 | BACKLOG |
 
 IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalog) consumirá la vista de T-041.
@@ -50,6 +50,44 @@ IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalo
 - Escalar si: la vista no puede expresar R2 de forma eficiente o hace falta tocar catalog.
 
 ## Traspasos
+
+#### Traspaso T-042 (ronda 2: B-1, I-1, M-1 de qa-reviewer) — 2026-10-27 — backend-dev
+1. Estado final: IN_REVIEW (revisan claude-leader y qa-reviewer).
+2. Cambios:
+   - B-1 (INVENTORY-R11): `ConsumeReservations` bloquea primero las reservas del pedido y comprueba `to_consume`. Después bloquea con `_lock` el stock de todos sus productos, sin duplicados y en orden de `product_id`. Con todo bloqueado, `active_totals` (reservas propias y ajenas) y, si algún `on_hand < total`, `ReservationExpired` antes de escribir. Solo entonces `update`, la `venta` por reserva y el cierre.
+   - I-1 (INVENTORY-R12): `ReleaseReservations` llama primero a `for_order(order_id, lock=True)`, en el mismo orden `(product_id, id)` que Consume, y cierra solo si hay activas.
+   - M-1: el puerto `close_active(order_id, status)` pasa a `close(reservation_ids, status)`; el adaptador hace `UPDATE … WHERE id IN (…)`. Consume cierra exactamente los ids de `consumed`, y Release los ids activos que devolvió `for_order`.
+   - Fakes nuevos en `test_application.py`, que antes no existía.
+3. Archivos modificados: `backend/src/valmont/modules/inventory/application.py`, `backend/src/valmont/modules/inventory/adapters/persistence.py`, `backend/tests/inventory/test_application.py` (nuevo), `backend/tests/inventory/test_reservations.py`, `backend/tests/inventory/test_concurrency.py` y este STATUS (fila de T-042 y traspaso). La SPEC no se ha tocado.
+4. Decisiones tomadas: ninguna; aplico R11 y R12 de la SPEC (7d8ba10).
+5. Pruebas ejecutadas → resultado observado (desde `backend/`):
+   - `uv run ruff format --check .` → 87 files already formatted.
+   - `uv run ruff check .` → All checks passed!
+   - `uv run pytest -q` → 621 passed, 199 deselected in 8.09s (+4 de `test_application.py`).
+   - `uv run pytest -m integration -q` → 199 passed, 621 deselected in 10.71s (+1 de B-1 en `test_reservations.py` y +1 de I-1 en `test_concurrency.py`).
+   - Capas: `grep -rnE "^(from|import) (fastapi|pydantic|sqlalchemy|httpx|supabase)" src/valmont/modules/*/domain* src/valmont/modules/*/application*` → sin salida (exit 1).
+   - `uv run alembic check` → No new upgrade operations detected.
+   - Repetición de `test_concurrency.py` cinco veces (`--keep-duplicates`) → 20 passed in 6.52s.
+   - Pruebas nuevas:
+     - B-1 unitaria con fakes: `ReservationExpired` sin `update`, sin movimientos y sin `close`.
+     - B-1 de integración, determinista: la secuencia de la sonda con on_hand 1 da `ReservationExpired`, on_hand sigue en 1, no hay `venta` y la reserva de O sigue `active`; después `Consume(X)` deja on_hand 0 y X `consumed`.
+     - M-1 unitarias: se cierran exactamente los ids consumidos o liberados, una sola vez, y no se tocan las reservas de otro pedido.
+     - Orden de bloqueo de Consume: `[A, B]`, cada producto una vez.
+     - I-1 con hilos: reservas en orden físico [B, A] y un tercero que retiene la de A hasta ver esperando (`pg_stat_activity`, `Lock`) a Consume y después a Release. Al soltarla, los dos terminan sin `DeadlockDetected`, y el estado queda coherente: todo `consumed` con on_hand 0 y 2 ventas, o todo `released` con on_hand 1 y 0 ventas.
+   - Mutaciones (cambio temporal y revertido; `MUTANTE` → 0 coincidencias):
+     - Sin la comprobación de R11 → fallan las dos pruebas de B-1 (unitaria e integración).
+     - Release sin `lock=True` → la de I-1 falla con `psycopg.errors.DeadlockDetected … while locking tuple … in relation "stock_reservations"`, el fallo que encontró QA.
+   - Limpieza: tras la suite, en `valmont_test` hay 0 productos `TST-INV-%`, 0 categorías `inventario-%` y 0 filas en las tablas de inventory, también después de la ejecución con el mutante que falló.
+   - Incidencia: a mitad de la tarea, Postgres local dejó de aceptar conexiones (`connection timeout expired`; TCP a 127.0.0.1:54322 → 10061, conexión rechazada). No toqué Docker ni la CLI. Al rato el puerto volvió solo (TCP → 0), y todas las pruebas de arriba se ejecutaron después.
+6. Pruebas no ejecutadas y motivo: ninguna de las obligatorias.
+7. Dependencias pendientes: las de la ronda 1 (orders valida productos y usa un único reloj; T-043).
+8. Riesgos conocidos:
+   - En la prueba de I-1 gana Consume porque espera primero. La prueba acepta los dos ganadores, pero en la práctica solo ejercita ese caso.
+   - Postgres local se cayó una vez durante la tarea.
+9. Preguntas que requieren decisión: I-5 e I-6 siguen abiertas (ronda 1).
+10. Documentación actualizada: este STATUS.
+11. Siguiente acción recomendada: que qa-reviewer vuelva a pasar su sonda de B-1 y su prueba de I-1 sobre este commit.
+12. Commits: el que contiene este traspaso, `fix(inventory): consumo en el límite del vencimiento y orden de bloqueo con release (T-042)` (el hash va en el traspaso al Leader).
 
 #### Traspaso T-042 — 2026-10-27 — backend-dev
 1. Estado final: IN_REVIEW (revisan claude-leader y qa-reviewer).

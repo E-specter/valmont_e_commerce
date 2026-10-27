@@ -196,6 +196,27 @@ def test_consume_of_an_expired_reservation_fails_without_changes(db_session: Ses
     assert SqlMovementRepository(db_session).list_recent(a, 50) == []
 
 
+def test_consume_at_the_expiry_edge_loses_to_the_order_that_reserved_validly(
+    db_session: Session,
+) -> None:
+    # B-1 / INVENTORY-R11, la secuencia de la sonda de QA con on_hand 1: X reserva cuando la
+    # reserva de O ya venció (T0+30m+1s) y O paga con un reloj un segundo antes del límite.
+    a = product(db_session, 1)
+    o, x, t0 = uuid4(), uuid4(), db_now(db_session)
+    reserve_stock(db_session)(o, [OrderLine(a, 1)], t0)
+    reserve_stock(db_session)(x, [OrderLine(a, 1)], t0 + timedelta(minutes=30, seconds=1))
+
+    with pytest.raises(ReservationExpired):
+        consume_reservations(db_session)(o, t0 + timedelta(minutes=29, seconds=59))
+
+    assert on_hand(db_session, a) == 1
+    assert SqlMovementRepository(db_session).list_recent(a, 50) == []
+    assert statuses(db_session, o) == [ReservationStatus.ACTIVE]
+    consume_reservations(db_session)(x, t0 + timedelta(minutes=30, seconds=2))
+    assert on_hand(db_session, a) == 0
+    assert statuses(db_session, x) == [ReservationStatus.CONSUMED]
+
+
 def test_release_frees_the_stock_and_is_idempotent(db_session: Session) -> None:
     a = product(db_session, 1)
     order_id = reserve(db_session, (a, 1))

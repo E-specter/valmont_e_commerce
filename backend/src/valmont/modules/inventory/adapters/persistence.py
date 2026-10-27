@@ -271,10 +271,10 @@ class SqlReservationRepository:
         stmt = stmt.execution_options(populate_existing=True)
         return [_reservation(row) for row in self._session.scalars(stmt)]
 
-    def close_active(self, order_id: UUID, status: ReservationStatus) -> None:
+    def close(self, reservation_ids: Collection[UUID], status: ReservationStatus) -> None:
         stmt = (
             update(StockReservationRow)
-            .filter_by(order_id=order_id, status=ReservationStatus.ACTIVE)
+            .where(StockReservationRow.id.in_(reservation_ids))
             .values(status=status)
         )
         self._session.execute(stmt.execution_options(synchronize_session=False))
