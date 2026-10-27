@@ -6,7 +6,7 @@
 Los visitantes deben encontrar y conocer cada reloj de Valmont con precisión, y el administrador debe mantener el catálogo.
 
 - **Incluye:** productos, categorías planas, listas de valores de los atributos filtrables, ficha técnica ordenada, política de venta y plazo, imágenes, búsqueda sin tildes, filtros, orden, paginación, productos relacionados y la administración de todo ello con auditoría.
-- **No incluye:** el cálculo del estado de disponibilidad (depende de `inventory`; T-030), el precio con promoción (`promotions`) y la interfaz (frontend).
+- **No incluye:** el cálculo del estado de disponibilidad, que hace inventory en la vista `app.product_availability`; catalog solo la lee (T-030). Tampoco el precio con promoción (`promotions`) ni la interfaz (frontend).
 
 ## 2. Actores y permisos
 
@@ -99,7 +99,7 @@ Esquemas comunes (todas las fechas en UTC ISO 8601; `Money` = `{amount: int, cur
  "case_diameter_mm": 38.0,                                  // número (float) o null
  "water_resistance_m": 50,                                  // o null
  "main_image": {"id": "…", "url": "https://…", "alt": "…"}, // nunca null en publicados
- "availability": {…}}                                       // opcional hasta T-030
+ "availability": {…}}                                       // obligatorio desde T-030; nunca expone cantidades
 // ProductDetail = ProductSummary + {"description": "texto plano", "specs": [{"label": "Calibre", "value": "VM-01"}],
 //                                   "images": [ProductImage] (≥ 1), "related": [ProductSummary] (0–4)}
 ```
@@ -143,7 +143,7 @@ Parámetros de `GET /products`: `q` (≤ 100; vacío = sin búsqueda) · `catego
 
 - **Consume:** `identity` (`require_admin`), `audit` (`AuditRecorder`, `AuditRecorderDep`), Supabase Storage (D-019) mediante un puerto `ImageStorage`.
 - **Expone (para cart, orders y assistant):** consulta de productos publicados por id con precio y política de venta.
-- **Disponibilidad (T-030):** el filtro `available` y la paginación necesitan el stock en la misma consulta del listado. Se resolverá con una vista de lectura de inventory que catalog consulta en el mismo SQL (no producto a producto); se especifica en la SPEC de inventory. Umbral de "Últimas unidades": por decidir (propuesta: 2).
+- **Disponibilidad (T-030):** el filtro `available` y la paginación necesitan el stock en la misma consulta del listado. Se resolverá con una vista de lectura de inventory que catalog consulta en el mismo SQL (no producto a producto); se especifica en la SPEC de inventory. Umbral de "Últimas unidades": 2, configurable por el admin (D-027, INVENTORY-R3).
 
 ## 9. Seguridad
 

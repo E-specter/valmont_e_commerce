@@ -10,12 +10,46 @@
 | T-027 | API pública: listado con filtros, búsqueda, orden y paginación; ficha con relacionados; categorías y atributos (incluye T-019) | backend-dev | T-026 | DONE (verificado por claude-leader: 355 unitarias + 94 integración) |
 | T-028 | API de administración: productos, publicación, categorías y listas de valores, con auditoría | backend-dev + qa-reviewer | T-026, T-021 | DONE (`6d66054`; qa-reviewer APROBADO en la re-verificación) |
 | T-029 | Activar Supabase Storage (puerta Docker) e imágenes: subida, orden y retirada | claude-leader + backend-dev | T-028 | DONE (`b86a17a`; verificado por claude-leader: 545 unitarias + 140 integración, Storage real) |
-| T-030 | Conectar la disponibilidad con inventory (`AvailabilityReader`) | backend-dev | módulo inventory | BACKLOG |
+| T-030 | Disponibilidad real en la API pública desde la vista de inventory, filtro `available` y stock de demostración en las semillas | backend-dev + qa-reviewer | inventory (T-041) | READY |
 | T-031 | Semillas de demostración para `dev` (aprobadas por el usuario, P-CATALOG-1) | backend-dev | T-029 | DONE (`3eff7f9`; `Actor` nulo para el sistema corregido por claude-leader) |
 
 IDs reservados del módulo: T-025–T-039 (libres: T-032–T-039).
 
 ## Paquetes de tarea
+
+### T-030 — Disponibilidad desde inventory
+- **Objetivo:** la API pública de catalog muestra la disponibilidad real de cada reloj (Disponible, Últimas unidades, Agotado, Bajo pedido) y filtra por ella, leyendo la vista de inventory en la misma consulta.
+- **Responsable:** backend-dev (verifica qa-reviewer, acepta claude-leader) · Módulo: catalog · Requisitos: RF02.03, RF02.05, RF02.08 · Decisiones: D-023, D-027, D-028 · **Entrega:** preparada sin commit, con el mensaje propuesto (PROTOCOL §11.2).
+- **Leer:**
+  - Catalog SPEC: §7 (esquema `Availability`, `ProductSummary.availability`, parámetro `available=true`), §8 (Disponibilidad) y CA-CATALOG-09.
+  - Inventory SPEC: §4, INVENTORY-R2 (los estados).
+  - La vista `app.product_availability` en `backend/migrations/versions/0005*.py`.
+  - `docs/modules.md` §3, excepción (3): catalog lee la vista en SQL, nunca las tablas de inventory, y no importa `adapters` ni `domain` de inventory.
+- **Puede modificar:**
+  - `backend/src/valmont/modules/catalog/**`
+  - `backend/src/valmont/scripts/seed_dev.py`
+  - `backend/tests/catalog/**`
+  - tu traspaso en este STATUS.
+- **Resultado esperado:**
+  1. `ProductSummary` y `ProductDetail`, incluidos los `related`, llevan `availability: {status, lead_time_days}` **obligatorio**. Sale de unir la vista en el mismo SQL, nunca producto a producto.
+     - `lead_time_days` solo cuando `status = on_request`; si no, `null`. La vista devuelve siempre el de producto, así que hay que filtrarlo.
+     - La columna `available` de la vista **nunca** sale en la API pública: el visitante no ve cantidades (inventory SPEC §2).
+  2. `available=true` en `GET /products` deja fuera solo `out_of_stock` (incluye `on_request`) y combina con los demás filtros, la paginación y el `total`. Hoy se ignora en silencio.
+  3. El OpenAPI declara `availability` como obligatorio, con `status` como enum de 4 valores y `lead_time_days` como entero o `null`.
+  4. **Semillas:** stock de demostración para que aparezcan los cuatro estados entre los 12 productos. Se fija con el caso de uso público de inventory `RecordMovement` (`ajuste_inventario` con la nota "Semilla de demostración" y el actor del sistema), y **solo si el producto aún no tiene fila de stock**: así el script sigue siendo idempotente y no pisa lo que el admin haya cambiado.
+- **Criterios:**
+  - CA-CATALOG-09 por HTTP contra `valmont_test`, con una tabla de casos:
+    - `stock` con disponible > 2 → `in_stock`, y con 1–2 → `low_stock`;
+    - `stock` con 0 → `out_of_stock`;
+    - `backorder` con 0 → `on_request` con `lead_time_days`, y con stock → `in_stock` con `null`;
+    - `made_to_order` → `on_request`;
+    - una reserva activa que reduce lo disponible cuenta, y una vencida no.
+  - Filtro `available` con paginación y `total` correctos.
+  - Detalle y `related` con `availability`.
+  - Ninguna respuesta contiene cantidades.
+  - Las semillas son idempotentes: si se ejecutan dos veces, no hay movimientos nuevos.
+- **Pruebas obligatorias:** las escribe backend-dev; qa-reviewer ejecuta format, lint, `pytest -q`, `pytest -m integration -q`, capas, `alembic check` y OpenAPI (D-028).
+- **Estado inicial:** READY · IDs reservados: ninguno (tarea hoja).
 
 ### T-029 — Imágenes de producto (Supabase Storage)
 - Objetivo: el administrador sube, corrige el `alt`, ordena y retira imágenes de un producto, que se guardan en el bucket `products` y se sirven por su URL pública (D-019).
