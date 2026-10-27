@@ -57,6 +57,7 @@ navegador ──HTTPS──► proxy inverso (por decidir en M1)
 | 9 | Comprobar | `GET /health` → 200; registro de prueba; `GET /api/v1/identity/me` → 200 | 🧭 |
 | 10 | Copias de seguridad | `pg_dump` diario a un disco distinto (Linux: `cron`; Windows: Programador de tareas) y una restauración probada antes de abrir al público (RNF12) | 🧭 |
 | 11 | Actualizar | `git pull` → `docker compose … up -d --build` → paso 6 | 🧭 |
+| 13 | Proxy y subida de imágenes | El proxy inverso debe conservar `Content-Length` en las subidas; el backend rechaza con 413 los cuerpos sin esa cabecera (T-029) | 🧭 |
 | 12 | Rotar o revocar claves de firma de Auth | Tras revocar una clave en Supabase, reiniciar el backend: cachea las claves públicas por `kid` sin caducidad (D-018) | 🧭 |
 
 ## D. Windows 11 frente a Linux para el lanzamiento
