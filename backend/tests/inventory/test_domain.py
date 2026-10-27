@@ -1,4 +1,5 @@
-from uuid import uuid4
+from datetime import UTC, datetime, timedelta
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -9,11 +10,19 @@ from valmont.modules.inventory.domain import (
     InvalidMovement,
     InventorySettings,
     MovementKind,
+    OnRequestLine,
+    OrderLine,
+    ProductPolicy,
+    Reservation,
+    ReservationExpired,
+    ReservationStatus,
     StockItem,
     StockMovement,
     StockReserved,
     admin_movement,
     availability_status,
+    plan_reservations,
+    to_consume,
 )
 
 IN_STOCK = AvailabilityStatus.IN_STOCK
@@ -173,3 +182,109 @@ def test_stock_movement_mirrors_the_table_checks(changes: dict[str, object]) -> 
     }
     with pytest.raises(InvalidMovement):
         StockMovement(**fields)  # type: ignore[arg-type]
+
+
+A, B, C = sorted(uuid4() for _ in range(3))
+NOW = datetime(2026, 10, 27, 12, 0, tzinfo=UTC)
+POLICIES = {
+    A: ProductPolicy("stock"),
+    B: ProductPolicy("backorder", lead_time_days=21),
+    C: ProductPolicy("made_to_order", lead_time_days=45),
+}
+
+
+@pytest.mark.parametrize(
+    ("lines", "available", "reserve", "on_request"),
+    [
+        ([(A, 2)], {A: 2}, [(A, 2)], []),
+        ([(B, 2)], {B: 2}, [(B, 2)], []),  # backorder con disponible: reserva (R10)
+        ([(B, 3)], {B: 2}, [], [(B, 3, 21)]),  # sin bastante: la línea entera bajo pedido
+        ([(C, 1)], {}, [], [(C, 1, 45)]),  # made_to_order nunca reserva (RN-16)
+        ([(A, 1), (B, 5), (C, 2)], {A: 1, B: 0}, [(A, 1)], [(B, 5, 21), (C, 2, 45)]),
+        ([(A, 1), (A, 1)], {A: 2}, [(A, 1), (A, 1)], []),  # líneas repetidas se acumulan
+        ([(B, 1), (B, 1)], {B: 1}, [(B, 1)], [(B, 1, 21)]),
+    ],
+)
+def test_plan_reservations_follows_inventory_r10(
+    lines: list[tuple[UUID, int]],
+    available: dict[UUID, int],
+    reserve: list[tuple[UUID, int]],
+    on_request: list[tuple[UUID, int, int]],
+) -> None:
+    planned = plan_reservations([OrderLine(*line) for line in lines], POLICIES, available)
+
+    assert planned == (
+        [OrderLine(*line) for line in reserve],
+        [OnRequestLine(*line) for line in on_request],
+    )
+
+
+@pytest.mark.parametrize(
+    ("lines", "available", "short"),
+    [
+        ([(A, 3)], {A: 2}, (A,)),
+        ([(A, 1)], {}, (A,)),  # sin fila de stock: disponible 0
+        ([(A, 1), (A, 2)], {A: 2}, (A,)),
+        ([(A, 1), (B, 9), (C, 1)], {A: 0, B: 0}, (A,)),  # todo o nada (R4)
+    ],
+)
+def test_plan_reservations_fails_whole_with_the_short_products(
+    lines: list[tuple[UUID, int]], available: dict[UUID, int], short: tuple[UUID, ...]
+) -> None:
+    with pytest.raises(InsufficientStock) as exc:
+        plan_reservations([OrderLine(*line) for line in lines], POLICIES, available)
+
+    assert exc.value.product_ids == short
+
+
+def test_plan_reservations_lists_every_short_product_once() -> None:
+    other = uuid4()
+    policies = {**POLICIES, other: ProductPolicy("stock")}
+    lines = [OrderLine(other, 1), OrderLine(A, 5), OrderLine(other, 1)]
+
+    with pytest.raises(InsufficientStock) as exc:
+        plan_reservations(lines, policies, {A: 1})
+
+    assert exc.value.product_ids == (other, A)
+
+
+@pytest.mark.parametrize("quantity", [0, -1])
+def test_order_line_and_reservation_quantities_are_positive(quantity: int) -> None:
+    with pytest.raises(ValueError):
+        OrderLine(A, quantity)
+    with pytest.raises(ValueError):
+        Reservation(uuid4(), A, uuid4(), quantity, NOW)
+
+
+def reservation(status: ReservationStatus, minutes: int = 30) -> Reservation:
+    return Reservation(uuid4(), A, uuid4(), 1, NOW + timedelta(minutes=minutes), status)
+
+
+def test_to_consume_returns_the_active_reservations() -> None:
+    active = [reservation(ReservationStatus.ACTIVE), reservation(ReservationStatus.ACTIVE, 1)]
+
+    assert to_consume(active, NOW) == active
+
+
+@pytest.mark.parametrize(
+    "reservations",
+    [[], [reservation(ReservationStatus.CONSUMED), reservation(ReservationStatus.CONSUMED)]],
+)
+def test_to_consume_is_idempotent(reservations: list[Reservation]) -> None:
+    # Sin reservas (solo líneas bajo pedido) o ya consumidas: nada que hacer.
+    assert to_consume(reservations, NOW) == []
+
+
+@pytest.mark.parametrize(
+    "reservations",
+    [
+        [reservation(ReservationStatus.ACTIVE), reservation(ReservationStatus.ACTIVE, 0)],
+        [reservation(ReservationStatus.ACTIVE, -5)],
+        [reservation(ReservationStatus.RELEASED)],  # liberada: ya no respalda el pedido
+    ],
+)
+def test_to_consume_fails_if_any_reservation_is_no_longer_valid(
+    reservations: list[Reservation],
+) -> None:
+    with pytest.raises(ReservationExpired):
+        to_consume(reservations, NOW)

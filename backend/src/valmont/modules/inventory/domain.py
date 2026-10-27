@@ -1,4 +1,5 @@
 import unicodedata
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -16,7 +17,16 @@ class InvalidMovement(ValueError):
 
 
 class InsufficientStock(Exception):
-    """El movimiento dejaría on_hand por debajo de 0 (409 insufficient_stock, INVENTORY-R6)."""
+    """Sin stock suficiente: un movimiento dejaría on_hand bajo 0 (409 insufficient_stock,
+    INVENTORY-R6) o un pedido no se puede reservar (UC-INVENTORY-04, con sus productos)."""
+
+    def __init__(self, product_ids: tuple[UUID, ...] = ()) -> None:
+        super().__init__(product_ids)
+        self.product_ids = product_ids
+
+
+class ReservationExpired(Exception):
+    """Alguna reserva del pedido ya no lo respalda: venció o se liberó (INVENTORY-R8)."""
 
 
 class StockReserved(Exception):
@@ -37,6 +47,14 @@ class MovementKind(StrEnum):  # INVENTORY-R5 (D-027)
     DEVOLUCION = "devolucion"
     VENTA = "venta"  # solo el sistema, al consumir reservas
 
+
+class ReservationStatus(StrEnum):
+    ACTIVE = "active"
+    CONSUMED = "consumed"
+    RELEASED = "released"
+
+
+RESERVATION_MINUTES = 30  # RN-06, D-017
 
 _NOTE_REQUIRED = (MovementKind.AJUSTE_INVENTARIO, MovementKind.MERMA)
 
@@ -149,3 +167,88 @@ def admin_movement(
     return StockMovement(
         stock.product_id, kind, on_hand_after - stock.on_hand, on_hand_after, note, actor_id
     )
+
+
+def _check_quantity(quantity: int) -> None:
+    if quantity <= 0:
+        raise ValueError("La cantidad debe ser positiva.")
+
+
+@dataclass(frozen=True)
+class OrderLine:
+    product_id: UUID
+    quantity: int
+
+    def __post_init__(self) -> None:
+        _check_quantity(self.quantity)
+
+
+@dataclass(frozen=True)
+class ProductPolicy:
+    """order_policy y lead_time_days de un producto de catalog (D-023)."""
+
+    order_policy: str
+    lead_time_days: int | None = None
+
+
+@dataclass(frozen=True)
+class OnRequestLine:
+    """Línea que va bajo pedido, sin reserva (RN-16, INVENTORY-R10)."""
+
+    product_id: UUID
+    quantity: int
+    lead_time_days: int | None
+
+
+@dataclass(frozen=True)
+class Reservation:
+    id: UUID
+    product_id: UUID
+    order_id: UUID
+    quantity: int
+    expires_at: datetime
+    status: ReservationStatus = ReservationStatus.ACTIVE
+
+    def __post_init__(self) -> None:
+        _check_quantity(self.quantity)
+
+
+def plan_reservations(
+    lines: list[OrderLine], policies: Mapping[UUID, ProductPolicy], available: Mapping[UUID, int]
+) -> tuple[list[OrderLine], list[OnRequestLine]]:
+    """INVENTORY-R10 para un pedido: (líneas que reservan, líneas bajo pedido).
+
+    `available` es el disponible (R1) de cada producto bloqueado; sin entrada = 0. Las líneas
+    del mismo producto se descuentan en orden. Todo o nada (R4): si alguna línea `stock` no
+    alcanza, InsufficientStock con cada producto que falta, una vez y en orden de aparición.
+    """
+    left = dict(available)
+    reserve: list[OrderLine] = []
+    on_request: list[OnRequestLine] = []
+    short: dict[UUID, None] = {}
+    for line in lines:
+        policy = policies[line.product_id]
+        stocked = left.get(line.product_id, 0)
+        if policy.order_policy != MADE_TO_ORDER and stocked >= line.quantity:
+            left[line.product_id] = stocked - line.quantity
+            reserve.append(line)
+        elif policy.order_policy in (MADE_TO_ORDER, BACKORDER):
+            on_request.append(OnRequestLine(line.product_id, line.quantity, policy.lead_time_days))
+        else:
+            short[line.product_id] = None
+    if short:
+        raise InsufficientStock(tuple(short))
+    return reserve, on_request
+
+
+def to_consume(reservations: list[Reservation], now: datetime) -> list[Reservation]:
+    """Las reservas activas del pedido que hay que consumir (UC-INVENTORY-05).
+
+    Ninguna (solo líneas bajo pedido) o ya consumidas: lista vacía (idempotente). Si alguna
+    activa venció (INVENTORY-R8) o se liberó, ReservationExpired y no se toca nada.
+    """
+    active = [r for r in reservations if r.status == ReservationStatus.ACTIVE]
+    released = any(r.status == ReservationStatus.RELEASED for r in reservations)
+    if released or any(r.expires_at <= now for r in active):
+        raise ReservationExpired
+    return active

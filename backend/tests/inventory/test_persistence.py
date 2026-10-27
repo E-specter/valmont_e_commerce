@@ -2,15 +2,15 @@
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import timedelta
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import event, func, insert, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from tests.inventory.inventory_helpers import LEAD_TIME_DAYS, add_product, add_reservation
 from valmont.modules.inventory.adapters.persistence import (
     InventoryItemRow,
     InventorySettingsRow,
@@ -37,48 +37,6 @@ IN_STOCK = AvailabilityStatus.IN_STOCK
 LOW_STOCK = AvailabilityStatus.LOW_STOCK
 OUT_OF_STOCK = AvailabilityStatus.OUT_OF_STOCK
 ON_REQUEST = AvailabilityStatus.ON_REQUEST
-LEAD_TIME_DAYS = 21
-
-
-def add_product(session: Session, order_policy: str = "stock") -> UUID:
-    """Producto mínimo en app.products, por SQL: inventory no usa el código de catalog."""
-    category_id, product_id, tag = uuid4(), uuid4(), uuid4().hex[:8]
-    session.execute(
-        text("INSERT INTO app.categories (id, slug, name) VALUES (:id, :slug, 'Inventario')"),
-        {"id": category_id, "slug": f"inventario-{tag}"},
-    )
-    session.execute(
-        text(
-            "INSERT INTO app.products (id, sku, slug, name, description, category_id,"
-            " price_cents, order_policy, lead_time_days) VALUES (:id, :sku, :slug,"
-            " 'Reloj de prueba', 'Reloj ficticio.', :category_id, 100000, :policy, :lead)"
-        ),
-        {
-            "id": product_id,
-            "sku": f"TST-INV-{tag}",
-            "slug": f"inventario-{tag}",
-            "category_id": category_id,
-            "policy": order_policy,
-            "lead": None if order_policy == "stock" else LEAD_TIME_DAYS,
-        },
-    )
-    return product_id
-
-
-def add_reservation(
-    session: Session, product_id: UUID, quantity: int, status: str = "active", minutes: int = 30
-) -> None:
-    """Reserva que vence dentro de `minutes` minutos (en el pasado si es negativo)."""
-    session.execute(
-        insert(StockReservationRow).values(
-            id=uuid4(),
-            product_id=product_id,
-            order_id=uuid4(),
-            quantity=quantity,
-            status=status,
-            expires_at=func.now() + timedelta(minutes=minutes),
-        )
-    )
 
 
 # CA-INVENTORY-05: (política, on_hand o None sin fila, reservas (cantidad, estado, minutos),

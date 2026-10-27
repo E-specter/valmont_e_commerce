@@ -1,3 +1,4 @@
+from collections.abc import Collection
 from dataclasses import asdict, replace
 from datetime import datetime
 from uuid import UUID
@@ -29,6 +30,9 @@ from valmont.modules.inventory.domain import (
     AvailabilityStatus,
     InventorySettings,
     MovementKind,
+    ProductPolicy,
+    Reservation,
+    ReservationStatus,
     StockItem,
     StockMovement,
 )
@@ -36,9 +40,16 @@ from valmont.shared.db import Base
 
 # Tablas de la SPEC inventory §6. Solo las escribe inventory.
 
-# app.products es de catalog: aquí solo se referencia su id (FK) y se lee en lock().
+# app.products es de catalog: aquí solo se referencia su id (FK) y se leen las tres columnas
+# que también lee la vista.
 _PRODUCT_ID = "app.products.id"
-_products = table("products", column("id", Uuid), schema="app")
+_products = table(
+    "products",
+    column("id", Uuid),
+    column("order_policy", Text),
+    column("lead_time_days", Integer),
+    schema="app",
+)
 
 # Contrato de lectura para catalog (SPEC §6, migración 0005). Fuera de Base.metadata: es una
 # vista, y autogenerate la tomaría por una tabla que falta.
@@ -216,6 +227,69 @@ class SqlSettingsRepository:
             .values(low_stock_threshold=settings.low_stock_threshold, updated_at=func.now())
         )
         self._session.execute(stmt.execution_options(synchronize_session=False))
+
+
+def _reservation(row: StockReservationRow) -> Reservation:
+    return Reservation(
+        id=row.id,
+        product_id=row.product_id,
+        order_id=row.order_id,
+        quantity=row.quantity,
+        expires_at=row.expires_at,
+        status=ReservationStatus(row.status),
+    )
+
+
+class SqlReservationRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(self, reservation: Reservation) -> None:
+        self._session.execute(insert(StockReservationRow).values(**asdict(reservation)))
+
+    def active_totals(self, product_ids: Collection[UUID], now: datetime) -> dict[UUID, int]:
+        # Una sola sentencia para todos los productos, ya bloqueados por quien llama (R4).
+        stmt = (
+            select(StockReservationRow.product_id, func.sum(StockReservationRow.quantity))
+            .where(
+                StockReservationRow.product_id.in_(product_ids),
+                StockReservationRow.status == ReservationStatus.ACTIVE,
+                StockReservationRow.expires_at > now,
+            )
+            .group_by(StockReservationRow.product_id)
+        )
+        return {product_id: int(total) for product_id, total in self._session.execute(stmt)}
+
+    def for_order(self, order_id: UUID, lock: bool = False) -> list[Reservation]:
+        stmt = (
+            select(StockReservationRow)
+            .filter_by(order_id=order_id)
+            .order_by(StockReservationRow.product_id, StockReservationRow.id)
+        )
+        if lock:
+            stmt = stmt.with_for_update()
+        stmt = stmt.execution_options(populate_existing=True)
+        return [_reservation(row) for row in self._session.scalars(stmt)]
+
+    def close_active(self, order_id: UUID, status: ReservationStatus) -> None:
+        stmt = (
+            update(StockReservationRow)
+            .filter_by(order_id=order_id, status=ReservationStatus.ACTIVE)
+            .values(status=status)
+        )
+        self._session.execute(stmt.execution_options(synchronize_session=False))
+
+
+class SqlProductPolicies:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def get(self, product_ids: Collection[UUID]) -> dict[UUID, ProductPolicy]:
+        stmt = select(_products).where(_products.c.id.in_(product_ids))
+        return {
+            row.id: ProductPolicy(row.order_policy, row.lead_time_days)
+            for row in self._session.execute(stmt)
+        }
 
 
 class SqlAvailabilityReader:

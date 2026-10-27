@@ -7,7 +7,7 @@
 |---|---|---|---|---|
 | T-040 | SPEC de inventory | claude-leader | D-017, D-023, D-027 | DONE |
 | T-041 | Esquema `0005`, dominio, repositorios, settings y vista `product_availability` | backend-dev | T-026 | DONE (`84d60d8`; verificado por claude-leader: 597 unitarias + 182 integración) |
-| T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | IN_PROGRESS |
+| T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | IN_REVIEW |
 | T-043 | API de administración (stock, movimientos, settings) con auditoría | backend-dev | T-041 | BACKLOG |
 
 IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalog) consumirá la vista de T-041.
@@ -42,6 +42,52 @@ IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalo
 
 ## Traspasos
 
+#### Traspaso T-042 — 2026-10-27 — backend-dev
+1. Estado final: IN_REVIEW (revisan claude-leader y qa-reviewer).
+2. Cambios:
+   - Dominio:
+     - `Reservation`, `ReservationStatus`, `RESERVATION_MINUTES = 30`, `OrderLine` y `ProductPolicy`.
+     - `OnRequestLine` y `ReservationExpired`. `InsufficientStock` lleva ahora `product_ids`.
+     - `plan_reservations` (R10 + todo o nada): `made_to_order` nunca reserva; `backorder` reserva si alcanza y, si no, la línea entera va bajo pedido; una línea `stock` que no alcanza hace fallar el pedido con todos los productos que faltan. Las líneas repetidas de un producto se descuentan en orden.
+     - `to_consume` (R8): lista vacía si no hay reservas o ya se consumieron. Si alguna activa venció o alguna está liberada, `ReservationExpired`.
+   - Casos de uso en `application.py`. No hacen commit: corren en la transacción de orders.
+     - `ReserveStock(order_id, lines, now) → ReservedOrder(reservations, on_request)`: lee las políticas y bloquea con `lock()` las filas de los productos no `made_to_order` en orden de `product_id`. Después suma las reservas vigentes de todos en **una** sentencia, planifica e inserta las reservas, que vencen a `now + 30 min`.
+     - `ConsumeReservations(order_id, now)`: primero bloquea las reservas del pedido (`FOR UPDATE`) y luego el stock en orden de `product_id`. Descuenta `on_hand` y registra un movimiento `venta` por reserva (con `order_id`); después marca las reservas `consumed`.
+     - `ReleaseReservations(order_id)`: activas → `released`.
+   - Adaptadores: `SqlReservationRepository` (`add`, `active_totals`, `for_order(lock)`, `close_active`) y `SqlProductPolicies`, que lee de `app.products` solo `id`, `order_policy` y `lead_time_days`, las mismas columnas que la vista. Sin migraciones.
+3. Archivos modificados:
+   - `backend/src/valmont/modules/inventory/{domain,application}.py` y `adapters/persistence.py`.
+   - `backend/tests/inventory/test_domain.py`, `test_persistence.py` (los ayudantes pasan al módulo nuevo), `inventory_helpers.py` (nuevo), `test_reservations.py` (nuevo) y `test_concurrency.py` (nuevo).
+   - Este STATUS: fila de T-042, traspaso e I-5…I-8.
+4. Decisiones tomadas: ninguna nueva. Interpretaciones en I-5…I-8.
+5. Pruebas ejecutadas → resultado observado (desde `backend/`):
+   - Línea base: `uv run pytest -q` → 597 passed, 182 deselected; `uv run pytest -m integration -q` → 182 passed, 597 deselected.
+   - `uv run pytest -q tests/inventory/test_domain.py` → antes del dominio, 1 error de colección (rojo esperado); después, 69 passed.
+   - `uv run ruff format --check .` → 86 files already formatted.
+   - `uv run ruff check .` → All checks passed!
+   - `uv run pytest -q` → 617 passed, 197 deselected in 8.38s.
+   - `uv run pytest -m integration -q` → 197 passed, 617 deselected in 12.80s. Incluye las 12 de `test_reservations.py` (CA-03, CA-04, todo o nada, vencida que no cuenta, idempotencias, liberada que no se cobra) y las 3 de `test_concurrency.py`.
+   - Concurrencia (`test_concurrency.py`; cada transacción en su conexión, con commit y borrado al final):
+     - (a) Dos pedidos por la última unidad. La segunda transacción se lanza mientras la primera retiene su bloqueo, y la prueba espera a verla en `pg_stat_activity` con `wait_event_type = 'Lock'` → exactamente una reserva; la otra recibe `InsufficientStock((product_id,))`.
+     - (b) Pedidos A+B y B+A en hilos, con una barrera tras el primer bloqueo de cada uno → los dos reservan sin interbloqueo.
+     - (c) Una reserva de hace 31 min sin liberar → otro pedido reserva la unidad; consumir la vencida da `ReservationExpired` y consumir la nueva deja `on_hand` 0. Va en conexiones separadas, secuencial: el vencimiento no depende del entrelazado.
+   - Pruebas de mutación (cambio temporal y revertido; `grep MUTANTE` → nada):
+     - Bloquear en el orden de las líneas en vez de ordenado → (b) falla con `psycopg.errors.DeadlockDetected`.
+     - Quitar `FOR UPDATE` de `lock()` → (a) falla ("La segunda transacción nunca esperó el bloqueo de la primera").
+   - Limpieza: tras la suite, en `valmont_test` hay 0 productos `TST-INV-%`, 0 categorías `inventario-%` y 0 filas en `inventory_items`, `stock_reservations` y `stock_movements`.
+   - Capas: `grep -rnE "^(from|import) (fastapi|pydantic|sqlalchemy|httpx|supabase)" src/valmont/modules/*/domain* src/valmont/modules/*/application*` → sin salida.
+   - `uv run alembic check` → No new upgrade operations detected; `uv run alembic current` → 0005 (head).
+   - Incidencia: una ejecución intermedia de `pytest -m integration -q tests/inventory` falló en la preparación (41 errors in 53.94s, `pytest.fail` del fixture `alembic_config`; lo más probable, un corte momentáneo de Supabase local). Repetida sin cambios → 41 passed, y la suite completa posterior pasó.
+6. Pruebas no ejecutadas y motivo:
+   - `Consume` concurrente con `Consume` o con `Release` del mismo pedido: no lo pide el paquete. Lo cubre el diseño (`for_order(lock=True)` serializa), pero no hay prueba con hilos.
+   - Pruebas de aplicación con fakes en memoria: los casos de uso se prueban contra la BD real (`test_reservations.py`), y su lógica pura está en el dominio con pruebas unitarias.
+7. Dependencias pendientes: orders (Fase 4) debe validar los productos con catalog antes de `ReserveStock` (I-5) y pasar un único reloj (I-8). T-043 sigue en BACKLOG.
+8. Riesgos conocidos: ver I-6 e I-8.
+9. Preguntas que requieren decisión: I-5 e I-6 (decide claude-leader).
+10. Documentación actualizada: este STATUS.
+11. Siguiente acción recomendada: revisión de qa-reviewer centrada en `test_concurrency.py` y en el orden de bloqueos de `ConsumeReservations`.
+12. Commits: el que contiene este traspaso, `feat(inventory): reservas de stock para pedidos (T-042)` (el hash va en el traspaso al Leader).
+
 #### Traspaso T-041 — 2026-10-27 — backend-dev
 1. Estado final: IN_REVIEW (revisa claude-leader).
 2. Cambios: migración `0005` con las cuatro tablas de la SPEC §6 (CHECK, FK `RESTRICT` a `app.products`, índices), la fila única de ajustes (umbral 2) y la vista `app.product_availability` (INVENTORY-R1 y R2; de `app.products` solo lee `id`, `order_policy` y `lead_time_days`; la suma de reservas vigentes va en un `LATERAL` que usa el índice `(product_id, status, expires_at)`). Dominio puro: `availability_status` (R2), `admin_movement` (R5 y R6: delta calculado en el ajuste, nota obligatoria 1–500 sin caracteres de control, `venta` reservada al sistema, `insufficient_stock` gana a `stock_reserved`), `StockItem`, `StockMovement` (mismos invariantes que los CHECK), `InventorySettings`, `Availability`. Puertos en `application.py` (sin casos de uso). Repositorios SQL: `SqlStockRepository.lock` (`INSERT … SELECT id FROM app.products … ON CONFLICT DO NOTHING` + `SELECT … FOR UPDATE`; `None` si el producto no existe, sin violar la FK) y `update`; `SqlMovementRepository.add` (devuelve `id` y `created_at`) y `list_recent`; `SqlSettingsRepository.get(lock)` y `update`; `SqlAvailabilityReader.get`. Sin endpoints ni casos de uso de reserva.
@@ -73,3 +119,7 @@ IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalo
 - I-2 (T-041): la vista devuelve `lead_time_days` del producto tal cual, también cuando el estado no es `on_request` (p. ej. un `backorder` con stock); catalog decide en T-030 si solo lo muestra con "Bajo pedido".
 - I-3 (T-041): `available` es `on_hand − reservas vigentes` sin recortar a 0; R4 y R6 lo mantienen ≥ 0, y si no, el estado cae en `out_of_stock`/`on_request`.
 - I-4 (T-041): `SqlStockRepository.lock` lee `app.products.id` (la misma columna que la vista) para no violar la FK con un producto inexistente. Para R6, T-043 puede obtener lo reservado como `on_hand − available` leyendo la vista tras `lock()` en la misma transacción.
+- I-5 (T-042): `ReserveStock` con un producto inexistente lanza `LookupError`, como error de programación, porque orders valida los productos con catalog antes. La SPEC no lo define — decide claude-leader si orders necesita un error de negocio.
+- I-6 (T-042): `ConsumeReservations` sobre un pedido con reservas liberadas lanza `ReservationExpired`. Un no-op silencioso cobraría unidades sin reserva (RN-06). La idempotencia solo cubre reservas ya consumidas o pedidos sin reservas — decide claude-leader si lo confirma.
+- I-7 (T-042): las líneas repetidas de un mismo producto se acumulan y cada una tiene su reserva; R10 se aplica línea a línea en el orden recibido.
+- I-8 (T-042): `now` lo pasa quien llama (reloj de la aplicación), mientras que la vista usa `now()` de la BD. Con varias instancias del backend, un desfase de reloj puede hacer que reservar y consumir discrepen sobre el vencimiento en ese margen. No se vende de más: `StockItem` y el CHECK `on_hand >= 0` hacen fallar la operación. Recomendación para orders: un único reloj, por ejemplo `now()` de la BD.
