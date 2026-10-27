@@ -43,7 +43,7 @@ La lógica de negocio crítica vive solo en el backend. El frontend presenta y o
 | `identity` | Cuentas, sesión, roles, perfil básico y preferencias | RF01, RF11.02, RF13.01, RF13.02, RF13.04 | — | 1–2 | BACKLOG |
 | `audit` | Registro de solo inserción de operaciones críticas | RF14 | identity | 2 | DONE (backend) |
 | `catalog` | Productos, categorías, atributos, política de venta, imágenes, búsqueda y filtros | RF02, RF06.01–03, RF06.07 | identity, audit | 2–3 | IN_PROGRESS |
-| `inventory` | Stock, movimientos y reservas | RF06.04–06 | catalog | 2 | BACKLOG |
+| `inventory` | Stock, movimientos, reservas y estado de disponibilidad | RF06.04–06 | catalog | 2 | SPECIFICATION |
 | `promotions` | Promociones y precio vigente | RF09 | catalog | 3 | BACKLOG |
 | `cart` | Carrito único y selección de artículos | RF03 | identity, catalog, inventory, promotions | 4 | BACKLOG |
 | `wishlist` | Lista de deseos | RF10 | identity, catalog | 4 | BACKLOG |
@@ -58,7 +58,7 @@ La lógica de negocio crítica vive solo en el backend. El frontend presenta y o
 
 **Regla de dependencia entre módulos:** un módulo solo usa otro a través de sus casos de uso o puertos públicos (`application`). Nunca importa el `domain` ni los `adapters` de otro módulo. Las tablas de un módulo solo las escribe ese módulo.
 
-**Excepciones (infraestructura transversal):** cualquier router puede importar (1) las dependencias de autenticación `current_user` y `require_admin` de `valmont.modules.identity.adapters.http`, que combinan el token verificado (`shared/auth.py`) con el rol de `app.profiles`, y (2) `AuditRecorderDep` de `valmont.modules.audit.adapters.http`, que registra operaciones críticas en la transacción de la solicitud. Los casos de uso reciben el puerto `AuditRecorder` de `valmont.modules.audit.application`.
+**Excepciones (infraestructura transversal):** cualquier router puede importar (1) las dependencias de autenticación `current_user` y `require_admin` de `valmont.modules.identity.adapters.http`, que combinan el token verificado (`shared/auth.py`) con el rol de `app.profiles`, (2) `AuditRecorderDep` de `valmont.modules.audit.adapters.http`, que registra operaciones críticas en la transacción de la solicitud; y (3) en SQL, catalog puede leer la vista `app.product_availability`, contrato de lectura de inventory (no sus tablas). Los casos de uso reciben el puerto `AuditRecorder` de `valmont.modules.audit.application`.
 
 ## 4. Convenciones del backend (hexagonal + vertical slicing)
 

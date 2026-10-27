@@ -31,6 +31,7 @@
 | D-024 | 2026-10-27 | Frontend: SSR con `@astrojs/node` para listado, categoría y ficha | APROBADA |
 | D-025 | 2026-10-27 | Sesión en cookies con `@supabase/ssr`; el servidor de Astro reenvía el Bearer a FastAPI | APROBADA |
 | D-026 | 2026-10-27 | Protocolo de control de versiones: commits atómicos comunicados, paquete de push y push del usuario | APROBADA |
+| D-027 | 2026-10-27 | Inventory: umbral de "Últimas unidades" 2 (configurable), un solo almacén y motivos cerrados con nota | APROBADA |
 
 ---
 
@@ -146,3 +147,7 @@
 - **Petición del usuario (2026-10-27):** cada implementación o aporte atómico completo queda registrado en un commit; los agentes pueden hacer commits, pero siempre se comunican al usuario y se recopilan para que él haga el push.
 - **Decisión:** reglas en `docs/agents/PROTOCOL.md` §11 y procedimiento en la skill `version-control`. Un commit por aporte atómico con puertas en verde; formato `<tipo>(<ámbito>): <resumen> (T-NNN)` con trailer `Agent:`; los subagentes hacen commit solo si su paquete dice `Commit: sí` y lo listan en el punto 12 del traspaso; el Leader lo informa al usuario en el mismo turno y prepara el paquete de push desde `git log` (sin listas a mano). Solo el usuario hace push; integrar en `main`, con su autorización.
 - **Cumplimiento:** hooks versionados en `.githooks/` (`commit-msg`: formato y `T-NNN`; `pre-commit`: `.env`, secretos literales, JWT y valores en `.env.example`), activos con `git config core.hooksPath .githooks`.
+
+### D-027 — Inventory: umbral, ubicación y motivos (APROBADA)
+- **Decisiones del usuario:** "Últimas unidades" con 2 o menos unidades disponibles, como ajuste global que el admin cambia sin desplegar; un único almacén (las ubicaciones se pueden añadir después sin romper el modelo); motivos de movimiento cerrados (`entrada`, `ajuste_inventario`, `merma`, `devolucion`) con nota obligatoria en ajustes y mermas, más `venta`, que registra el sistema.
+- **Refinamiento técnico del Leader:** como las reservas vencen solas (D-017), la reserva atómica bloquea la fila de stock (`FOR UPDATE`), suma las reservas vigentes e inserta la nueva; varias líneas se bloquean ordenadas por producto. Misma garantía sin carreras que pedía D-017 (SPEC de inventory, INVENTORY-R4).
