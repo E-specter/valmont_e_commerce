@@ -7,7 +7,7 @@
 |---|---|---|---|---|
 | T-040 | SPEC de inventory | claude-leader | D-017, D-023, D-027 | DONE |
 | T-041 | Esquema `0005`, dominio, repositorios, settings y vista `product_availability` | backend-dev | T-026 | DONE (`84d60d8`; verificado por claude-leader: 597 unitarias + 182 integración) |
-| T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | IN_REVIEW (ronda 2: B-1, I-1 y M-1 corregidos) |
+| T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | IN_PROGRESS (ronda 3: prueba concurrente de R11 y reloj efectivo; ronda 2 `615189d` APROBADA por qa-reviewer) |
 | T-043 | API de administración (stock, movimientos, settings) con auditoría | backend-dev + qa-reviewer | T-041 | BACKLOG |
 
 IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalog) consumirá la vista de T-041.
@@ -50,6 +50,13 @@ IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalo
 - Escalar si: la vista no puede expresar R2 de forma eficiente o hace falta tocar catalog.
 
 ## Traspasos
+
+#### Revisión T-042 ronda 2 — 2026-10-27 — qa-reviewer (anotada por claude-leader)
+- **Veredicto:** APROBADO sobre `615189d`. Las puertas coinciden: 621 unitarias, 199 de integración, `ruff`, capas y `alembic check`. `test_concurrency` pasó ×10 y la simulación aleatoria 8/8.
+- **IMPORTANTE:** ninguna prueba detecta que R11 lea los totales antes de bloquear el stock. Con el mutante, pasan 131/131. La sonda P1b (Consume esperando el stock de un Reserve que confirma después) sí lo detecta.
+- **MENOR P7:** R11 podía rechazar un pedido vigente cuando otros dos coinciden en el límite. El Leader decide el reloj efectivo (SPEC R11).
+- **MENOR:** la prueba de I-1 solo ejercita el caso en que gana Consume, y el docstring de `ReservationExpired` no cita R11.
+- **Siguiente:** ronda 3 con backend-dev, ya con D-028 (sin ejecutar pruebas, entrega preparada).
 
 #### Traspaso T-042 (ronda 2: B-1, I-1, M-1 de qa-reviewer) — 2026-10-27 — backend-dev
 1. Estado final: IN_REVIEW (revisan claude-leader y qa-reviewer).
