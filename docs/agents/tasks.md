@@ -32,7 +32,7 @@
 | T-025 | SPEC de catalog | requisitos, backend | claude-leader | RF02, RF06.01–03, RF06.07, D-019…D-023 | docs/modules/catalog/SPEC.md | DONE | Contrato revisado por frontend-lead; cambios incorporados |
 | T-026…T-031 | Implementación de catalog | backend | backend-dev (+ qa-reviewer en T-028) | ver STATUS de catalog | docs/modules/catalog/STATUS.md | IN_PROGRESS | T-026…T-029 y T-031 DONE; T-030 espera a inventory (T-041) |
 | T-040 | SPEC de inventory | requisitos, backend | claude-leader | RF06.04–06, D-017, D-023, D-027 | docs/modules/inventory/SPEC.md | DONE | Decisiones del usuario D-027 |
-| T-041…T-043 | Implementación de inventory | backend | backend-dev (+ qa-reviewer en T-042) | ver STATUS de inventory | docs/modules/inventory/STATUS.md | READY | T-041 tras T-031 |
+| T-041…T-043 | Implementación de inventory | backend | backend-dev (+ qa-reviewer en T-042) | ver STATUS de inventory | docs/modules/inventory/STATUS.md | IN_PROGRESS | T-041 y T-042 DONE (T-042 verificada por qa-reviewer con D-028); T-043 en BACKLOG |
 
 **Rangos reservados para la Fase 2** (PROTOCOL §6): audit T-020–T-024 · catalog T-025–T-039 · inventory T-040–T-049 · promotions T-050–T-054 · cart T-055–T-064 · wishlist T-065–T-069 · orders T-070–T-089 · payments T-090–T-099 · hito M1 de lanzamiento T-100–T-104.
 

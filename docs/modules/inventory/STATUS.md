@@ -7,7 +7,7 @@
 |---|---|---|---|---|
 | T-040 | SPEC de inventory | claude-leader | D-017, D-023, D-027 | DONE |
 | T-041 | Esquema `0005`, dominio, repositorios, settings y vista `product_availability` | backend-dev | T-026 | DONE (`84d60d8`; verificado por claude-leader: 597 unitarias + 182 integración) |
-| T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | IN_REVIEW (ronda 3 preparada sin commit, D-028: prueba concurrente de R11, reloj efectivo e I-1 con ambos ganadores; pendiente de ejecución por qa-reviewer) |
+| T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | DONE (`f641107`, `615189d`, `4e04053`; ronda 3 APROBADA por qa-reviewer con D-028: 624 unitarias + 202 integración, mutantes detectados) |
 | T-043 | API de administración (stock, movimientos, settings) con auditoría | backend-dev + qa-reviewer | T-041 | BACKLOG |
 
 IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalog) consumirá la vista de T-041.
@@ -20,7 +20,7 @@ IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalo
 - Leer: `docs/modules/inventory/SPEC.md` §3 (UC-01…03), §4 (R5, R6, R7, R9), §7; patrones de `catalog/adapters/admin_http.py` (router con `require_admin`, `_domain_errors`, `ERROR_RESPONSES`, 409 por ruta) y `AuditRecorderDep`.
 - Puede modificar: `backend/src/valmont/modules/inventory/**`, `backend/src/valmont/main.py` (registrar el router), `backend/tests/inventory/**`, tu traspaso en este STATUS.
 - Resultado esperado: router `/api/v1/inventory/admin` con las 5 rutas de §7; `POST …/movements` bajo `lock()` del producto: R5 (delta del ajuste calculado por el servidor, nota obligatoria), R6 (409 `insufficient_stock` / `stock_reserved`, con lo reservado leído tras el bloqueo), R9 (422 `no_change`); producto inexistente → 404; auditoría `inventory.stock_adjusted` (before/after `on_hand`, `kind`) y `inventory.threshold_changed` en la misma transacción, con el actor del token; listado con `q` (SKU o nombre), filtro `status` y paginación como en catalog.
-- Criterios: CA-INVENTORY-01 y 05 por HTTP contra `valmont_test`; 401/403 en todas las rutas; OpenAPI con `ErrorOut`.
+- Criterios: CA-INVENTORY-01 y 05 por HTTP contra `valmont_test`; 401/403 en todas las rutas; OpenAPI con `ErrorOut`; una prueba de integración en la que una `merma` deja el stock por debajo de una reserva ya creada (lo impide R6, con 409) y otra que llega a la comprobación de R11 de `ConsumeReservations`. Para la segunda: una `merma` registrada cuando una reserva activa ya venció (no cuenta para R6), seguida de un `ConsumeReservations` de ese pedido con un reloj anterior a su vencimiento, debe dar `ReservationExpired` sin escrituras (Nota 2 de QA en la ronda 3 de T-042).
 - Pruebas obligatorias: las escribe backend-dev; qa-reviewer ejecuta format, lint, `pytest -q`, `pytest -m integration -q`, capas, `alembic check` y OpenAPI (D-028).
 
 ### T-042 — Reservas de stock para orders (con concurrencia)
@@ -50,6 +50,19 @@ IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalo
 - Escalar si: la vista no puede expresar R2 de forma eficiente o hace falta tocar catalog.
 
 ## Traspasos
+
+#### Verificación T-042 ronda 3 — 2026-10-27 — qa-reviewer (anotada por claude-leader)
+- **Veredicto:** APROBADO sobre lo preparado.
+  - Base `84403e2`; la huella `49719b2` coincide al empezar y al terminar.
+  - Puertas: `pytest -q` → 624 passed, `pytest -m integration -q` → 202 passed; `ruff`, capas y `alembic check` limpios.
+  - `test_concurrency` ×10 → 60 passed. Simulación aleatoria 8/8.
+  - Mutantes detectados: orden de lectura, `now` en los totales, `now` en el `to_consume` final, sin R11 y Release sin `lock`.
+- **Commit:** `4e04053`, hecho por el Leader con la huella verificada.
+- **Seguimiento:**
+  - MENOR 1 (texto del traspaso) y MENOR 3 (tipo `fix`): corregidos.
+  - MENOR 2 (desfase de relojes): I-8 pasa a obligación.
+  - Nota 1: documentada en SPEC R11.
+  - Nota 2: criterio nuevo en T-043.
 
 #### Revisión T-042 ronda 2 — 2026-10-27 — qa-reviewer (anotada por claude-leader)
 - **Veredicto:** APROBADO sobre `615189d`. Las puertas coinciden: 621 unitarias, 199 de integración, `ruff`, capas y `alembic check`. `test_concurrency` pasó ×10 y la simulación aleatoria 8/8.
@@ -88,7 +101,7 @@ IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalo
      - Usar `now` en `active_totals` → fallan la unitaria de totales y la P7 de integración.
      - Usar `now` en el `to_consume` final → falla la unitaria de R8.
      - Quitar la comprobación de R11 → falla la unitaria de la red de seguridad.
-     - Release sin `lock=True` → falla la I-1 (las dos variantes).
+     - Release sin `lock=True` → falla la variante `[consume]` de I-1; la `[release]` comprueba el ganador, no el interbloqueo (corregido por claude-leader según la verificación de QA).
 3. Archivos modificados: `backend/src/valmont/modules/inventory/{domain,application}.py`, `backend/src/valmont/modules/inventory/adapters/persistence.py`, `backend/tests/inventory/{test_application,test_reservations,test_concurrency}.py` y este STATUS (fila de T-042 y este traspaso).
 4. Decisiones tomadas: ninguna; aplico la SPEC R11 "Reloj efectivo" (84403e2) y D-028.
 5. Pruebas ejecutadas → resultado observado (solo análisis estático, D-028, desde `backend/`):
@@ -224,4 +237,4 @@ IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalo
 - I-5 (T-042): `ReserveStock` con un producto inexistente lanza `LookupError`, como error de programación, porque orders valida los productos con catalog antes. La SPEC no lo define — decide claude-leader si orders necesita un error de negocio.
 - I-6 (T-042): `ConsumeReservations` sobre un pedido con reservas liberadas lanza `ReservationExpired`. Un no-op silencioso cobraría unidades sin reserva (RN-06). La idempotencia solo cubre reservas ya consumidas o pedidos sin reservas — decide claude-leader si lo confirma.
 - I-7 (T-042): las líneas repetidas de un mismo producto se acumulan y cada una tiene su reserva; R10 se aplica línea a línea en el orden recibido.
-- I-8 (T-042): `now` lo pasa quien llama (reloj de la aplicación), mientras que la vista usa `now()` de la BD. Con varias instancias del backend, un desfase de reloj puede hacer que reservar y consumir discrepen sobre el vencimiento en ese margen. No se vende de más: `StockItem` y el CHECK `on_hand >= 0` hacen fallar la operación. Recomendación para orders: un único reloj, por ejemplo `now()` de la BD.
+- I-8 (T-042): `now` lo pasa quien llama (reloj de la aplicación), mientras que la vista usa `now()` de la BD. Con varias instancias del backend, un desfase de reloj puede hacer que reservar y consumir discrepen sobre el vencimiento en ese margen. No se vende de más: `StockItem` y el CHECK `on_hand >= 0` hacen fallar la operación. **Obligación de orders, no recomendación** (Leader, tras la ronda 3): un único reloj, el `now()` de la BD (SPEC §3). Con el reloj efectivo, un desfase entre instancias ya no afecta solo a los pedidos implicados: una reserva creada con un reloj adelantado hace fallar los pagos de esos productos cuyas reservas venzan dentro del desfase (sonda Q3 de QA).
