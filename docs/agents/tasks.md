@@ -24,7 +24,7 @@
 | T-017 | Ficha de lanzamiento `docs/deploy.md` (Windows 11 / Linux) | docs, arquitectura | claude-leader | D-011 | docs/deploy.md | IN_PROGRESS | Sección A verificada (A-11 parcial hasta la Fase 5); B pendiente de un equipo Linux; C en el hito M1 |
 | T-105 | Protocolo de control de versiones: PROTOCOL §11, skill `version-control` y hooks de `.githooks/` (petición del usuario) | docs, arquitectura | claude-leader | D-026 | docs/agents/PROTOCOL.md §11 | DONE | Hooks probados (9/9 casos) y activos con `core.hooksPath` |
 | T-106 | Las pruebas las ejecuta solo qa-reviewer, y el Leader hace el commit tras su APROBADO (petición del usuario) | docs, arquitectura | claude-leader | D-028 | docs/agents/PROTOCOL.md §1, §3, §5, §11 | DONE | Rige desde 2026-10-27; la ronda 2 de T-042 (`615189d`) es anterior |
-| T-101 | Rol de BD `valmont_app` con privilegios mínimos (migración 0006) | backend, seguridad | backend-dev + qa-reviewer | D-029, RNF02 | paquete abajo | READY | Primera tarea de M1; sin Docker |
+| T-101 | Rol de BD `valmont_app` con privilegios mínimos (migración 0006) | backend, seguridad | backend-dev + qa-reviewer | D-029, RNF02 | paquete abajo | IN_REVIEW | Migración 0006 y `tests/test_app_role.py` preparados sin commit; falta qa-reviewer (D-028) |
 | T-102 | Imagen del frontend: `@astrojs/node` (D-024), `output: 'server'` y `frontend/Dockerfile` | frontend, arquitectura | frontend-dev + qa-reviewer | D-024, D-029 | — | BACKLOG | Puerta Docker para los archivos |
 | T-100 | Imagen del backend y stack de despliegue `deploy/`: compose, Caddyfile, Supabase autohospedado fijado, `.env.example` y alta de la contraseña de `valmont_app` | backend, arquitectura | backend-dev + qa-reviewer | D-011, D-018, D-029 | — | BACKLOG | Puerta Docker para los archivos; riesgo ES256 |
 | T-103 | Copias de seguridad: `pg_dump` diario y restauración probada (RNF12) | arquitectura | backend-dev + qa-reviewer | D-029, RNF12 | — | BACKLOG | — |
@@ -77,6 +77,51 @@ Estados válidos: `BACKLOG` · `SPECIFICATION` · `READY` · `IN_PROGRESS` · `B
   - En desarrollo el backend sigue conectándose como hoy: no cambia `.env`.
 - **Pruebas obligatorias:** las escribe backend-dev; qa-reviewer ejecuta format, lint, `pytest -q`, `pytest -m integration -q`, capas, `alembic check` y las migraciones reversibles (D-028).
 - **Estado inicial:** READY · IDs reservados: ninguno (tarea hoja).
+
+#### Traspaso T-101 — 2026-10-27 — backend-dev
+1. Estado final: IN_REVIEW (pendiente de qa-reviewer, D-028).
+2. Cambios:
+   - Migración `0006`, escrita a mano con el formato de 0005: crea `valmont_app NOLOGIN` solo si no existe, con un bloque `DO` sobre `pg_roles` como en 0001. Concede:
+     - `USAGE` en `app`;
+     - CRUD en las 9 tablas que escribe el backend;
+     - `SELECT, INSERT` en `audit_log` y en `stock_movements` (decisión del Leader, punto 9);
+     - `SELECT` en `product_availability`;
+     - `USAGE, SELECT` en las secuencias;
+     - `EXECUTE` en `app.f_unaccent(text)`.
+   - El `downgrade` revoca todo eso en esta BD (con guarda `IF EXISTS`) y **no** hace `DROP ROLE`.
+   - Pruebas de integración nuevas en `tests/test_app_role.py`.
+3. Archivos modificados: `backend/migrations/versions/0006_app_role.py` (nuevo), `backend/tests/test_app_role.py` (nuevo) y `docs/agents/tasks.md` (fila y este traspaso).
+4. Decisiones tomadas (técnicas, dentro del paquete; ninguna D-xxx nueva):
+   - **Sin `DROP ROLE` en el `downgrade`.** El rol es del clúster: si la otra BD (desarrollo o `valmont_test`) conserva permisos, `DROP ROLE` falla (2BP01) y rompe el `downgrade`. En despliegue, además, se perderían el `LOGIN` y la contraseña de T-100. Sin permisos, el rol no alcanza nada de `app`.
+   - **Sin `USAGE` en `extensions`.** `f_unaccent` tiene cuerpo SQL estándar (`RETURN`), enlazado al crearse, así que no busca `extensions.unaccent` por nombre. El `EXECUTE` en `unaccent` llega por `PUBLIC`. El `EXECUTE` en `app.f_unaccent` se concede de forma explícita. La prueba de lectura y escritura lo ejercita: inserta un producto (columna generada) y busca con `f_unaccent`.
+   - **El fixture `app_session` se concede `SET` a sí mismo.** En PostgreSQL 16+, quien crea un rol sin ser superusuario recibe `ADMIN`, pero no `SET`, y `SET ROLE` lo exige. Solo lo hace si `pg_has_role('valmont_app', 'SET')` es falso, y el rollback de `db_session` lo deshace junto con el `SET LOCAL ROLE`.
+   - **No se prueba `rolcanlogin`:** lo fija el despliegue. Sí se prueba que el rol no tiene `SUPERUSER`, `CREATEROLE`, `CREATEDB`, `REPLICATION` ni `BYPASSRLS`, y que no es dueño de nada (`pg_shdepend`).
+5. Pruebas ejecutadas → resultado observado (solo análisis estático, desde `backend/`):
+   - `uv run ruff format .` → 93 files left unchanged
+   - `uv run ruff check .` → All checks passed!
+   - capas (grep) → vacío
+6. Pruebas no ejecutadas y motivo: NO EJECUTADO: pruebas ni migraciones (D-028). Esperado, sobre la base de la verificación de T-030 (704 + 256):
+   - `pytest -q` → 704 passed (sin unitarias nuevas).
+   - `pytest -m integration -q` → 267 passed (+11: atributos y propiedad, mapa de privilegios, lectura y escritura, 3 de `audit_log` con `UPDATE`/`DELETE`/`TRUNCATE`, 2 de `stock_movements` con `UPDATE`/`DELETE`, 2 de esquema, `downgrade 0005` → `upgrade head`).
+   - `alembic check` → sin operaciones nuevas (los `GRANT` no están en los metadatos).
+   - Migraciones reversibles en desarrollo, incluido `downgrade 0005` → `upgrade head`.
+7. Dependencias pendientes:
+   - T-100: `ALTER ROLE valmont_app LOGIN PASSWORD …` con el rol que lo creó (tiene `ADMIN`), y la `DATABASE_URL` del backend con `valmont_app`. Las migraciones siguen con el propietario.
+   - `CONNECT` llega por `PUBLIC`: si la BD de despliegue lo revoca, T-100 debe concederlo.
+8. Riesgos conocidos:
+   - El `EXECUTE` de `extensions.unaccent` por `PUBLIC` solo queda probado en `valmont_test`. La prueba de humo de T-104 debería crear un producto y buscar como `valmont_app`.
+   - Si `valmont_app` lo creó otro rol, el usuario de pruebas no tiene `ADMIN`, el `GRANT` del fixture falla y las 8 pruebas con `app_session` dan error (no pasan en falso).
+   - Cada migración futura con tablas o secuencias en `app` debe concederlas y añadirlas al mapa; si no, la prueba del mapa falla. Es lo buscado.
+   - Si la prueba de `downgrade` falla a mitad, deja `valmont_test` en 0005, igual que `test_migrations.py`.
+9. Preguntas que requieren decisión: ninguna abierta. Resuelta por claude-leader el 2026-10-27:
+   - `app.stock_movements` es un libro de movimientos y queda en `SELECT, INSERT`. Hay 2 pruebas nuevas: `UPDATE` y `DELETE` dan `permission denied` con una fila que casa.
+   - El resto de tablas mantiene CRUD. Las pruebas del backend no corren como `valmont_app`, así que quitar un `DELETE` hoy sin uso podría romper producción sin que nada lo detecte. El mapa de privilegios obliga a decidirlo tabla a tabla.
+   - El `downgrade` no cambia: `REVOKE ALL ON ALL TABLES IN SCHEMA app` ya cubre `stock_movements`.
+10. Documentación actualizada: `docs/agents/tasks.md` (fila T-101 y este traspaso).
+11. Siguiente acción recomendada: qa-reviewer ejecuta format, lint, `pytest -q`, `pytest -m integration -q`, capas, `alembic check` y las migraciones reversibles sobre lo preparado.
+12. Commits: ninguno — preparado.
+    - Rutas: `backend/migrations/versions/0006_app_role.py`, `backend/tests/test_app_role.py`, `docs/agents/tasks.md`.
+    - Mensaje propuesto: `feat(db): rol valmont_app con privilegios mínimos (T-101)`.
 
 ### T-007 — Base del backend (configuración, errores, logging)
 - Objetivo: el backend carga su configuración por entorno, responde a cualquier error con un formato JSON único y registra cada solicitud con un id.
