@@ -86,7 +86,7 @@ Esquemas. Las fechas van en UTC ISO 8601, como `UtcDatetime` de catalog. Un camp
  "product_status": "published", // "draft" | "published" (estado en catalog; O3)
  "on_hand": 5,           // int ≥ 0; sin fila de stock = 0
  "reserved": 2,          // int ≥ 0; Σ reservas activas no vencidas (INVENTORY-R1)
- "available": 3,         // int ≥ 0; on_hand − reserved
+ "available": 3,         // int ≥ 0; max(on_hand − reserved, 0). reserved > on_hand solo con el desfase de I-8, y se ve en esos dos campos
  "status": "in_stock"}   // "in_stock" | "low_stock" | "out_of_stock" | "on_request"; lo calcula el servidor (INVENTORY-R2)
 // StockItemDetailOut = StockItemOut + {"movements": [StockMovementOut]}   // de 0 a 50, el más reciente primero (created_at desc, id desc)
 // StockMovementOut

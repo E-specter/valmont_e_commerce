@@ -8,11 +8,27 @@
 | T-040 | SPEC de inventory | claude-leader | D-017, D-023, D-027 | DONE |
 | T-041 | Esquema `0005`, dominio, repositorios, settings y vista `product_availability` | backend-dev | T-026 | DONE (`84d60d8`; verificado por claude-leader: 597 unitarias + 182 integración) |
 | T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | DONE (`f641107`, `615189d`, `4e04053`; ronda 3 APROBADA por qa-reviewer con D-028: 624 unitarias + 202 integración, mutantes detectados) |
-| T-043 | API de administración (stock, movimientos, settings) con auditoría | backend-dev + qa-reviewer | T-041 | IN_REVIEW (preparado sin commit, D-028; pendiente de que qa-reviewer ejecute las pruebas) |
+| T-043 | API de administración (stock, movimientos, settings) con auditoría | backend-dev + qa-reviewer | T-041 | DONE (`327828c`; APROBADA por qa-reviewer con D-028: 691 unitarias + 232 integración, OpenAPI igual a la §7) |
+| T-044 | Seguimiento de QA en T-043: búsqueda con `unaccent` (M1), pruebas de `/` y de la carrera con `ReserveStock` (M2), `available` ≥ 0 (M3) e `InsufficientStock` sin ceros falsos (M4) | backend-dev + qa-reviewer | T-043 | READY |
 
-IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalog) consumirá la vista de T-041.
+IDs reservados del módulo: T-040–T-049 (libres: T-045–T-049). T-030 (catalog) consumirá la vista de T-041.
 
 ## Paquetes de tarea
+
+### T-044 — Seguimiento de QA en T-043
+- **Objetivo:** cerrar los cuatro hallazgos MENOR de qa-reviewer en T-043, sin cambiar el contrato.
+- **Responsable:** backend-dev (verifica qa-reviewer, acepta claude-leader) · Módulo: inventory · Decisiones: D-028 · **Entrega:** preparada sin commit, con el mensaje propuesto (PROTOCOL §11.2).
+- **Leer:** la revisión de QA de T-043 en "Traspasos"; la SPEC §7 (`available`).
+- **Puede modificar:** `backend/src/valmont/modules/inventory/**`, `backend/tests/inventory/**` y tu traspaso en este STATUS.
+- **Resultado esperado:**
+  - **M1.** Escapar el patrón de `q` **en SQL, después de** `app.f_unaccent`. Hoy `½` pasa a ` 1/2` y el `/` nuevo actúa como escape. Ejemplo de QA: `'%' || replace(replace(replace(app.f_unaccent(:q), '/', '//'), '%', '/%'), '_', '/_') || '%'` con `ILIKE … ESCAPE '/'`.
+  - **M2.** Pruebas:
+    - un `q` con `/` ("1/2" encuentra "… 1/2" y no "… 12");
+    - un `q` con `½`;
+    - en `test_concurrency.py`, la carrera real de dos conexiones: un `ReserveStock` sin confirmar retiene el stock mientras una `merma` de `RecordMovement` espera el bloqueo, y después recibe 409 `stock_reserved`. La receta está en `race.py`, en `C:\Users\ASUS 2\AppData\Local\Temp\qa_t043\`; léela, no la ejecutes.
+  - **M3.** `available = max(on_hand − reserved, 0)` en el modelo de lectura del admin; `on_hand` y `reserved` salen tal cual (SPEC §7). Añade su prueba.
+  - **M4.** `InsufficientStock` lleva `on_hand` y `reserved` a `None` por defecto, para que en el camino de las reservas no parezcan datos reales. Nada que lea esos campos se rompe.
+- **Pruebas obligatorias:** las escribe backend-dev; qa-reviewer ejecuta format, lint, `pytest -q`, `pytest -m integration -q`, capas y `alembic check`, más los mutantes de M1 y M2 (D-028).
 
 ### T-043 — API de administración de inventory
 - Objetivo: el admin consulta el stock (con reservado, disponible y estado), registra movimientos con su motivo y cambia el umbral, por la API de la SPEC §7, con auditoría.
@@ -55,6 +71,20 @@ IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalo
 - Escalar si: la vista no puede expresar R2 de forma eficiente o hace falta tocar catalog.
 
 ## Traspasos
+
+#### Verificación T-043 — 2026-10-27 — qa-reviewer (anotada por claude-leader)
+- **Veredicto:** APROBADO sobre lo preparado.
+  - Base `35133b1`; la huella `ab1466d` coincide al empezar y al terminar.
+  - Puertas: `pytest -q` → 691 passed, `pytest -m integration -q` → 232 passed; `ruff`, capas y `alembic check` limpios.
+  - El OpenAPI coincide campo a campo con la §7.
+  - Mutantes detectados: leer antes de `lock`, sin escape del `LIKE`, prioridad de los 409, nota recortada antes y umbral auditado sin cambio. También sin `FOR UPDATE`, que QA añadió por su cuenta.
+  - `valmont_test` queda limpia.
+- **Commit:** `327828c`, hecho por el Leader con la huella verificada.
+- **MENOR M1–M4:** pasan a T-044. En M3, el Leader decide acotar `available` a 0 (SPEC §7).
+- **Observaciones:**
+  - (a) R6 se aplica de forma literal también en el desfase: es coherente con la SPEC.
+  - (b) La nota admite caracteres bidireccionales que no son Cc. Es un endurecimiento transversal, ya anotado en T-018.
+- **Decisión del Leader:** `app.f_unaccent` queda en la excepción (4) de `docs/modules.md` §3.
 
 #### Traspaso T-043 — 2026-10-27 — backend-dev
 1. Estado final: IN_REVIEW. Preparado sin commit (D-028): qa-reviewer ejecuta las pruebas; acepta claude-leader.
