@@ -6,11 +6,11 @@
 
 ## Estado actual (2026-10-26)
 
-- **Fase actual:** Fase 1 (backend y base de datos) completada el 2026-10-27 en la rama `worktree-fase1-backend-db`, pendiente de integrar en `main`. Siguiente: Fase 2 (audit → catalog → inventory → …).
+- **Fase actual:** Fase 1 (backend y base de datos) completada e integrada en `main` el 2026-10-27 (`a381dee`). En curso: Fase 2 (audit → catalog → inventory → …) en la rama `worktree-fase2-audit-catalog`.
 - **Implementado y probado:** backend con configuración por entorno, errores comunes, `X-Request-ID`, capa de datos (SQLAlchemy + Alembic, esquema `app`, migraciones 0001–0002) y autenticación (Supabase Auth + JWKS ES256) con el perfil de identity: 133 pruebas unitarias + 12 de integración + E2E con Supabase real. Supabase local en Docker Desktop. Frontend: esqueleto (`astro check` y build).
 - **Agentes:** cadena validada con T-007, T-015 y T-016 (backend-dev implementa; qa-reviewer revisa y encontró un bloqueante real; el Leader verifica e integra).
 - **Decisiones:** aprobadas D-009, D-010, D-011, D-013, D-015, D-016 y D-017 (auth, datos, entorno, git, país, cancelación, stock). Siguen abiertas D-012 (estilos) y D-014 (islas), de la pista de frontend.
-- **Pendiente del usuario:** autorizar la integración de la rama en `main`; decidir una regla de firewall para los puertos de Supabase (54321–54324 publicados en `0.0.0.0`); corregir `.kombai/stack.json` (dice pnpm y Python 3.13).
+- **Hecho a petición del usuario (2026-10-27):** Fase 1 integrada en `main` con fast-forward; regla de firewall para los puertos de Supabase; `.kombai/stack.json` corregido (npm, Python 3.14).
 - **Requisitos:** con backend implementado y probado RF01.05, RF01.06, RF11.02, RF13.01 y RF13.02; RF01.01 y RF01.02 los cubre Supabase Auth y están verificados de punta a punta; RF01.03 y RF01.04 los ofrece Supabase Auth sin verificar aún. Ninguno tiene interfaz todavía (7 de 66 RF con backend).
 - **Plan aprobado de backend y BD:** etapas 0–2 de abajo (Fase 1 completa → Fase 2 módulo a módulo + hito M1 de lanzamiento portable).
 

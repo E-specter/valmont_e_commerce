@@ -106,5 +106,5 @@ Cada componente tendrá un `.env.example` sin valores reales cuando aparezca la 
 | "Device or resource busy" al mover carpetas | Windows bloquea archivos abiertos (VS Code, `.venv`, terminales) | No mover `backend/` ni `frontend/`; cerrar los procesos o copiar en vez de mover |
 | `docker` no se encuentra justo después de instalar | La terminal abierta antes de instalar no tiene el PATH nuevo | Abrir una terminal nueva (o anteponer `C:\Program Files\Docker\Docker\resources\bin` al PATH) |
 | PowerShell 5.1 marca como error la salida de `docker` | Trata como error todo lo que un programa escribe en stderr | Usar Git Bash, o fiarse del código de salida |
-| Puertos de Supabase publicados en `0.0.0.0` | Docker Desktop publica en todas las interfaces | Decisión pendiente: regla de firewall de Windows para 54321–54324 |
+| Puertos de Supabase publicados en `0.0.0.0` | Docker Desktop publica en todas las interfaces | Resuelto el 2026-10-27: la regla de entrada `Valmont Supabase dev` bloquea TCP 54321–54324 desde la red (localhost sigue funcionando). Revertir: `Remove-NetFirewallRule -DisplayName 'Valmont Supabase dev'` |
 | Kombai no ve el `AGENTS.md` de `frontend/` | Kombai solo lee el `AGENTS.md` de la raíz | Las reglas de Kombai van en `AGENTS.md` raíz o en `.kombai/rules/` |

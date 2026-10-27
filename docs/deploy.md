@@ -72,4 +72,4 @@ navegador ──HTTPS──► proxy inverso (por decidir en M1)
 
 - **Funciona hoy:** sección A completa, salvo la promoción a administrador (A-11 parcial), y el flujo de registro → confirmación → token → perfil verificado de punta a punta con Supabase real.
 - **Pendiente:** promoción a admin por SQL (Fase 5), sección B (verificar en un equipo Linux) y sección C completa (hito M1, tras catalog + inventory).
-- **Riesgo abierto en desarrollo:** Docker publica los puertos de Supabase en todas las interfaces de red (`0.0.0.0`), así que otros equipos de la misma red podrían alcanzar la BD local con la contraseña por defecto. Mitigación propuesta: una regla del firewall de Windows que bloquee la entrada a los puertos 54321–54324 (pendiente de tu decisión).
+- **Puertos de Supabase en desarrollo:** Docker los publica en todas las interfaces (`0.0.0.0`). En Windows 11 se bloquean desde la red con `New-NetFirewallRule -DisplayName 'Valmont Supabase dev' -Direction Inbound -Protocol TCP -LocalPort 54321-54324 -Action Block` (como administrador; aplicada en el equipo de desarrollo el 2026-10-27). En Linux, el equivalente con `ufw` o `nftables`.

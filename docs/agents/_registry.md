@@ -21,6 +21,7 @@
 | docs/agents/claude-leader/profile.md | Doc | Perfil y nota de continuidad del Leader | — | claude-leader | 2026-10-26 |
 | docs/deploy.md | Doc | Ficha de lanzamiento: desarrollo en Windows 11 y Linux, y lanzamiento con Docker Compose | RUNBOOK (lanzamiento) | claude-leader | 2026-10-26 |
 | docs/modules/identity/ | Carpeta | SPEC y STATUS del módulo identity | 03-modules/identity | claude-leader | 2026-10-26 |
+| docs/modules/audit/ | Carpeta | SPEC y STATUS del módulo audit | 03-modules/audit | claude-leader | 2026-10-27 |
 | docs/modules/<módulo>/ | Carpeta (se crea al especificar cada módulo) | `SPEC.md` (especificación, contrato y plan de pruebas) + `STATUS.md` (plan, tareas y traspasos) | 03-modules/* | module-coordinator | — |
 
 **Sin equivalente propio (por diseño):** QUALITY_GATES y RELEASE_CHECKLIST → skill `testing-and-quality-gates`; EVENTS_AND_STATES y DOMAIN_CONTRACTS → SPEC del módulo dueño; CHANGELOG → historial de git (D-013) + `decisions.md`.
