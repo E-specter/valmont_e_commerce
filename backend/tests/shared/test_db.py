@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -34,6 +36,34 @@ def app(db_engine: Engine, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
         return {"status": "ok"}
 
     return app
+
+
+@pytest.mark.integration
+def test_db_errors_are_logged_without_their_parameters(
+    db_engine: Engine, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    # El engine real de get_engine (no el de las pruebas), apuntado a la BD de pruebas.
+    url = db_engine.url.render_as_string(hide_password=False)
+    monkeypatch.setattr(db, "get_settings", lambda: Settings(_env_file=None, database_url=url))
+    db.get_engine.cache_clear()
+    app = create_app()
+    # Generado aquí: el traceback del log muestra líneas de código, y un literal saldría en él.
+    personal = uuid4().hex
+
+    @app.get("/test/db-error")
+    def db_error(session: SessionDep) -> None:
+        # 1 / 0: un error que PostgreSQL no acompaña del valor (un CHECK lo pondría en DETAIL).
+        session.execute(text("SELECT CAST(:value AS text), 1 / 0"), {"value": personal})
+
+    try:
+        response = TestClient(app, raise_server_exceptions=False).get("/test/db-error")
+    finally:
+        db.get_engine().dispose()
+        db.get_engine.cache_clear()
+
+    assert response.status_code == 500
+    assert "division by zero" in caplog.text
+    assert personal not in caplog.text
 
 
 @pytest.mark.integration

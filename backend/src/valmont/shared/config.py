@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     database_url: str | None = None
     test_database_url: str | None = None
+    # Dónde el backend alcanza Supabase Auth (su JWKS) y qué `iss` llevan los tokens. Son dos
+    # porque en producción Auth se alcanza por la red interna y el emisor es la URL pública.
+    supabase_url: str | None = None
+    supabase_jwt_issuer: str | None = None  # None → f"{supabase_url}/auth/v1"
 
 
 @cache

@@ -3,11 +3,10 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import create_engine, pool, text
 
-from valmont.shared.db import Base, get_engine
-
 # Punto único de registro de modelos: importa aquí el adapters/persistence de cada módulo
 # para que autogenerate vea sus tablas, p. ej.:
-# import valmont.modules.identity.adapters.persistence  # noqa: F401
+import valmont.modules.identity.adapters.persistence  # noqa: F401
+from valmont.shared.db import Base, get_engine
 
 config = context.config
 if config.config_file_name is not None:

@@ -26,7 +26,8 @@ def get_engine() -> Engine:
     url = get_settings().database_url
     if not url:
         raise RuntimeError("Falta DATABASE_URL en el entorno (backend/.env).")
-    return create_engine(url, pool_pre_ping=True)
+    # hide_parameters: los errores de BD (y por tanto los logs) no llevan los valores enviados.
+    return create_engine(url, pool_pre_ping=True, hide_parameters=True)
 
 
 def get_session() -> Iterator[Session]:

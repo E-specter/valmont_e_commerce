@@ -1,5 +1,5 @@
 # identity — Especificación
-> Estado: PROPUESTO (alcance y campos del perfil aprobados por el usuario el 2026-10-26; contrato API pendiente de revisión por el consumidor frontend) · Requisitos: RF01.01–RF01.06, RF11.02, RF13.01, RF13.02, RF13.04 · Decisiones: D-009, D-010, D-015 · Dueño: backend · Última actualización: 2026-10-26 claude-leader
+> Estado: IMPLEMENTADO en backend (T-016, verificado de punta a punta con Supabase real); contrato API pendiente de revisión por el consumidor frontend · Requisitos: RF01.01–RF01.06, RF11.02, RF13.01, RF13.02, RF13.04 · Decisiones: D-009, D-010, D-015, D-018 · Dueño: backend · Última actualización: 2026-10-27 claude-leader
 
 ## 1. Problema y alcance
 
@@ -115,12 +115,12 @@ Errores con el formato común `{"error": {"code", "message", "details"}}`, decla
 
 ## 10. Criterios de aceptación
 
-- [ ] CA-IDENTITY-01 (UC-01, UC-02; RF01.05, RF01.06): con un token válido, `GET /me` → 200, y dos llamadas dejan una sola fila en `app.profiles`.
-- [ ] CA-IDENTITY-02 (UC-01; RF01.05): sin cabecera, cabecera mal formada, firma inválida, token caducado, `aud` distinto de `authenticated` o `sub` ausente o no UUID → 401 `unauthenticated` con el formato común.
-- [ ] CA-IDENTITY-03 (UC-03; RF01.06, RF11.02): `PATCH` actualiza solo los campos enviados; `role` en el cuerpo → 422; `budget_min > budget_max` → 422; teléfono inválido → 422.
-- [ ] CA-IDENTITY-04 (UC-04; RNF10): `accept_privacy_version` fija `privacy_accepted_at` con la hora del servidor.
-- [ ] CA-IDENTITY-05 (UC-05; RF13.01, RF13.02): con `require_admin`, un `customer` → 403 `forbidden` y un `admin` → pasa.
-- [ ] CA-IDENTITY-06 (UC-00; RF01.01–RF01.04): de punta a punta con Supabase local, registro → confirmación en Mailpit → token real → `GET /me` → 200.
+- [x] CA-IDENTITY-01 (UC-01, UC-02; RF01.05, RF01.06): con un token válido, `GET /me` → 200, y dos llamadas dejan una sola fila en `app.profiles`.
+- [x] CA-IDENTITY-02 (UC-01; RF01.05): sin cabecera, cabecera mal formada, firma inválida, token caducado, `aud` distinto de `authenticated` o `sub` ausente o no UUID → 401 `unauthenticated` con el formato común.
+- [x] CA-IDENTITY-03 (UC-03; RF01.06, RF11.02): `PATCH` actualiza solo los campos enviados; `role` en el cuerpo → 422; `budget_min > budget_max` → 422; teléfono inválido → 422.
+- [x] CA-IDENTITY-04 (UC-04; RNF10): `accept_privacy_version` fija `privacy_accepted_at` con la hora del servidor.
+- [x] CA-IDENTITY-05 (UC-05; RF13.01, RF13.02): con `require_admin`, un `customer` → 403 `forbidden` y un `admin` → pasa.
+- [x] CA-IDENTITY-06 (UC-00; RF01.01–RF01.04): de punta a punta con Supabase local, registro → confirmación en Mailpit → token real → `GET /me` → 200.
 
 ## 11. Plan de pruebas
 

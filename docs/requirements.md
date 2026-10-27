@@ -53,12 +53,12 @@
 
 | ID | Requisito | Prioridad | Estado |
 |---|---|---|---|
-| RF01.01 | Permitir que un visitante registre una cuenta de cliente. | MVP | PROPUESTO |
-| RF01.02 | Permitir que un usuario registrado inicie sesión. | MVP | PROPUESTO |
+| RF01.01 | Permitir que un visitante registre una cuenta de cliente. | MVP | IMPLEMENTADO (Supabase Auth, verificado E2E; sin UI) |
+| RF01.02 | Permitir que un usuario registrado inicie sesión. | MVP | IMPLEMENTADO (Supabase Auth, verificado E2E; sin UI) |
 | RF01.03 | Permitir cerrar la sesión activa. | MVP | PROPUESTO |
 | RF01.04 | Permitir recuperar el acceso a la cuenta (mecanismo según D-009). | POSTERIOR | PROPUESTO |
-| RF01.05 | Validar la sesión en el backend en cada solicitud protegida. | MVP | PROPUESTO |
-| RF01.06 | Permitir que el cliente consulte y edite sus datos básicos de perfil. | MVP | PROPUESTO |
+| RF01.05 | Validar la sesión en el backend en cada solicitud protegida. | MVP | IMPLEMENTADO (backend, T-016) |
+| RF01.06 | Permitir que el cliente consulte y edite sus datos básicos de perfil. | MVP | IMPLEMENTADO (backend, T-016; sin UI) |
 
 ### RF02 — Catálogo · módulo `catalog`
 
@@ -159,7 +159,7 @@
 | ID | Requisito | Prioridad | Estado |
 |---|---|---|---|
 | RF11.01 | Mostrar el historial de pedidos propios. | MVP | PROPUESTO |
-| RF11.02 | Gestionar preferencias de estilo y presupuesto que el asistente puede usar. | MVP | PROPUESTO |
+| RF11.02 | Gestionar preferencias de estilo y presupuesto que el asistente puede usar. | MVP | IMPLEMENTADO (backend, T-016; sin UI) |
 | RF11.03 | Dar acceso al asistente desde el perfil. | MVP | PROPUESTO |
 
 ### RF12 — Seguimiento de pedidos · módulo `orders`
@@ -173,8 +173,8 @@
 
 | ID | Requisito | Prioridad | Estado |
 |---|---|---|---|
-| RF13.01 | Definir como mínimo los roles `customer` y `admin`. | MVP | PROPUESTO |
-| RF13.02 | Proteger en el backend todo endpoint administrativo; ocultar controles en el frontend no cuenta como autorización. | MVP | PROPUESTO |
+| RF13.01 | Definir como mínimo los roles `customer` y `admin`. | MVP | IMPLEMENTADO (backend, T-016) |
+| RF13.02 | Proteger en el backend todo endpoint administrativo; ocultar controles en el frontend no cuenta como autorización. | MVP | IMPLEMENTADO (backend, `require_admin`, T-016) |
 | RF13.03 | Permitir al administrador consultar pedidos y cambiar su estado solo por transiciones válidas (RN-07). | MVP | PROPUESTO |
 | RF13.04 | Permitir al administrador consultar clientes según los permisos de su rol. | MVP | PROPUESTO |
 
@@ -234,5 +234,6 @@ Los umbrales son **propuestas** pendientes de validación por el usuario; no son
 
 ## Registro de cambios
 
+- **2026-10-27 — v0.3 (claude-leader):** estados actualizados tras la Fase 1. IMPLEMENTADO: RF01.01 y RF01.02 (Supabase Auth, verificados E2E), RF01.05, RF01.06, RF11.02, RF13.01 y RF13.02 (backend, T-016). Ningún texto ni ID cambia.
 - **2026-10-26 — v0.2 (claude-leader):** decisiones del usuario D-015, D-016 y D-017. Nuevos: RF04.06, RF07.04 y RN-15. Modificados: RN-06 (reserva atómica con vencimiento), RN-08 (quién cancela), RF05.05 (POSTERIOR → MVP, reembolso simulado) y RNF10 (Ley 29733). H-03 resuelta. Ningún ID cambió de número.
 - **2026-10-26 — v0.1 (claude-leader):** documento creado desde cero a partir del prompt maestro. RF01–RF14 desglosados en requisitos atómicos, RNF01–RNF12 con umbrales propuestos, RN-01–RN-14 y H-01–H-03. Todo en estado `PROPUESTO`.

@@ -1,7 +1,10 @@
+from typing import Any
+
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from starlette.exceptions import HTTPException
 
 _HTTP_CODES = {
@@ -9,6 +12,30 @@ _HTTP_CODES = {
     403: "forbidden",
     404: "not_found",
     405: "method_not_allowed",
+}
+
+
+class ErrorBody(BaseModel):
+    code: str
+    message: str
+    details: Any = None
+
+
+class ErrorOut(BaseModel):
+    """Formato común de error (modules.md §4.4), para declararlo en el OpenAPI."""
+
+    error: ErrorBody
+
+
+# Para `responses=` de las rutas. Declarar 422 sustituye el HTTPValidationError de FastAPI.
+ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    status: {"model": ErrorOut, "description": description}
+    for status, description in {
+        401: "`unauthenticated`: falta el token o no es válido.",
+        403: "`forbidden`: el rol no basta.",
+        422: "`validation_error`: datos de entrada no válidos.",
+        503: "`auth_unavailable`: no se pudo verificar el token.",
+    }.items()
 }
 
 

@@ -6,20 +6,20 @@
 
 ## Estado actual (2026-10-26)
 
-- **Fase actual:** cierre de la Fase 0 e inicio de la Fase 1.
-- **Implementado y probado:** esqueleto del backend (`GET /health`, 1 prueba, lint y formato limpios, servidor verificado con `curl`) y esqueleto del frontend (`astro check` sin errores, build correcto).
-- **Implementado, sin probar con agentes:** protocolos de agentes, subagentes, skills y reglas de Kombai. Su uso real se validará en la primera tarea delegada (T-007).
+- **Fase actual:** Fase 1 (backend y base de datos) completada el 2026-10-27 en la rama `worktree-fase1-backend-db`, pendiente de integrar en `main`. Siguiente: Fase 2 (audit → catalog → inventory → …).
+- **Implementado y probado:** backend con configuración por entorno, errores comunes, `X-Request-ID`, capa de datos (SQLAlchemy + Alembic, esquema `app`, migraciones 0001–0002) y autenticación (Supabase Auth + JWKS ES256) con el perfil de identity: 133 pruebas unitarias + 12 de integración + E2E con Supabase real. Supabase local en Docker Desktop. Frontend: esqueleto (`astro check` y build).
+- **Agentes:** cadena validada con T-007, T-015 y T-016 (backend-dev implementa; qa-reviewer revisa y encontró un bloqueante real; el Leader verifica e integra).
 - **Decisiones:** aprobadas D-009, D-010, D-011, D-013, D-015, D-016 y D-017 (auth, datos, entorno, git, país, cancelación, stock). Siguen abiertas D-012 (estilos) y D-014 (islas), de la pista de frontend.
-- **Pendiente del usuario:** cerrar VS Code para mover las credenciales (T-012) y confirmar la instalación de Docker Desktop (T-014, puerta Docker).
-- **Sin porcentaje de avance:** aún no hay requisitos funcionales implementados (0 de 66 RF atómicos).
+- **Pendiente del usuario:** autorizar la integración de la rama en `main`; decidir una regla de firewall para los puertos de Supabase (54321–54324 publicados en `0.0.0.0`); corregir `.kombai/stack.json` (dice pnpm y Python 3.13).
+- **Requisitos:** con backend implementado y probado RF01.05, RF01.06, RF11.02, RF13.01 y RF13.02; RF01.01 y RF01.02 los cubre Supabase Auth y están verificados de punta a punta; RF01.03 y RF01.04 los ofrece Supabase Auth sin verificar aún. Ninguno tiene interfaz todavía (7 de 66 RF con backend).
 - **Plan aprobado de backend y BD:** etapas 0–2 de abajo (Fase 1 completa → Fase 2 módulo a módulo + hito M1 de lanzamiento portable).
 
 ## Fases
 
 | Fase | Objetivo | Criterio de salida | Estado |
 |---|---|---|---|
-| 0 | Diagnóstico y preparación | Diagnóstico, `docs/` base, protocolos y plan coherentes con el repositorio | REVISADO (pendiente de que el usuario apruebe las decisiones abiertas) |
-| 1 | Fundamentos técnicos | Entornos funcionando: backend y frontend base, Supabase local, configuración por entorno, errores y logging, migraciones, auth decidida, puertas de calidad | EN DESARROLLO |
+| 0 | Diagnóstico y preparación | Diagnóstico, `docs/` base, protocolos y plan coherentes con el repositorio | COMPLETADA |
+| 1 | Fundamentos técnicos | Entornos funcionando: backend y frontend base, Supabase local, configuración por entorno, errores y logging, migraciones, auth decidida, puertas de calidad | COMPLETADA en backend y BD (2026-10-27); frontend: esqueleto hecho, D-012 y D-014 abiertas |
 | 2 | Dominio comercial y datos | Entidades, restricciones, estados y migraciones de identity, audit, catalog, inventory, cart, wishlist, orders y payments con pruebas de persistencia | PLANIFICADO |
 | 3 | Experiencia de catálogo | Sistema visual desde Figma/Kombai; inicio, catálogo, filtros, ficha y promociones con datos reales | PLANIFICADO |
 | 4 | Compra y cuenta | Registro, sesión, perfil, carrito con selección, deseos, pedido, entrega, pago simulado y seguimiento de punta a punta | PLANIFICADO |

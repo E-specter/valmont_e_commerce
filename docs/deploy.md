@@ -13,12 +13,12 @@
 | 3 | Comprobar Docker | Terminal **nueva**: `docker run --rm hello-world` → "Hello from Docker!" | ✅ |
 | 4 | Clonar e instalar la CLI de Supabase | `git clone <repo>` → `cd valmont_e_commerce` → `npm install` (instala la CLI 2.120.0 fijada) | ✅ |
 | 5 | Arrancar la BD local | `npm run db:start` (la 1.ª vez descarga ~3–5 GB) → `npm run db:status` | ✅ |
-| 6 | Configurar el backend | `cd backend` → `Copy-Item .env.example .env` (los valores por defecto apuntan a Supabase local; no hay secretos que copiar: los tokens se verifican con el JWKS público, D-018) | 🕒 T-016 |
+| 6 | Configurar el backend | `cd backend` → `Copy-Item .env.example .env` (los valores por defecto apuntan a Supabase local; no hay secretos que copiar: los tokens se verifican con el JWKS público, D-018) | ✅ |
 | 7 | Instalar y probar el backend | `uv sync` → `uv run pytest -q` | ✅ |
 | 8 | Crear las tablas | `uv run alembic upgrade head` → `uv run alembic current` muestra `(head)` | ✅ |
 | 9 | Levantar la API | `uv run fastapi dev src/valmont/main.py` → http://127.0.0.1:8000/docs | ✅ |
 | 10 | Levantar el frontend | `cd frontend` → `npm install` → `npx astro dev` → http://localhost:4321 | ✅ build verificado (`astro dev` aún sin abrir) |
-| 11 | Primer administrador | Registrar el usuario desde la app (o Studio → Authentication → Add user), llamar una vez a `GET /api/v1/identity/me` para crear su perfil, y en Studio → SQL: `update app.profiles set role = 'admin' where user_id = '<uuid>';` | 🕒 T-016 |
+| 11 | Primer administrador | Registrar el usuario desde la app (o Studio → Authentication → Add user), llamar una vez a `GET /api/v1/identity/me` para crear su perfil, y en Studio → SQL: `update app.profiles set role = 'admin' where user_id = '<uuid>';` | ✅ perfil al vuelo (T-016) · 🕒 la promoción se prueba con la primera ruta de administración (Fase 5) |
 | 12 | Apagar | `npm run db:stop` (conserva los datos) | ✅ |
 
 **Servicios locales:** API y Auth `:54321` · Postgres `:54322` · Studio `:54323` · Mailpit `:54324` (aquí llegan los correos de registro y recuperación).
@@ -57,6 +57,7 @@ navegador ──HTTPS──► proxy inverso (por decidir en M1)
 | 9 | Comprobar | `GET /health` → 200; registro de prueba; `GET /api/v1/identity/me` → 200 | 🧭 |
 | 10 | Copias de seguridad | `pg_dump` diario a un disco distinto (Linux: `cron`; Windows: Programador de tareas) y una restauración probada antes de abrir al público (RNF12) | 🧭 |
 | 11 | Actualizar | `git pull` → `docker compose … up -d --build` → paso 6 | 🧭 |
+| 12 | Rotar o revocar claves de firma de Auth | Tras revocar una clave en Supabase, reiniciar el backend: cachea las claves públicas por `kid` sin caducidad (D-018) | 🧭 |
 
 ## D. Windows 11 frente a Linux para el lanzamiento
 
@@ -69,6 +70,6 @@ navegador ──HTTPS──► proxy inverso (por decidir en M1)
 
 ## E. Estado actual
 
-- **Funciona hoy:** sección A, pasos 1–10 y 12.
-- **Pendiente:** A-11 (T-016), sección B (verificar en un equipo Linux) y sección C completa (hito M1, tras catalog + inventory).
+- **Funciona hoy:** sección A completa, salvo la promoción a administrador (A-11 parcial), y el flujo de registro → confirmación → token → perfil verificado de punta a punta con Supabase real.
+- **Pendiente:** promoción a admin por SQL (Fase 5), sección B (verificar en un equipo Linux) y sección C completa (hito M1, tras catalog + inventory).
 - **Riesgo abierto en desarrollo:** Docker publica los puertos de Supabase en todas las interfaces de red (`0.0.0.0`), así que otros equipos de la misma red podrían alcanzar la BD local con la contraseña por defecto. Mitigación propuesta: una regla del firewall de Windows que bloquee la entrada a los puertos 54321–54324 (pendiente de tu decisión).
