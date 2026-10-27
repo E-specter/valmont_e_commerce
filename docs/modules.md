@@ -78,7 +78,7 @@ backend/
 1. Un archivo pasa a paquete (`domain/`, `application/<caso_de_uso>.py`) cuando crece, no antes. No se crean carpetas vacías.
 2. `domain` no importa `fastapi`, `pydantic`, `sqlalchemy`, `httpx` ni SDK externos. `application` solo importa `domain` y sus puertos.
 3. Rutas de negocio bajo `/api/v1/<módulo>`. `/health` queda fuera del prefijo.
-4. Las excepciones de dominio se traducen en un manejador central a `{"error": {"code", "message", "details"}}` (propuesta; se implementa en T-007).
+4. Todo error responde `{"error": {"code", "message", "details"}}` (`shared/errors.py`, T-007): `AppError(code, message, status_code, details)` para los errores de negocio; `validation_error` 422 (sin devolver el `input` del cliente); `unauthenticated` 401, `forbidden` 403, `not_found` 404, `method_not_allowed` 405 y `http_error` para el resto de errores HTTP; `internal_error` 500 sin traza (la traza va al log con su `X-Request-ID`).
 5. Una transacción por solicitud (y por tanto por caso de uso), gestionada por la dependencia `get_session` de `shared/db.py`: commit si termina bien, rollback si hay error.
 6. Inyección de dependencias con `Depends` en `adapters/http.py`; en las pruebas los puertos se sustituyen por fakes en memoria.
 7. Todas las tablas viven en el esquema `app` (D-010) y se versionan con Alembic en `backend/migrations/`.

@@ -6,19 +6,19 @@
 | ID | Descripción | Rol | Agente | RF / D | Documentos | Estado | Notas de continuidad |
 |---|---|---|---|---|---|---|---|
 | T-001 | Base documental `docs/` desde cero | docs, arquitectura | claude-leader | OE07 | requirements, modules, planning, setup, decisions | DONE | — |
-| T-002 | Protocolo de agentes, subagentes y skills | docs, arquitectura | claude-leader | OE07, D-004 | agents/PROTOCOL.md, skills/README.md | IN_REVIEW | Validar con la primera delegación real (T-007) |
+| T-002 | Protocolo de agentes, subagentes y skills | docs, arquitectura | claude-leader | OE07, D-004 | agents/PROTOCOL.md, skills/README.md | DONE | Validado con T-007: backend-dev cargó sus skills y entregó el traspaso de 11 puntos |
 | T-003 | Configuración de Kombai y flujo Figma | ui | claude-leader | D-006 | design_ui/DESIGN.md, `.kombai/rules/` | DONE | Generar el `.ds` en T-010 |
 | T-004 | Esqueleto backend FastAPI + uv con `/health` | arquitectura | claude-leader | D-007 | modules.md §4, setup.md §3 | DONE | ruff, pytest (1/1) y servidor con `curl` verificados |
 | T-005 | Esqueleto frontend Astro 7 | arquitectura | claude-leader | D-008 | modules.md §5, setup.md §3 | DONE | `astro check` 0 errores, build OK |
-| T-006 | Supabase local (CLI vía npx + `supabase/config.toml`) | arquitectura | claude-leader | D-011 | setup.md §4 | BLOCKED | Espera a T-014; requiere la puerta Docker |
-| T-007 | Base del backend: configuración por entorno, errores centralizados, logging con id de solicitud | backend | backend-dev (revisa claude-leader) | RNF09, RNF05 | modules.md §4 | READY | Paquete abajo; arranca después del commit base (T-012) |
+| T-006 | Supabase local (CLI vía npx + `supabase/config.toml`) | arquitectura | claude-leader | D-011 | setup.md §4 | IN_PROGRESS | Ficha confirmada por el usuario; CLI 2.120.0 fijada; primer `db:start` en curso |
+| T-007 | Base del backend: configuración por entorno, errores centralizados, logging con id de solicitud | backend | backend-dev (revisa claude-leader) | RNF09, RNF05 | modules.md §4 | DONE | Traspaso abajo; 15 pruebas en verde |
 | T-008 | SPEC del módulo `identity` | requisitos, backend | claude-leader | RF01, RF11.02, RF13, D-009 | docs/modules/identity/SPEC.md | IN_REVIEW | Perfil mínimo aprobado por el usuario; falta que el frontend revise el contrato |
 | T-009 | SPEC del módulo `catalog` | requisitos | module-coordinator | RF02, RF06.01–03 | requirements.md RF02, RF06 | READY | Usar la skill `module-planning` |
 | T-010 | Sistema de diseño Kombai (`.ds`) y primer componente desde Figma | ui | frontend-lead + Kombai | D-006, D-012 | design_ui/DESIGN.md | BLOCKED | Requiere D-012 y la URL del frame de Figma |
 | T-011 | Inicializar git y commit base | — | usuario | D-013 | decisions.md D-013 | CANCELLED | Fusionada en T-012 |
 | T-012 | Credenciales fuera del proyecto + `git init` + commit base | — | claude-leader + usuario | D-013 | decisions.md D-013 | DONE | Credenciales en `%USERPROFILE%\.claude-valmont`; commit base `f931a54` en `main`; trabajo en la rama `worktree-fase1-backend-db` |
 | T-013 | Documentación al día con D-009…D-017 y correcciones de la auditoría | docs | claude-leader | D-009…D-017 | decisions, requirements, modules, skills | DONE | — |
-| T-014 | Instalar Docker Desktop | arquitectura | claude-leader | D-011 | setup.md §1 | IN_PROGRESS | Confirmado por el usuario el 2026-10-26; instalación con winget en curso |
+| T-014 | Instalar Docker Desktop | arquitectura | claude-leader | D-011 | setup.md §1 | DONE | Docker Desktop 29.9.2 + Compose v5.6.1; `hello-world` OK |
 | T-015 | Capa de datos: SQLAlchemy + Alembic, esquema `app`, BD de pruebas | backend | claude-leader / backend-dev | D-010 | modules.md §4 | BACKLOG | Depende de T-006 |
 | T-016 | Autenticación: verificación del JWT, `app.profiles`, `current_user` / `require_admin` | backend, seguridad | backend-dev + qa-reviewer | RF01.05, RF13.01, RF13.02, D-009 | SPEC de identity | BACKLOG | Depende de T-008 y T-015 |
 | T-017 | Ficha de lanzamiento `docs/deploy.md` (Windows 11 / Linux) | docs, arquitectura | claude-leader | D-011 | setup.md | BACKLOG | Los pasos de desarrollo se escriben al verificarse en T-014…T-016 |
@@ -44,3 +44,11 @@ Estados válidos: `BACKLOG` · `SPECIFICATION` · `READY` · `IN_PROGRESS` · `B
 - Estado inicial: READY
 - IDs reservados: ninguno (tarea hoja)
 - Escalar si: hace falta otra dependencia, o el formato de error no cubre un caso
+
+#### Traspaso T-007 — 2026-10-26 — backend-dev (revisado por claude-leader)
+1. Estado final: DONE (aceptado por claude-leader).
+2. Cambios: `shared/config.py` (Settings + `get_settings()` cacheada), `shared/errors.py` (AppError y formato común), `shared/logs.py` (middleware `X-Request-ID` + logging con `request_id`; el 500 se gestiona en el middleware para conservar la cabecera); `fastapi[standard-no-fastapi-cloud-cli]` y `pydantic-settings` como dependencias directas.
+3. Revisión del Leader (añadido): `extra="ignore"` en Settings (si no, el `.env` de T-006 rompería el arranque); handler de `HTTPException` con códigos `unauthenticated`/`forbidden`/`not_found`/`method_not_allowed`/`http_error`; el 422 ya no devuelve `input`. Tres pruebas nuevas.
+4. Pruebas: `uv run ruff format --check .` → 10 files already formatted · `uv run ruff check .` → All checks passed! · `uv run pytest -q` → 15 passed · humo `fastapi dev` + `curl /health` → 200 con `x-request-id` (hecho por backend-dev).
+5. No ejecutadas: integración (sin BD en esta tarea), capas (aún no hay módulos), tipos (sin herramienta).
+6. Riesgos aceptados: el access log de uvicorn duplica la línea de cada solicitud sin el id (en producción se usará `--no-access-log`, hito M1); `LOG_LEVEL` inválido aborta el arranque a propósito.
