@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from dataclasses import asdict
 from datetime import datetime
 from decimal import Decimal
@@ -13,25 +14,33 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Numeric,
+    Result,
     Select,
     Text,
     UniqueConstraint,
+    exists,
     func,
     insert,
     select,
     text,
     true,
+    update,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, Session, aliased, mapped_column
 
+from valmont.modules.catalog.application import RowLock
 from valmont.modules.catalog.domain import (
     RELATED_MAX,
+    AdminProductPage,
+    AdminProductQuery,
+    AdminProductView,
     AttributeKind,
     AttributeValue,
     CatalogConflict,
     Category,
+    InvalidReference,
     OrderPolicy,
     Product,
     ProductImage,
@@ -166,15 +175,25 @@ _IS_PUBLISHED = ProductRow.status == ProductStatus.PUBLISHED  # CATALOG-R1
 _NEWEST = (ProductRow.published_at.desc(), ProductRow.id)
 
 
-def _insert(session: Session, stmt: Executable) -> None:
-    # Unicidad decidida por la BD (modules.md §4.8): sin "¿existe?" previo.
+# FK violada → campo de la referencia inexistente (422 en ese campo, nunca un 500).
+_REFERENCE_FIELDS = {
+    "fk_products_category_id_categories": "category_id",
+    "fk_products_movement_code_movement_types": "movement_code",
+    "fk_products_case_material_code_case_materials": "case_material_code",
+}
+
+
+def _write(session: Session, stmt: Executable) -> Result[Any]:
+    # Unicidad y referencias decididas por la BD (modules.md §4.8): sin "¿existe?" previo.
     try:
-        session.execute(stmt)
+        return session.execute(stmt)
     except IntegrityError as exc:
         constraint = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
-        if (field := _CONFLICT_FIELDS.get(constraint)) is None:
-            raise
-        raise CatalogConflict(field) from exc
+        if field := _CONFLICT_FIELDS.get(constraint):
+            raise CatalogConflict(field) from exc
+        if field := _REFERENCE_FIELDS.get(constraint):
+            raise InvalidReference(field) from exc
+        raise
 
 
 def _category(row: CategoryRow) -> Category:
@@ -283,17 +302,88 @@ def _order(query: ProductQuery) -> tuple[Any, ...]:
     return _NEWEST
 
 
+def _columns(product: Product) -> dict[str, Any]:
+    values = asdict(product)
+    values["price_cents"] = values.pop("price")
+    return values
+
+
+def _admin_select() -> Select[Any]:
+    """Productos en cualquier estado con su categoría y sus valores de atributo."""
+    return (
+        select(ProductRow, CategoryRow, MovementTypeRow, CaseMaterialRow)
+        .join(CategoryRow, ProductRow.category_id == CategoryRow.id)
+        .outerjoin(MovementTypeRow, ProductRow.movement_code == MovementTypeRow.code)
+        .outerjoin(CaseMaterialRow, ProductRow.case_material_code == CaseMaterialRow.code)
+        # La fila puede estar ya en la sesión (lock, update): se relee siempre de la BD.
+        .execution_options(populate_existing=True)
+    )
+
+
 class SqlProductRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
     def add(self, product: Product) -> None:
-        values = asdict(product)
-        values["price_cents"] = values.pop("price")
-        _insert(self._session, insert(ProductRow).values(**values))
+        _write(self._session, insert(ProductRow).values(**_columns(product)))
+
+    def get(self, product_id: UUID) -> AdminProductView | None:
+        rows = self._session.execute(_admin_select().where(ProductRow.id == product_id)).all()
+        return next(iter(self._admin_views(rows)), None)
+
+    def lock(self, product_id: UUID) -> Product | None:
+        stmt = select(ProductRow).filter_by(id=product_id).with_for_update()
+        row = self._session.scalars(stmt.execution_options(populate_existing=True)).one_or_none()
+        return _product(row) if row else None
+
+    def update(self, product: Product) -> None:
+        values = {k: v for k, v in _columns(product).items() if k != "id"}
+        stmt = update(ProductRow).filter_by(id=product.id).values(**values, updated_at=func.now())
+        _write(self._session, stmt.execution_options(synchronize_session=False))
+
+    def list_all(self, query: AdminProductQuery) -> AdminProductPage:
+        conditions: list[ColumnElement[bool]] = []
+        if query.status is not None:
+            conditions.append(ProductRow.status == query.status)
+        if query.q is not None:
+            conditions.append(ProductRow.search.op("@@")(_tsquery(query.q)))
+        count = select(func.count()).select_from(ProductRow).where(*conditions)
+        page = (
+            _admin_select()
+            .where(*conditions)
+            .order_by(ProductRow.updated_at.desc(), ProductRow.id)
+            .limit(query.page_size)
+            .offset((query.page - 1) * query.page_size)
+        )
+        items = self._admin_views(self._session.execute(page).all())
+        return AdminProductPage(items, self._session.scalar(count) or 0)
+
+    def _admin_views(self, rows: list[Any]) -> list[AdminProductView]:
+        # Las imágenes de toda la página en una sola consulta, no producto a producto.
+        images: dict[UUID, list[ProductImage]] = {row[0].id: [] for row in rows}
+        if images:
+            stmt = (
+                select(ProductImageRow)
+                .where(ProductImageRow.product_id.in_(images))
+                .order_by(ProductImageRow.product_id, ProductImageRow.position)
+            )
+            for image in self._session.scalars(stmt):
+                images[image.product_id].append(_image(image))
+        return [
+            AdminProductView(
+                product=_product(product),
+                category=_category(category),
+                movement=_attribute(movement) if movement else None,
+                case_material=_attribute(material) if material else None,
+                images=images[product.id],
+                created_at=product.created_at,
+                updated_at=product.updated_at,
+            )
+            for product, category, movement, material in rows
+        ]
 
     def add_image(self, image: ProductImage) -> None:
-        _insert(self._session, insert(ProductImageRow).values(**asdict(image)))
+        _write(self._session, insert(ProductImageRow).values(**asdict(image)))
 
     def list_published(self, query: ProductQuery) -> ProductPage:
         conditions = _filters(query)
@@ -331,11 +421,37 @@ class SqlCategoryRepository:
         self._session = session
 
     def add(self, category: Category) -> None:
-        _insert(self._session, insert(CategoryRow).values(**asdict(category)))
+        _write(self._session, insert(CategoryRow).values(**asdict(category)))
 
     def list_active(self) -> list[Category]:
         stmt = select(CategoryRow).filter_by(is_active=True).order_by("position", "name")
         return [_category(row) for row in self._session.scalars(stmt)]
+
+    def list_all(self) -> list[Category]:
+        stmt = select(CategoryRow).order_by("position", "name")
+        return [_category(row) for row in self._session.scalars(stmt)]
+
+    def get(self, category_id: UUID, lock: RowLock | None = None) -> Category | None:
+        stmt = select(CategoryRow).filter_by(id=category_id)
+        if lock is not None:
+            stmt = stmt.with_for_update(read=lock == "share")  # FOR SHARE o FOR UPDATE
+        row = self._session.scalars(stmt.execution_options(populate_existing=True)).one_or_none()
+        return _category(row) if row else None
+
+    def update(self, category_id: UUID, values: Mapping[str, object]) -> Category | None:
+        stmt = (
+            update(CategoryRow)
+            .filter_by(id=category_id)
+            .values(**values, updated_at=func.now())
+            .returning(CategoryRow)
+            .execution_options(populate_existing=True)
+        )
+        row = _write(self._session, stmt).scalar_one_or_none()
+        return _category(row) if row else None
+
+    def has_published_products(self, category_id: UUID) -> bool:
+        published = exists().where(ProductRow.category_id == category_id, _IS_PUBLISHED)
+        return bool(self._session.scalar(select(published)))
 
 
 class SqlAttributeRepository:
@@ -343,8 +459,26 @@ class SqlAttributeRepository:
         self._session = session
 
     def add(self, kind: AttributeKind, value: AttributeValue) -> None:
-        _insert(self._session, insert(_ATTRIBUTE_ROWS[kind]).values(**asdict(value)))
+        _write(self._session, insert(_ATTRIBUTE_ROWS[kind]).values(**asdict(value)))
 
     def list_active(self, kind: AttributeKind) -> list[AttributeValue]:
         stmt = select(_ATTRIBUTE_ROWS[kind]).filter_by(is_active=True).order_by("position", "code")
         return [_attribute(row) for row in self._session.scalars(stmt)]
+
+    def list_all(self, kind: AttributeKind) -> list[AttributeValue]:
+        stmt = select(_ATTRIBUTE_ROWS[kind]).order_by("position", "code")
+        return [_attribute(row) for row in self._session.scalars(stmt)]
+
+    def update(
+        self, kind: AttributeKind, code: str, values: Mapping[str, object]
+    ) -> AttributeValue | None:
+        table = _ATTRIBUTE_ROWS[kind]
+        # Sin columnas que cambiar (PATCH vacío) basta con leer: un UPDATE sin SET no es válido.
+        stmt = (
+            update(table).filter_by(code=code).values(**values).returning(table)
+            if values
+            else select(table).filter_by(code=code)
+        )
+        row = self._session.execute(stmt.execution_options(populate_existing=True))
+        found = row.scalar_one_or_none()
+        return _attribute(found) if found else None

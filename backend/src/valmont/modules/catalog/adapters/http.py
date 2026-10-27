@@ -4,7 +4,7 @@ from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AfterValidator, BaseModel, Field, model_validator
 
 from valmont.modules.catalog.adapters.persistence import (
     SqlAttributeRepository,
@@ -27,6 +27,7 @@ from valmont.modules.catalog.domain import (
     ProductSort,
     ProductSummary,
     check_slug,
+    clean_text,
 )
 from valmont.shared.config import get_settings
 from valmont.shared.db import SessionDep
@@ -64,14 +65,20 @@ def _image_url(storage_path: str) -> str:
 
 # --- Esquemas de entrada ---
 
+# Validados por campo: un carácter de control da 422 con loc ["query", <parámetro>].
+QueryText = Annotated[str, AfterValidator(clean_text)]
+SearchText = Annotated[
+    str, Field(max_length=100), AfterValidator(lambda v: clean_text(v, required=False))
+]
+
 
 class ProductListIn(BaseModel):
     """Parámetros de GET /products (SPEC §7). Los textos y el orden los valida el dominio."""
 
-    q: str | None = Field(None, max_length=100)
-    category: str | None = None
-    movement: str | None = None
-    case_material: str | None = None
+    q: SearchText | None = None
+    category: QueryText | None = None
+    movement: QueryText | None = None
+    case_material: QueryText | None = None
     case_diameter_mm_min: Decimal | None = None
     case_diameter_mm_max: Decimal | None = None
     water_resistance_m_min: int | None = None

@@ -1,6 +1,7 @@
 import re
 import unicodedata
-from dataclasses import dataclass
+from collections.abc import Iterable
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
@@ -45,6 +46,26 @@ class NotPublishable(Exception):
     def __init__(self, missing: tuple[str, ...]) -> None:
         super().__init__(f"Faltan requisitos de publicación: {', '.join(missing)}.")
         self.missing = missing
+
+
+class CatalogNotFound(Exception):
+    """El producto, la categoría o el valor no existe: 404."""
+
+
+class SlugLocked(Exception):
+    """CATALOG-R3: el slug no cambia tras la primera publicación: 409."""
+
+
+class CategoryInUse(Exception):
+    """CATALOG-R10: no se desactiva una categoría con productos publicados: 409."""
+
+
+class InvalidReference(Exception):
+    """La categoría o el código referenciado no existe: 422 en ese campo (lo decide la FK)."""
+
+    def __init__(self, field: str) -> None:
+        super().__init__(f"No existe el valor indicado en {field}.")
+        self.field = field
 
 
 class ProductStatus(StrEnum):
@@ -176,6 +197,16 @@ class SpecEntry:
         _set(self, "value", clean_text(self.value, SPEC_VALUE_MAX))
 
 
+def check_specs(entries: Iterable[SpecEntry]) -> tuple[SpecEntry, ...]:
+    """Ficha técnica: hasta SPECS_MAX filas con etiquetas únicas sin distinguir mayúsculas."""
+    specs = tuple(entries)
+    if len(specs) > SPECS_MAX:
+        raise CatalogError(f"La ficha técnica admite como máximo {SPECS_MAX} filas.")
+    if len({entry.label.casefold() for entry in specs}) < len(specs):
+        raise CatalogError("La ficha técnica no puede repetir una etiqueta.")
+    return specs
+
+
 @dataclass(frozen=True)
 class Product:
     id: UUID
@@ -204,11 +235,7 @@ class Product:
         for code in (self.movement_code, self.case_material_code):
             if code is not None:
                 check_slug(code)
-        _set(self, "specs", tuple(self.specs))
-        if len(self.specs) > SPECS_MAX:
-            raise CatalogError(f"La ficha técnica admite como máximo {SPECS_MAX} filas.")
-        if len({entry.label.casefold() for entry in self.specs}) < len(self.specs):
-            raise CatalogError("La ficha técnica no puede repetir una etiqueta.")
+        _set(self, "specs", check_specs(self.specs))
         _set(self, "status", ProductStatus(self.status))
         _set(self, "order_policy", OrderPolicy(self.order_policy))
         if self.lead_time_days is not None and self.lead_time_days <= 0:
@@ -239,6 +266,18 @@ class Product:
         if missing := tuple(name for name, ok in checks if not ok):
             raise NotPublishable(missing)
 
+    def published(self, at: datetime) -> Product:
+        """published_at guarda la primera publicación: no cambia al republicar (CATALOG-R3)."""
+        return replace(self, status=ProductStatus.PUBLISHED, published_at=self.published_at or at)
+
+    def unpublished(self) -> Product:
+        # published_at se conserva: sigue bloqueando el slug (CATALOG-R3).
+        return replace(self, status=ProductStatus.DRAFT)
+
+    def ensure_slug_can_change(self, slug: str) -> None:
+        if slug != self.slug and self.published_at is not None:
+            raise SlugLocked("El slug no cambia después de la primera publicación.")
+
 
 @dataclass(frozen=True)
 class ProductSummary:
@@ -255,6 +294,45 @@ class ProductSummary:
 class ProductPage:
     items: list[ProductSummary]
     total: int  # todos los que cumplen los filtros, no solo los de la página
+
+
+@dataclass(frozen=True)
+class AdminProductView:
+    """Producto en cualquier estado, con lo que muestra la administración (SPEC §7)."""
+
+    product: Product
+    category: Category
+    movement: AttributeValue | None
+    case_material: AttributeValue | None
+    images: list[ProductImage]  # por posición; puede estar vacía en un borrador
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(frozen=True)
+class AdminProductPage:
+    items: list[AdminProductView]
+    total: int
+
+
+@dataclass(frozen=True)
+class AdminProductQuery:
+    """Listado de administración: borradores incluidos (GET /admin/products)."""
+
+    status: ProductStatus | None = None
+    q: str | None = None
+    page: int = 1
+    page_size: int = PAGE_SIZE_DEFAULT
+
+    def __post_init__(self) -> None:
+        if self.status is not None:
+            _set(self, "status", ProductStatus(self.status))
+        if self.q is not None:
+            _set(self, "q", clean_text(self.q, required=False) or None)
+        if self.page < 1:
+            raise CatalogError("La página empieza en 1.")
+        if not 1 <= self.page_size <= PAGE_SIZE_MAX:
+            raise CatalogError(f"page_size debe estar entre 1 y {PAGE_SIZE_MAX}.")
 
 
 @dataclass(frozen=True)

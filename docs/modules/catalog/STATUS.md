@@ -8,7 +8,7 @@
 | T-025 | SPEC de catalog | claude-leader | D-019…D-023 | DONE (contrato aprobado por frontend-lead con cambios incorporados) |
 | T-026 | Esquema `0004`, dominio y repositorios de catalog | backend-dev | T-021 | DONE (2 rondas; verificado por claude-leader: 319 unitarias + 71 integración) |
 | T-027 | API pública: listado con filtros, búsqueda, orden y paginación; ficha con relacionados; categorías y atributos (incluye T-019) | backend-dev | T-026 | DONE (verificado por claude-leader: 355 unitarias + 94 integración) |
-| T-028 | API de administración: productos, publicación, categorías y listas de valores, con auditoría | backend-dev + qa-reviewer | T-026, T-021 | BACKLOG |
+| T-028 | API de administración: productos, publicación, categorías y listas de valores, con auditoría | backend-dev + qa-reviewer | T-026, T-021 | IN_REVIEW |
 | T-029 | Activar Supabase Storage (puerta Docker) e imágenes: subida, orden y retirada | claude-leader + backend-dev | T-028 | IN_PROGRESS (Storage activado y verificado por claude-leader el 2026-10-27; faltan los endpoints de imágenes) |
 | T-030 | Conectar la disponibilidad con inventory (`AvailabilityReader`) | backend-dev | módulo inventory | BACKLOG |
 | T-031 | Semillas de demostración para `dev` (aprobadas por el usuario, P-CATALOG-1) | backend-dev | T-026 | BACKLOG |
@@ -50,6 +50,74 @@ IDs reservados del módulo: T-025–T-039 (libres: T-032–T-039).
 - Escalar si: la SPEC no cubre un caso, hace falta una dependencia, o hay que tocar `shared/` u otro módulo.
 
 ## Traspasos
+
+#### Traspaso T-028 (ronda 2: correcciones de qa-reviewer) — 2026-10-27 — backend-dev
+1. Estado final: IN_REVIEW (vuelve a qa-reviewer).
+2. Cambios:
+   - B-1: `UpdateProduct` mantiene CATALOG-R2 como invariante del publicado. Bloquea el producto FOR UPDATE, toma la categoría destino FOR SHARE (si no existe → 422 `category_id`), cuenta las imágenes y aplica `ensure_publishable` al resultado antes de escribir. Si falla → 409 `publish_requirements_unmet` con `details.missing`, sin cambios ni auditoría. `PublishProduct` comparte el mismo helper y el mismo orden de bloqueo.
+   - M-1: `catalog.order_policy_changed` registra solo los campos que cambian.
+   - M-2: el comentario de `UpdateCategory` explica la dependencia de READ COMMITTED.
+   - M-4: `loc` preciso. Un nombre sin slug posible → `["body","name"]` (producto y categoría). Un carácter de control en `q`, `category`, `movement` o `case_material` → `["query", parámetro]` (público y admin).
+   - M-5: el 409 de cada ruta describe solo sus códigos; el PATCH de producto incluye `publish_requirements_unmet`.
+   - M-6: `AttributeValue(**body.model_dump())` va dentro de `_domain_errors`.
+   - I-1: sin cambios (aprobado).
+3. Archivos: `backend/src/valmont/modules/catalog/{application.py, adapters/admin_http.py, adapters/http.py}`; pruebas `backend/tests/catalog/{test_application.py (nuevo), test_admin_db.py, test_admin_http.py, test_http.py}`.
+4. Decisiones: ninguna nueva. Las de la ronda 1 quedan aprobadas por el Leader (I-1).
+5. Pruebas (desde `backend/`):
+   - `uv run ruff format --check .` → 64 files already formatted
+   - `uv run ruff check .` → All checks passed!
+   - `uv run pytest -q` → 474 passed, 124 deselected
+   - `uv run pytest -m integration -q` → 124 passed, 474 deselected (incluye los 5 casos de B-1 por HTTP contra `valmont_test`: 409, sin cambios y sin auditoría; y que en borrador se permiten)
+   - capas → vacío
+   - `uv run alembic current` → 0004 (head) · `uv run alembic check` → No new upgrade operations detected.
+   - `app.openapi()` → 14 rutas admin; PATCH 409 = `sku_taken`, `slug_taken`, `slug_locked`, `publish_requirements_unmet`; sin `HTTPValidationError`.
+   - `test_application.py` → 13 pruebas con fakes que fijan el orden de llamadas y los `lock=` de `PublishProduct`, `UpdateProduct` (publicado y borrador) y `UpdateCategory`.
+6. No ejecutadas: E2E y tipos (no configurados).
+7. Dependencias: T-029 debe usar `lock()` antes de retirar una imagen (CATALOG-R11).
+8. Riesgos: ninguno nuevo.
+9. Decisión pendiente: ninguna.
+10. Documentación: este STATUS.
+11. Siguiente acción: qa-reviewer verifica B-1 y M-1…M-6.
+12. Commits: el que contiene este traspaso, `feat(catalog): API de administración del catálogo (T-028)` (el hash va en el traspaso al Leader).
+
+#### Traspaso T-028 — 2026-10-27 — backend-dev
+1. Estado final: IN_REVIEW (falta la revisión de qa-reviewer).
+2. Cambios: router `/api/v1/catalog/admin` con las 14 rutas de §7 sin imágenes, todas con `require_admin` (dependencia del router). Casos de uso en `application.py`: `CreateProduct`, `UpdateProduct`, `PublishProduct`, `UnpublishProduct`, `CreateCategory`, `UpdateCategory` y `UpdateAttributeValue`. Errores de §7:
+   - `sku_taken`, `slug_taken` y `code_taken` (409): los decide el UNIQUE.
+   - `slug_locked` (409).
+   - `publish_requirements_unmet` (409), con `details.missing`.
+   - `category_in_use` (409).
+   - `not_found` (404).
+   - Referencia inexistente → 422 `validation_error` con `loc: ["body", <campo>]` y `type: "reference_not_found"`. La traduce el repositorio desde la FK; ya no puede acabar en 500.
+
+   Reglas y concurrencia:
+   - CATALOG-R3: `published_at` es la primera publicación y se conserva al despublicar y al republicar; si existe, cambiar el slug → 409.
+   - Bloqueos: editar, publicar y despublicar leen el producto con `SELECT … FOR UPDATE`. Publicar toma la categoría `FOR SHARE` y desactivarla la toma `FOR UPDATE` antes de buscar publicados (CATALOG-R10 sin carreras).
+   - Auditoría en la misma transacción, con `actor_id`/`actor_role` del token y el `request_id`: `product_created` (after: `sku`, `price_cents`, `order_policy`), `price_changed` (`price_cents`), `product_published` y `product_unpublished` (`status`), y `order_policy_changed` (`order_policy`, `lead_time_days`). Solo se audita lo que cambia.
+
+   Esquemas de entrada:
+   - Campos extra prohibidos, incluido `status`.
+   - En PATCH, `null` borra los atributos opcionales; en los campos obligatorios da 422.
+   - Enteros estrictos acotados a `integer` de PostgreSQL (precio incluido), para que un valor grande no acabe en 500.
+3. Archivos: `backend/src/valmont/modules/catalog/adapters/admin_http.py` (nuevo); `backend/src/valmont/modules/catalog/{domain,application}.py` y `adapters/persistence.py` (`get`, `lock`, `update`, `list_all` de productos; `get` con bloqueo, `update`, `list_all`, `has_published_products` de categorías; `update` y `list_all` de valores); `backend/src/valmont/main.py` (registro del router); `backend/tests/catalog/{test_admin_http,test_admin_db,test_domain_admin}.py` (nuevos) y `test_persistence.py` (una FK inexistente ahora es `InvalidReference`; un id repetido sigue siendo `IntegrityError`).
+4. Decisiones (supuestos a revisar):
+   - Clave de auditoría: `price_cents` también en `product_created`, por coherencia con `price_changed`.
+   - Publicar algo ya publicado, o despublicar un borrador, devuelve 200 sin cambios ni auditoría.
+   - Las altas de categorías y valores responden 201, como la de productos.
+   - El listado admin ordena por `updated_at desc, id`.
+   - `main_image` de `AdminProduct` admite `null`, porque un borrador puede no tener imágenes.
+   - `CategoryIn` (POST) y `CategoryUpdateIn` (PATCH) son dos esquemas.
+   - `slug` opcional al crear una categoría: se genera del nombre.
+   - Un código mal formado en la ruta → 404.
+   - Unpublish y el PATCH de valores no declaran 409, porque no pueden producirlo.
+   - `AuditEntry` y `CurrentUser` se importan desde los módulos permitidos en modules.md §3 (`audit.application` e `identity.adapters.http`), no desde los `domain`.
+5. Pruebas (desde `backend/`): `uv run ruff format --check .` → 63 files already formatted · `uv run ruff check .` → All checks passed! · `uv run pytest -q` → 445 passed, 117 deselected · `uv run pytest -m integration -q` → 117 passed, 445 deselected (incluye `test_admin_db.py`: 20 pruebas por HTTP contra `valmont_test` con la auditoría real y un SAVEPOINT por solicitud, y una prueba de bloqueo entre dos conexiones) · capas → vacío · `uv run alembic current` → 0004 (head) · `uv run alembic check` → No new upgrade operations detected. · OpenAPI: 14 rutas admin, todas con 401/403/503 y errores `ErrorOut`; sin `HTTPValidationError` · grep de secretos → sin coincidencias.
+6. No ejecutadas: E2E y tipos (no configurados). Concurrencia real de dos PATCH: cubierta por diseño (`FOR UPDATE`), sin prueba con hilos.
+7. Dependencias: T-029 (imágenes) debe bloquear el producto con `lock()` antes de retirar una imagen (CATALOG-R11 frente a una publicación concurrente). T-031: las semillas deben dar imagen a todo publicado (un publicado sin imagen da 500 en la ficha pública).
+8. Riesgos: ningún esquema de base de datos cambia. Los publicados sin imagen solo pueden existir por datos insertados fuera de la API.
+9. Decisión pendiente: ninguna bloqueante; los supuestos del punto 4 están a la espera de revisión.
+10. Documentación: este STATUS.
+11. Siguiente acción: qa-reviewer revisa T-028 (autorización, auditoría y bloqueos); después, claude-leader integra.
 
 #### Traspaso T-027 (+ T-019) — 2026-10-27 — backend-dev
 1. Estado final: IN_REVIEW.

@@ -260,6 +260,16 @@ def test_listing_rejects_invalid_parameters_with_422(
     assert products.queries == []
 
 
+@pytest.mark.parametrize("name", ["q", "category", "movement", "case_material"])
+def test_control_character_in_a_text_parameter_is_422_on_that_parameter(
+    client: TestClient, name: str
+) -> None:
+    response = client.get(f"{BASE}/products", params={name: "texto\x1f"})
+
+    assert response.status_code == 422
+    assert [d["loc"] for d in response.json()["error"]["details"]] == [["query", name]]
+
+
 def test_detail_returns_images_specs_and_related_in_order(
     client: TestClient, products: FakeProducts
 ) -> None:

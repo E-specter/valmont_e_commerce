@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from decimal import Decimal
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import event, text
@@ -26,6 +27,7 @@ from valmont.modules.catalog.domain import (
     AttributeKind,
     AttributeValue,
     CatalogConflict,
+    InvalidReference,
     ProductQuery,
 )
 
@@ -292,13 +294,37 @@ def test_duplicates_are_rejected_by_the_database_as_a_conflict(
     assert error.value.field == field
 
 
-def test_other_integrity_errors_are_not_disguised_as_conflicts(
+@pytest.mark.parametrize(
+    ("changes", "field"),
+    [
+        ({"category_id": uuid4()}, "category_id"),
+        ({"movement_code": "no-existe"}, "movement_code"),
+        ({"case_material_code": "no-existe"}, "case_material_code"),
+    ],
+)
+def test_missing_references_are_reported_on_their_field(
+    db_session: Session,
+    repo: SqlProductRepository,
+    catalog: Catalog,
+    changes: dict[str, object],
+    field: str,
+) -> None:
+    # T-028: la FK decide; el repositorio lo traduce para responder 422 en ese campo.
+    product = make_product(catalog.a, "Huérfano", **changes)
+
+    with pytest.raises(InvalidReference) as error, db_session.begin_nested():
+        repo.add(product)
+
+    assert error.value.field == field
+
+
+def test_other_integrity_errors_are_not_disguised(
     db_session: Session, repo: SqlProductRepository, catalog: Catalog
 ) -> None:
-    orphan = make_product(make_category("Sin guardar"), "Huérfano")
+    same_id = make_product(catalog.a, "Otro", id=catalog.products["aurora"].id)
 
     with pytest.raises(IntegrityError), db_session.begin_nested():
-        repo.add(orphan)
+        repo.add(same_id)
 
 
 @pytest.mark.parametrize(
