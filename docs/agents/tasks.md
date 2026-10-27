@@ -30,7 +30,7 @@
 | T-020 | SPEC de audit | requisitos, backend | claude-leader | RF14 | docs/modules/audit/SPEC.md | DONE | Sin preguntas de negocio bloqueantes |
 | T-021 | `app.audit_log` de solo inserción, `AuditRecorder` y `AuditRecorderDep` | backend | backend-dev (revisa claude-leader) | RF14.01, RF14.02 | docs/modules/audit/STATUS.md | DONE | 147 pruebas unitarias + 22 de integración; migración 0003 |
 | T-025 | SPEC de catalog | requisitos, backend | claude-leader | RF02, RF06.01–03, RF06.07, D-019…D-023 | docs/modules/catalog/SPEC.md | DONE | Contrato revisado por frontend-lead; cambios incorporados |
-| T-026…T-031 | Implementación de catalog | backend | backend-dev (+ qa-reviewer en T-028) | ver STATUS de catalog | docs/modules/catalog/STATUS.md | IN_PROGRESS | T-026…T-029 y T-031 DONE; T-030 espera a inventory (T-041) |
+| T-026…T-031 | Implementación de catalog | backend | backend-dev (+ qa-reviewer en T-028) | ver STATUS de catalog | docs/modules/catalog/STATUS.md | DONE | T-026…T-031 DONE (T-030: `cf22744`, verificada por qa-reviewer con D-028); queda un MENOR de pruebas para la próxima tarea de catalog |
 | T-040 | SPEC de inventory | requisitos, backend | claude-leader | RF06.04–06, D-017, D-023, D-027 | docs/modules/inventory/SPEC.md | DONE | Decisiones del usuario D-027 |
 | T-041…T-044 | Implementación de inventory | backend | backend-dev + qa-reviewer | ver STATUS de inventory | docs/modules/inventory/STATUS.md | DONE | T-041…T-044 DONE (última: `08cefce`); verificadas por qa-reviewer con D-028 desde T-042 |
 

@@ -6,7 +6,7 @@
 
 ## Estado actual (2026-10-26)
 
-- **Fase actual:** Fase 1 (backend y base de datos) completada e integrada en `main` el 2026-10-27 (`a381dee`). En curso: Fase 2 en la rama `worktree-fase2-audit-catalog`. audit y catalog están hechos e integrados en `main` (`527ec37`), salvo T-030, que está pendiente. inventory está hecho (T-040–T-044, último commit `08cefce`) y espera la autorización para integrarse.
+- **Fase actual:** Fase 1 (backend y base de datos) completada e integrada en `main` el 2026-10-27 (`a381dee`). En curso: Fase 2 en la rama `worktree-fase2-audit-catalog`. audit y catalog están hechos; los dos están en `main` (`527ec37`) salvo T-030, que está hecha (`cf22744`) pero aún no integrada. inventory está hecho (T-040–T-044, último commit `08cefce`) y espera la autorización para integrarse.
 - **Implementado y probado:** backend con configuración por entorno, errores comunes, `X-Request-ID`, capa de datos (SQLAlchemy + Alembic, esquema `app`, migraciones 0001–0002) y autenticación (Supabase Auth + JWKS ES256) con el perfil de identity: 133 pruebas unitarias + 12 de integración + E2E con Supabase real. Supabase local en Docker Desktop. Frontend: esqueleto (`astro check` y build).
 - **Fase 2 (al 2026-10-27):**
   - audit: registro de solo inserción.

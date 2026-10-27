@@ -10,7 +10,7 @@
 | T-027 | API pública: listado con filtros, búsqueda, orden y paginación; ficha con relacionados; categorías y atributos (incluye T-019) | backend-dev | T-026 | DONE (verificado por claude-leader: 355 unitarias + 94 integración) |
 | T-028 | API de administración: productos, publicación, categorías y listas de valores, con auditoría | backend-dev + qa-reviewer | T-026, T-021 | DONE (`6d66054`; qa-reviewer APROBADO en la re-verificación) |
 | T-029 | Activar Supabase Storage (puerta Docker) e imágenes: subida, orden y retirada | claude-leader + backend-dev | T-028 | DONE (`b86a17a`; verificado por claude-leader: 545 unitarias + 140 integración, Storage real) |
-| T-030 | Disponibilidad real en la API pública desde la vista de inventory, filtro `available` y stock de demostración en las semillas | backend-dev + qa-reviewer | inventory (T-041) | IN_REVIEW (preparado sin commit; pruebas pendientes de qa-reviewer, D-028) |
+| T-030 | Disponibilidad real en la API pública desde la vista de inventory, filtro `available` y stock de demostración en las semillas | backend-dev + qa-reviewer | inventory (T-041) | DONE (`cf22744`; APROBADA por qa-reviewer con D-028: 704 unitarias + 256 integración, GIN en uso) |
 | T-031 | Semillas de demostración para `dev` (aprobadas por el usuario, P-CATALOG-1) | backend-dev | T-029 | DONE (`3eff7f9`; `Actor` nulo para el sistema corregido por claude-leader) |
 
 IDs reservados del módulo: T-025–T-039 (libres: T-032–T-039).
@@ -108,6 +108,21 @@ IDs reservados del módulo: T-025–T-039 (libres: T-032–T-039).
 - Escalar si: la SPEC no cubre un caso, hace falta una dependencia, o hay que tocar `shared/` u otro módulo.
 
 ## Traspasos
+
+#### Verificación T-030 — 2026-10-27 — qa-reviewer (anotada por claude-leader)
+- **Veredicto:** APROBADO.
+  - Base `e4f11a3`; la huella `05d67c3` coincide al empezar y al terminar.
+  - Puertas: `pytest -q` → 704 passed, `pytest -m integration -q` → 256 passed (1 aviso, ver abajo). `ruff`, capas y `alembic check` limpios.
+  - El OpenAPI coincide con la §7, sin colisión de nombres de esquema.
+  - Ninguna respuesta pública lleva cantidades.
+  - Con `EXPLAIN ANALYZE` sobre 20 000 productos, la búsqueda usa el índice GIN, también sin forzarlo.
+  - Mutantes: los 5 pedidos y 2 extra, todos detectados.
+  - Semillas idempotentes, con los 4 estados y sin pisar al admin.
+- **Commit:** `cf22744`, hecho por el Leader con la huella verificada.
+- **MENOR pendiente:** `backend/tests/catalog/test_seed_dev.py:134` usa `Result.tuples()`, obsoleto en SQLAlchemy 2.1 (genera un `SADeprecationWarning`). Se corrige con `dict(db_session.execute(ON_HAND).all())` en la próxima tarea que toque catalog. No se hizo antes del commit para no invalidar la verificación.
+- **Riesgos que anota QA:**
+  - catalog duplica el enum de estados de la vista: un estado nuevo daría 500. Hoy lo cubren 17 casos de integración.
+  - El `JOIN` interior depende de la fila única de `inventory_settings`.
 
 #### Traspaso T-030 — 2026-10-27 — backend-dev
 1. Estado final: IN_REVIEW. Está preparado sin commit; verifica qa-reviewer y acepta claude-leader.

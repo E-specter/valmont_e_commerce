@@ -113,7 +113,7 @@ Esquemas comunes (todas las fechas en UTC ISO 8601; `Money` = `{amount: int, cur
 | GET | `/categories` | `[Category]` (activas, por `position`) | — |
 | GET | `/attributes` | `{movements: [AttributeValue], case_materials: [AttributeValue]}` (activos, por `position`) | — |
 
-Parámetros de `GET /products`: `q` (≤ 100; vacío = sin búsqueda) · `category` (un slug; desconocido → `items: []`) · `movement` · `case_material` · `case_diameter_mm_min` / `case_diameter_mm_max` · `water_resistance_m_min` · `price_min` / `price_max` (céntimos) · `available=true` (desde T-030; incluye `on_request`) · `sort` · `page` · `page_size`. Rangos inclusivos; `min > max` → 422; filtros combinados con AND.
+Parámetros de `GET /products`: `q` (≤ 100; vacío = sin búsqueda) · `category` (un slug; desconocido → `items: []`) · `movement` · `case_material` · `case_diameter_mm_min` / `case_diameter_mm_max` · `water_resistance_m_min` · `price_min` / `price_max` (céntimos) · `available=true` (desde T-030; excluye solo `out_of_stock`, así que incluye `on_request`; `false` o ausente = sin filtro) · `sort` · `page` · `page_size`. Rangos inclusivos; `min > max` → 422; filtros combinados con AND.
 
 **Administración** (prefijo `/api/v1/catalog/admin`; todas con `require_admin`, que añade 401 y 403):
 
@@ -163,7 +163,7 @@ Parámetros de `GET /products`: `q` (≤ 100; vacío = sin búsqueda) · `catego
 - [ ] CA-CATALOG-06 (UC-07; RF06.02): el admin gestiona categorías y listas de valores (también las inactivas); CATALOG-R10.
 - [ ] CA-CATALOG-07 (UC-08; RF06.03): subida, edición del `alt`, orden y retirada de imágenes con los códigos de §7 y CATALOG-R11.
 - [ ] CA-CATALOG-08 (CATALOG-R7): las operaciones auditadas dejan su entrada en `app.audit_log` en la misma transacción.
-- [ ] CA-CATALOG-09 (RF02.08, D-023): con inventory (T-030), el estado de disponibilidad y el filtro `available` siguen D-023.
+- [x] CA-CATALOG-09 (RF02.08, D-023): con inventory (T-030), el estado de disponibilidad y el filtro `available` siguen D-023.
 
 ## 11. Plan de pruebas
 
