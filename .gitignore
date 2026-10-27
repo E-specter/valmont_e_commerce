@@ -1,0 +1,27 @@
+# Directorio de configuración de Claude Code de este workspace (credenciales, sesiones). Nunca versionar.
+.claude_session/
+# Worktrees y ajustes personales de agentes
+.claude/worktrees/
+.claude/settings.local.json
+
+# Secretos
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Node / Astro
+node_modules/
+dist/
+.astro/
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+.idea/
