@@ -131,6 +131,51 @@ def test_two_orders_for_the_last_unit_reserve_exactly_once(
     assert active_reservations(db_engine, product_id) == 1
 
 
+def test_consume_that_waited_for_a_reservation_at_the_edge_loses(
+    db_engine: Engine, stocked: Callable[[int], UUID]
+) -> None:
+    # B-1 concurrente (P1b de QA, INVENTORY-R11), on_hand 1. X reserva cuando la reserva de O
+    # ya venció para su reloj y no confirma hasta ver a Consume(O) esperando el stock. Al
+    # confirmar X, Consume debe juzgar con lo leído DESPUÉS del bloqueo (reloj efectivo y
+    # totales): si leyera antes, no vería X y vendería la única unidad, que es de X.
+    product_id = stocked(1)
+    line = [OrderLine(product_id, 1)]
+    o, x, t0 = uuid4(), uuid4(), datetime.now(UTC)
+    in_transaction(db_engine, lambda s: reserve_stock(s)(o, line, t0))
+    x_reserved, x_may_commit = threading.Event(), threading.Event()
+    consume_pid: queue.Queue[int] = queue.Queue()
+
+    def reserve_x(session: Session) -> ReservedOrder:
+        result = reserve_stock(session)(x, line, t0 + timedelta(minutes=30, seconds=1))
+        x_reserved.set()
+        assert x_may_commit.wait(TIMEOUT)
+        return result
+
+    def consume_o(session: Session) -> None:
+        consume_pid.put(session.scalars(text("SELECT pg_backend_pid()")).one())
+        consume_reservations(session)(o, t0 + timedelta(minutes=29, seconds=59))
+
+    with ThreadPoolExecutor(2) as pool:
+        try:
+            reserving = pool.submit(in_transaction, db_engine, reserve_x)
+            assert x_reserved.wait(TIMEOUT)
+            consuming = pool.submit(in_transaction, db_engine, consume_o)
+            wait_until_blocked(db_engine, consume_pid.get(timeout=TIMEOUT))
+        finally:
+            x_may_commit.set()
+        assert len(reserving.result(TIMEOUT).reservations) == 1
+        with pytest.raises(ReservationExpired):
+            consuming.result(TIMEOUT)
+
+    with Session(db_engine) as session:
+        reservations = SqlReservationRepository(session)
+        sales = session.scalars(select(StockMovementRow.id).filter_by(product_id=product_id)).all()
+        assert session.get(InventoryItemRow, product_id).on_hand == 1  # type: ignore[union-attr]
+        assert sales == []
+        assert [r.status for r in reservations.for_order(o)] == [ReservationStatus.ACTIVE]
+        assert [r.status for r in reservations.for_order(x)] == [ReservationStatus.ACTIVE]
+
+
 class PausingStock(SqlStockRepository):
     """Tras su primer bloqueo espera (hasta 1 s) a que la otra transacción tenga el suyo. Con
     bloqueos sin ordenar, cada una tendría un producto y pediría el de la otra: interbloqueo.
@@ -199,12 +244,14 @@ def test_an_expired_reservation_stops_counting_and_its_unit_can_be_sold_again(
         assert session.get(InventoryItemRow, product_id).on_hand == 0  # type: ignore[union-attr]
 
 
+@pytest.mark.parametrize("first", ["consume", "release"])
 def test_consume_and_release_of_the_same_order_do_not_deadlock(
-    db_engine: Engine, stocked: Callable[[int], UUID]
+    db_engine: Engine, stocked: Callable[[int], UUID], first: str
 ) -> None:
     # I-1 de QA / INVENTORY-R12. Las líneas [B, A] dejan las reservas en orden físico B, A,
     # distinto del de bloqueo (product_id, id). Un tercero retiene la reserva de A hasta ver
-    # esperando a Consume y después a Release; al soltarla, los dos deben terminar.
+    # esperando a los dos, `first` antes; al soltarla gana el primero de la cola del bloqueo y
+    # los dos terminan sin interbloqueo.
     a, b = sorted((stocked(1), stocked(1)))
     order_id = uuid4()
     lines = [OrderLine(b, 1), OrderLine(a, 1)]
@@ -218,33 +265,38 @@ def test_consume_and_release_of_the_same_order_do_not_deadlock(
 
         return work
 
-    consume = reporting_pid(lambda s: consume_reservations(s)(order_id, datetime.now(UTC)))
-    release = reporting_pid(lambda s: release_reservations(s)(order_id))
+    works = {
+        "consume": reporting_pid(lambda s: consume_reservations(s)(order_id, datetime.now(UTC))),
+        "release": reporting_pid(lambda s: release_reservations(s)(order_id)),
+    }
+    order = [first, *(name for name in works if name != first)]
     first_reservation = (
         select(StockReservationRow.id).filter_by(order_id=order_id, product_id=a).with_for_update()
     )
 
     with db_engine.connect() as holder, ThreadPoolExecutor(2) as pool:
         holder.execute(first_reservation)
+        futures = {}
         try:
-            consuming = pool.submit(in_transaction, db_engine, consume)
-            wait_until_blocked(db_engine, pids.get(timeout=TIMEOUT))
-            releasing = pool.submit(in_transaction, db_engine, release)
-            wait_until_blocked(db_engine, pids.get(timeout=TIMEOUT))
+            for name in order:  # cada uno empieza solo cuando el anterior ya espera
+                futures[name] = pool.submit(in_transaction, db_engine, works[name])
+                wait_until_blocked(db_engine, pids.get(timeout=TIMEOUT))
         finally:
             holder.rollback()
-        consume_error = consuming.exception(TIMEOUT)
-        assert releasing.exception(TIMEOUT) is None
-    assert consume_error is None or isinstance(consume_error, ReservationExpired), consume_error
+        consume_error = futures["consume"].exception(TIMEOUT)
+        release_error = futures["release"].exception(TIMEOUT)
 
-    # Gana uno de los dos y el estado queda coherente: todo vendido o todo liberado.
     with Session(db_engine) as session:
         statuses = {r.status for r in SqlReservationRepository(session).for_order(order_id)}
         stock = session.scalars(
             select(InventoryItemRow.on_hand).where(InventoryItemRow.product_id.in_([a, b]))
         ).all()
         sales = session.scalars(select(StockMovementRow.id).filter_by(order_id=order_id)).all()
-    if consume_error is None:
+    assert release_error is None, release_error
+    if first == "consume":
+        assert consume_error is None, consume_error
         assert (statuses, stock, len(sales)) == ({ReservationStatus.CONSUMED}, [0, 0], 2)
     else:
+        # Consume relee las reservas ya liberadas y no puede cobrarlas (R8).
+        assert isinstance(consume_error, ReservationExpired), consume_error
         assert (statuses, stock, len(sales)) == ({ReservationStatus.RELEASED}, [1, 1], 0)

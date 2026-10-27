@@ -271,6 +271,13 @@ class SqlReservationRepository:
         stmt = stmt.execution_options(populate_existing=True)
         return [_reservation(row) for row in self._session.scalars(stmt)]
 
+    def latest_expiry(self, product_ids: Collection[UUID]) -> datetime | None:
+        stmt = select(func.max(StockReservationRow.expires_at)).where(
+            StockReservationRow.product_id.in_(product_ids),
+            StockReservationRow.status == ReservationStatus.ACTIVE,
+        )
+        return self._session.scalar(stmt)
+
     def close(self, reservation_ids: Collection[UUID], status: ReservationStatus) -> None:
         stmt = (
             update(StockReservationRow)

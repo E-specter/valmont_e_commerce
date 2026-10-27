@@ -26,7 +26,8 @@ class InsufficientStock(Exception):
 
 
 class ReservationExpired(Exception):
-    """Alguna reserva del pedido ya no lo respalda: venció o se liberó (INVENTORY-R8)."""
+    """Alguna reserva del pedido ya no lo respalda: venció o se liberó (INVENTORY-R8), o ya no
+    está cubierta por el stock (INVENTORY-R11)."""
 
 
 class StockReserved(Exception):

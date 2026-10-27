@@ -200,7 +200,8 @@ def test_consume_at_the_expiry_edge_loses_to_the_order_that_reserved_validly(
     db_session: Session,
 ) -> None:
     # B-1 / INVENTORY-R11, la secuencia de la sonda de QA con on_hand 1: X reserva cuando la
-    # reserva de O ya venció (T0+30m+1s) y O paga con un reloj un segundo antes del límite.
+    # reserva de O ya venció (T0+30m+1s) y O paga con un reloj un segundo antes del límite. Al
+    # reloj efectivo (la creación de X) la reserva de O ya venció: falla por R8.
     a = product(db_session, 1)
     o, x, t0 = uuid4(), uuid4(), db_now(db_session)
     reserve_stock(db_session)(o, [OrderLine(a, 1)], t0)
@@ -215,6 +216,35 @@ def test_consume_at_the_expiry_edge_loses_to_the_order_that_reserved_validly(
     consume_reservations(db_session)(x, t0 + timedelta(minutes=30, seconds=2))
     assert on_hand(db_session, a) == 0
     assert statuses(db_session, x) == [ReservationStatus.CONSUMED]
+
+
+def test_a_valid_order_is_not_beaten_by_two_others_at_the_edge(db_session: Session) -> None:
+    # P7 de QA (reloj efectivo de R11), on_hand 2. Para Z la reserva de Y ya venció; O, que es
+    # vigente, paga con un reloj 1 s antes del límite de Y. Con `now`, Y + O + Z = 3 > 2 y O
+    # perdería; al reloj efectivo (la creación de Z) Y no cuenta y O se vende.
+    a = product(db_session, 2)
+    y, o, z, t0 = uuid4(), uuid4(), uuid4(), db_now(db_session)
+    edge = t0 + timedelta(minutes=29, seconds=59)
+    reserve_stock(db_session)(y, [OrderLine(a, 1)], t0)
+    reserve_stock(db_session)(o, [OrderLine(a, 1)], t0 + timedelta(minutes=10))
+    late = reserve_stock(db_session)(z, [OrderLine(a, 1)], t0 + timedelta(minutes=30, seconds=1))
+    assert len(late.reservations) == 1
+
+    consume_reservations(db_session)(o, edge)
+
+    assert on_hand(db_session, a) == 1
+    sales = SqlMovementRepository(db_session).list_recent(a, 50)
+    assert [(m.kind, m.quantity_delta, m.order_id) for m in sales] == [(MovementKind.VENTA, -1, o)]
+    assert statuses(db_session, o) == [ReservationStatus.CONSUMED]
+    assert statuses(db_session, z) == [ReservationStatus.ACTIVE]
+
+    # Y, que sí venció al reloj efectivo, ya no se puede cobrar (R8) y no cambia nada.
+    with pytest.raises(ReservationExpired):
+        consume_reservations(db_session)(y, edge)
+
+    assert on_hand(db_session, a) == 1
+    assert len(SqlMovementRepository(db_session).list_recent(a, 50)) == 1
+    assert statuses(db_session, y) == [ReservationStatus.ACTIVE]
 
 
 def test_release_frees_the_stock_and_is_idempotent(db_session: Session) -> None:
@@ -253,3 +283,17 @@ def test_reservations_round_trip(db_session: Session) -> None:
     assert repo.for_order(reservation.order_id, lock=True) == [reservation]
     assert repo.active_totals([a], db_now(db_session) - timedelta(seconds=1)) == {a: 1}
     assert repo.active_totals([a], db_now(db_session)) == {}  # vence justo ahora: no cuenta
+    assert repo.latest_expiry([a]) == reservation.expires_at  # activa, aunque ya venció
+
+    released_later = Reservation(
+        uuid4(),
+        a,
+        uuid4(),
+        1,
+        reservation.expires_at + timedelta(hours=1),
+        ReservationStatus.RELEASED,
+    )
+    repo.add(released_later)
+
+    assert repo.latest_expiry([a]) == reservation.expires_at  # solo cuentan las activas
+    assert repo.latest_expiry([uuid4()]) is None

@@ -7,7 +7,7 @@
 |---|---|---|---|---|
 | T-040 | SPEC de inventory | claude-leader | D-017, D-023, D-027 | DONE |
 | T-041 | Esquema `0005`, dominio, repositorios, settings y vista `product_availability` | backend-dev | T-026 | DONE (`84d60d8`; verificado por claude-leader: 597 unitarias + 182 integración) |
-| T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | IN_PROGRESS (ronda 3: prueba concurrente de R11 y reloj efectivo; ronda 2 `615189d` APROBADA por qa-reviewer) |
+| T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | IN_REVIEW (ronda 3 preparada sin commit, D-028: prueba concurrente de R11, reloj efectivo e I-1 con ambos ganadores; pendiente de ejecución por qa-reviewer) |
 | T-043 | API de administración (stock, movimientos, settings) con auditoría | backend-dev + qa-reviewer | T-041 | BACKLOG |
 
 IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalog) consumirá la vista de T-041.
@@ -57,6 +57,54 @@ IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalo
 - **MENOR P7:** R11 podía rechazar un pedido vigente cuando otros dos coinciden en el límite. El Leader decide el reloj efectivo (SPEC R11).
 - **MENOR:** la prueba de I-1 solo ejercita el caso en que gana Consume, y el docstring de `ReservationExpired` no cita R11.
 - **Siguiente:** ronda 3 con backend-dev, ya con D-028 (sin ejecutar pruebas, entrega preparada).
+
+#### Traspaso T-042 (ronda 3: B-1 concurrente, reloj efectivo de R11 e I-1 con ambos ganadores) — 2026-10-27 — backend-dev
+1. Estado final: IN_REVIEW. Pendiente de que qa-reviewer ejecute las pruebas (D-028); revisa también claude-leader.
+2. Cambios:
+   - **Reloj efectivo (SPEC R11, P7).** En `ConsumeReservations`:
+     1. Bloquea las reservas del pedido y hace la comprobación temprana `to_consume(…, now)`.
+     2. Bloquea el stock en orden de `product_id`.
+     3. Después de los bloqueos, `latest_expiry(product_ids)` y `effective = max(now, latest − 30 min)`; si `latest` es `None`, `now`.
+     4. Con `effective`, y no con `now`, se calculan `to_consume` (R8) y `active_totals` (R11).
+     - Método nuevo del puerto `ReservationRepository.latest_expiry(product_ids) -> datetime | None`. Su adaptador hace una sola consulta: `max(expires_at)` de las reservas `active` de cualquier pedido.
+   - **Docstring de `ReservationExpired`:** añade "o ya no está cubierta por el stock (INVENTORY-R11)".
+   - **Pruebas nuevas o cambiadas, sin ejecutar** (D-028):
+     - `test_concurrency.py::test_consume_that_waited_for_a_reservation_at_the_edge_loses`. Es la sonda P1b de QA: on_hand 1 y Reserve(O, T0) confirmado. Reserve(X, T0+30m+1s) retiene su commit hasta que Consume(O, T0+30m−1s) aparece en `pg_stat_activity` esperando un `Lock`. Se espera: X ok, O `ReservationExpired`, on_hand 1, 0 ventas, y O y X `active`.
+     - `test_concurrency.py::test_consume_and_release_of_the_same_order_do_not_deadlock`, parametrizada con `first ∈ {consume, release}`. Cada uno arranca cuando el anterior ya espera.
+       - Si espera primero Consume: los dos sin error, todo `consumed`, on_hand [0, 0] y 2 ventas.
+       - Si espera primero Release: Release sin error y Consume `ReservationExpired` (R8); todo `released`, on_hand [1, 1] y 0 ventas.
+     - `test_reservations.py::test_a_valid_order_is_not_beaten_by_two_others_at_the_edge` (P7, determinista, on_hand 2):
+       - Y reserva en T0, O en T0+10m y Z en T0+30m+1s (obtiene reserva).
+       - Consume(O, T0+30m−1s) → on_hand 1, una `venta` de O, O `consumed` y Z `active`.
+       - Después Consume(Y, T0+30m−1s) → `ReservationExpired`, sin cambios.
+     - `test_reservations.py::test_reservations_round_trip` comprueba además `latest_expiry`: devuelve la activa aunque haya vencido, ignora una liberada posterior y da `None` sin reservas.
+     - `test_application.py`: el fake gana `latest_expiry`, y hay tres unitarias nuevas.
+       - El reloj efectivo en R8: on_hand 5, Y en T0 y otra reserva en T0+30m+1s → `ReservationExpired` sin escrituras.
+       - El reloj efectivo en los totales: P7 con fakes, O se vende y solo se cierra su id.
+       - La red de seguridad de R11: dos reservas vigentes al reloj efectivo con on_hand 1 → `ReservationExpired` sin escrituras.
+     - La B-1 secuencial existente sigue siendo coherente: O falla ahora por R8 (al reloj efectivo su reserva ya venció), la aserción `ReservationExpired` se mantiene y solo cambia el comentario. Después, Consume(X, T0+30m+2s) usa effective = T0+30m+2s; la reserva de O no cuenta y X se vende.
+   - **Mutantes que deberían detectar estas pruebas** (los he comprobado a mano, no ejecutando):
+     - Leer los totales y el reloj antes de bloquear el stock (el `mut_order.py` de QA) → falla la P1b concurrente.
+     - Usar `now` en `active_totals` → fallan la unitaria de totales y la P7 de integración.
+     - Usar `now` en el `to_consume` final → falla la unitaria de R8.
+     - Quitar la comprobación de R11 → falla la unitaria de la red de seguridad.
+     - Release sin `lock=True` → falla la I-1 (las dos variantes).
+3. Archivos modificados: `backend/src/valmont/modules/inventory/{domain,application}.py`, `backend/src/valmont/modules/inventory/adapters/persistence.py`, `backend/tests/inventory/{test_application,test_reservations,test_concurrency}.py` y este STATUS (fila de T-042 y este traspaso).
+4. Decisiones tomadas: ninguna; aplico la SPEC R11 "Reloj efectivo" (84403e2) y D-028.
+5. Pruebas ejecutadas → resultado observado (solo análisis estático, D-028, desde `backend/`):
+   - `uv run ruff format .` → 87 files left unchanged.
+   - `uv run ruff check .` → All checks passed!
+   - `uv run ruff format --check .` → 87 files already formatted.
+   - Capas: `grep -rnE "^(from|import) (fastapi|pydantic|sqlalchemy|httpx|supabase)" src/valmont/modules/*/domain* src/valmont/modules/*/application*` → sin salida (exit 1).
+6. Pruebas no ejecutadas y motivo: NO EJECUTADO: pruebas (D-028). Tampoco `pytest -q`, `pytest -m integration -q` ni `alembic check`. Recuento esperado: +3 unitarias (624) y +3 de integración (202: la P1b, la segunda variante de I-1 y la P7).
+7. Dependencias pendientes: ejecución por qa-reviewer; las de las rondas anteriores (orders, T-043).
+8. Riesgos conocidos:
+   - Pruebas sin ejecutar: podrían tener errores que el análisis estático no ve.
+   - El reloj efectivo puede hacer fallar un pago 1 s antes del límite si otro pedido ya reservó con un reloj posterior. Es lo que decide R11: pierde quien paga en el límite.
+9. Preguntas que requieren decisión: ninguna nueva (I-5 e I-6 siguen abiertas).
+10. Documentación actualizada: este STATUS.
+11. Siguiente acción recomendada: que qa-reviewer ejecute las puertas y sus mutantes (incluido `mut_order.py`) sobre este cambio preparado.
+12. Commits: ninguno — preparado (D-028). Rutas: las del punto 3. Mensaje propuesto: `test(inventory): B-1 concurrente, reloj efectivo de R11 y ambos ganadores de I-1 (T-042)`.
 
 #### Traspaso T-042 (ronda 2: B-1, I-1, M-1 de qa-reviewer) — 2026-10-27 — backend-dev
 1. Estado final: IN_REVIEW (revisan claude-leader y qa-reviewer).

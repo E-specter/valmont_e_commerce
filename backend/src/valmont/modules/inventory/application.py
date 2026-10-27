@@ -72,6 +72,11 @@ class ReservationRepository(Protocol):
         """Todas las reservas del pedido; lock=True las bloquea (FOR UPDATE)."""
         ...
 
+    def latest_expiry(self, product_ids: Collection[UUID]) -> datetime | None:
+        """El mayor expires_at de las reservas activas (de cualquier pedido, vencidas o no) de
+        esos productos; None si no hay ninguna."""
+        ...
+
     def close(self, reservation_ids: Collection[UUID], status: ReservationStatus) -> None:
         """Pasa exactamente esas reservas a `status`; quien llama ya las tiene bloqueadas."""
         ...
@@ -145,15 +150,24 @@ class ConsumeReservations:
     def __call__(self, order_id: UUID, now: datetime) -> None:
         # Primero las reservas del pedido, en el mismo orden que ReleaseReservations (R12), y
         # después todo el stock implicado en orden de product_id, como ReserveStock (R4).
-        consumed = to_consume(self._reservations.for_order(order_id, lock=True), now)
-        if not consumed:
+        reservations = self._reservations.for_order(order_id, lock=True)
+        # Comprobación temprana con `now`: el reloj efectivo nunca es anterior, así que lo que
+        # falla aquí fallaría igual después.
+        early = to_consume(reservations, now)
+        if not early:
             return
-        product_ids = sorted({r.product_id for r in consumed})
+        product_ids = sorted({r.product_id for r in early})
         on_hand = {p: _lock(self._stock, p).on_hand for p in product_ids}
+        # Reloj efectivo (R11), leído después de los bloqueos: nunca anterior a la creación de
+        # la última reserva activa de estos productos, aunque esta transacción esperara.
+        latest = self._reservations.latest_expiry(product_ids)
+        reserved_window = timedelta(minutes=RESERVATION_MINUTES)
+        effective = now if latest is None else max(now, latest - reserved_window)
+        consumed = to_consume(reservations, effective)  # R8 con el reloj efectivo
         # INVENTORY-R11: con el stock bloqueado y antes de escribir, on_hand debe cubrir todas
         # las reservas vigentes, propias incluidas. Si no, otra transacción dio por vencida una
         # de las nuestras y reservó esas unidades: pierde este pedido, que paga en el límite.
-        totals = self._reservations.active_totals(product_ids, now)
+        totals = self._reservations.active_totals(product_ids, effective)
         if any(on_hand[p] < totals.get(p, 0) for p in product_ids):
             raise ReservationExpired
         for reservation in sorted(consumed, key=lambda r: r.product_id):

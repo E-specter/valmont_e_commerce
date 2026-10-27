@@ -54,6 +54,10 @@ class FakeReservations:
         rows = [r for r in self.rows.values() if r.order_id == order_id]
         return sorted(rows, key=lambda r: (r.product_id, r.id))
 
+    def latest_expiry(self, product_ids: Collection[UUID]) -> datetime | None:
+        rows = [r for r in self.rows.values() if r.product_id in product_ids]
+        return max((r.expires_at for r in rows if r.status == "active"), default=None)
+
     def close(self, reservation_ids: Collection[UUID], status: ReservationStatus) -> None:
         self.closed.append((set(reservation_ids), status))
         for reservation_id in reservation_ids:
@@ -84,7 +88,8 @@ def reserved(
 
 def test_consume_at_the_expiry_edge_loses_without_writing() -> None:
     # B-1 / INVENTORY-R11: la reserva de O venció para quien reservó X (T0+30m+1s), pero no
-    # para el reloj de quien paga O (T0+30m−1s). on_hand 1 no cubre las dos: pierde O.
+    # para el reloj de quien paga O (T0+30m−1s). Con el reloj efectivo (la creación de X) ya
+    # venció (R8); sin él, on_hand 1 no cubriría las dos. En ambos casos pierde O.
     o, x = uuid4(), uuid4()
     stock = FakeStock({A: 1})
     reservations = FakeReservations(
@@ -96,6 +101,59 @@ def test_consume_at_the_expiry_edge_loses_without_writing() -> None:
         ConsumeReservations(stock, reservations, movements)(
             o, T0 + timedelta(minutes=29, seconds=59)
         )
+
+    assert (stock.updates, movements.added, reservations.closed) == ([], [], [])
+
+
+EDGE = T0 + timedelta(minutes=29, seconds=59)  # reloj de quien paga, 1 s antes del límite
+LATE = T0 + timedelta(minutes=30, seconds=1)  # creación de Z, 1 s después
+
+
+def test_consume_judges_its_reservations_with_the_effective_clock() -> None:
+    # Reloj efectivo, R8: Z se creó en T0+30m+1s, así que a ese reloj la reserva de Y ya venció
+    # aunque `now` diga otra cosa. Con stock de sobra, R11 sola no lo detectaría.
+    y = uuid4()
+    stock = FakeStock({A: 5})
+    reservations = FakeReservations(reserved(A, y), reserved(A, uuid4(), at=LATE))
+    movements = FakeMovements()
+
+    with pytest.raises(ReservationExpired):
+        ConsumeReservations(stock, reservations, movements)(y, EDGE)
+
+    assert (stock.updates, movements.added, reservations.closed) == ([], [], [])
+
+
+def test_consume_counts_live_reservations_with_the_effective_clock() -> None:
+    # P7 de QA: con `now`, la reserva vencida de Y aún contaría (Y + O + Z = 3 > 2) y O, que es
+    # vigente, perdería. Con el reloj efectivo Y ya no cuenta: O + Z = 2 y O se vende.
+    o = uuid4()
+    y_reservation, z_reservation = reserved(A, uuid4()), reserved(A, uuid4(), at=LATE)
+    o_reservation = reserved(A, o, at=T0 + timedelta(minutes=10))
+    stock = FakeStock({A: 2})
+    reservations = FakeReservations(y_reservation, o_reservation, z_reservation)
+    movements = FakeMovements()
+
+    ConsumeReservations(stock, reservations, movements)(o, EDGE)
+
+    assert stock.on_hand == {A: 1}
+    assert [(m.quantity_delta, m.on_hand_after) for m in movements.added] == [(-1, 1)]
+    assert reservations.closed == [({o_reservation.id}, ReservationStatus.CONSUMED)]
+    assert reservations.rows[z_reservation.id].status == ReservationStatus.ACTIVE
+
+
+def test_consume_fails_if_stock_does_not_cover_every_live_reservation() -> None:
+    # R11 como red de seguridad: dos reservas vigentes al reloj efectivo y on_hand 1 (un estado
+    # que solo dejaría un desfase de relojes). Ni se vende ni se escribe nada.
+    o = uuid4()
+    stock = FakeStock({A: 1})
+    reservations = FakeReservations(
+        reserved(A, o, at=T0 + timedelta(minutes=10)),
+        reserved(A, uuid4(), at=T0 + timedelta(minutes=15)),
+    )
+    movements = FakeMovements()
+
+    with pytest.raises(ReservationExpired):
+        ConsumeReservations(stock, reservations, movements)(o, T0 + timedelta(minutes=20))
 
     assert (stock.updates, movements.added, reservations.closed) == ([], [], [])
 
