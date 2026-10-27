@@ -1,5 +1,6 @@
 """Concurrencia real contra valmont_test: cada transacción en su propia conexión, en hilos
-(CA-INVENTORY-02 y 06). Los datos se confirman, así que cada prueba borra al final lo suyo."""
+(CA-INVENTORY-02 y 06, y R6 del admin). Los datos se confirman, así que cada prueba borra al
+final lo suyo; ninguna escribe en app.audit_log, que no admite DELETE."""
 
 import queue
 import threading
@@ -20,21 +21,32 @@ from tests.inventory.inventory_helpers import (
     release_reservations,
     reserve_stock,
 )
+from valmont.modules.audit.application import AuditEntry
 from valmont.modules.inventory.adapters.persistence import (
     InventoryItemRow,
+    SqlAvailabilityReader,
+    SqlMovementRepository,
     SqlProductPolicies,
     SqlReservationRepository,
     SqlStockRepository,
     StockMovementRow,
     StockReservationRow,
 )
-from valmont.modules.inventory.application import ReservedOrder, ReserveStock
+from valmont.modules.inventory.application import (
+    Actor,
+    RecordMovement,
+    ReservedOrder,
+    ReserveStock,
+)
 from valmont.modules.inventory.domain import (
     InsufficientStock,
+    MovementKind,
     OrderLine,
     ReservationExpired,
     ReservationStatus,
     StockItem,
+    StockMovement,
+    StockReserved,
 )
 
 pytestmark = pytest.mark.integration
@@ -300,3 +312,62 @@ def test_consume_and_release_of_the_same_order_do_not_deadlock(
         # Consume relee las reservas ya liberadas y no puede cobrarlas (R8).
         assert isinstance(consume_error, ReservationExpired), consume_error
         assert (statuses, stock, len(sales)) == ({ReservationStatus.RELEASED}, [1, 1], 0)
+
+
+class RecordedAudit:
+    """Auditoría en memoria: una fila real en app.audit_log no se podría borrar al final."""
+
+    def __init__(self) -> None:
+        self.entries: list[AuditEntry] = []
+
+    def record(self, entry: AuditEntry) -> None:
+        self.entries.append(entry)
+
+
+def test_shrinkage_that_waited_for_an_uncommitted_reservation_respects_it(
+    db_engine: Engine, stocked: Callable[[int], UUID]
+) -> None:
+    # M2 de QA en T-043 (INVENTORY-R6 bajo el bloqueo), on_hand 3. Un pedido reserva 2 y no
+    # confirma hasta ver a la merma de 2 esperando el stock. Al confirmar, la merma debe juzgar
+    # con lo reservado leído DESPUÉS del bloqueo: si leyera antes, no vería la reserva, dejaría
+    # on_hand en 1 y el pedido no podría cumplirse.
+    product_id = stocked(3)
+    reserved, may_commit = threading.Event(), threading.Event()
+    shrink_pid: queue.Queue[int] = queue.Queue()
+    audit = RecordedAudit()
+
+    def reserve(session: Session) -> ReservedOrder:
+        result = reserve_stock(session)(uuid4(), [OrderLine(product_id, 2)], datetime.now(UTC))
+        reserved.set()
+        assert may_commit.wait(TIMEOUT)
+        return result
+
+    def shrink(session: Session) -> StockMovement:
+        shrink_pid.put(session.scalars(text("SELECT pg_backend_pid()")).one())
+        record = RecordMovement(
+            SqlStockRepository(session),
+            SqlAvailabilityReader(session),
+            SqlMovementRepository(session),
+            audit,
+        )
+        return record(product_id, MovementKind.MERMA, 2, "Rotura", Actor(uuid4(), "admin"))
+
+    with ThreadPoolExecutor(2) as pool:
+        try:
+            reserving = pool.submit(in_transaction, db_engine, reserve)
+            assert reserved.wait(TIMEOUT)
+            shrinking = pool.submit(in_transaction, db_engine, shrink)
+            wait_until_blocked(db_engine, shrink_pid.get(timeout=TIMEOUT))
+        finally:
+            may_commit.set()
+        assert len(reserving.result(TIMEOUT).reservations) == 1
+        with pytest.raises(StockReserved) as exc:
+            shrinking.result(TIMEOUT)
+
+    assert (exc.value.on_hand, exc.value.reserved) == (3, 2)
+    assert audit.entries == []
+    with Session(db_engine) as session:
+        movements = session.scalars(select(StockMovementRow.id).filter_by(product_id=product_id))
+        assert session.get(InventoryItemRow, product_id).on_hand == 3  # type: ignore[union-attr]
+        assert movements.all() == []
+    assert active_reservations(db_engine, product_id) == 1

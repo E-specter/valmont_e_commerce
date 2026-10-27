@@ -285,6 +285,8 @@ def test_plan_reservations_fails_whole_with_the_short_products(
         plan_reservations([OrderLine(*line) for line in lines], POLICIES, available)
 
     assert exc.value.product_ids == short
+    # M4 de QA en T-043: en la ruta de reservas no hay un on_hand ni un reservado que contar.
+    assert (exc.value.on_hand, exc.value.reserved) == (None, None)
 
 
 def test_plan_reservations_lists_every_short_product_once() -> None:

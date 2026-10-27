@@ -116,7 +116,8 @@ def _invalid(field: str | None, message: str) -> AppError:
     return AppError("validation_error", "Datos de entrada no válidos.", 422, details)
 
 
-def _conflict(code: str, message: str, on_hand: int, reserved: int) -> AppError:
+def _conflict(code: str, message: str, on_hand: int | None, reserved: int | None) -> AppError:
+    # El admin siempre los trae (admin_movement); None solo en la ruta de reservas de orders.
     return AppError(code, message, 409, {"on_hand": on_hand, "reserved": reserved})  # O1
 
 

@@ -9,7 +9,7 @@
 | T-041 | Esquema `0005`, dominio, repositorios, settings y vista `product_availability` | backend-dev | T-026 | DONE (`84d60d8`; verificado por claude-leader: 597 unitarias + 182 integración) |
 | T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | DONE (`f641107`, `615189d`, `4e04053`; ronda 3 APROBADA por qa-reviewer con D-028: 624 unitarias + 202 integración, mutantes detectados) |
 | T-043 | API de administración (stock, movimientos, settings) con auditoría | backend-dev + qa-reviewer | T-041 | DONE (`327828c`; APROBADA por qa-reviewer con D-028: 691 unitarias + 232 integración, OpenAPI igual a la §7) |
-| T-044 | Seguimiento de QA en T-043: búsqueda con `unaccent` (M1), pruebas de `/` y de la carrera con `ReserveStock` (M2), `available` ≥ 0 (M3) e `InsufficientStock` sin ceros falsos (M4) | backend-dev + qa-reviewer | T-043 | READY |
+| T-044 | Seguimiento de QA en T-043: búsqueda con `unaccent` (M1), pruebas de `/` y de la carrera con `ReserveStock` (M2), `available` ≥ 0 (M3) e `InsufficientStock` sin ceros falsos (M4) | backend-dev + qa-reviewer | T-043 | IN_REVIEW (preparado sin commit, D-028; pendiente de que qa-reviewer ejecute las pruebas) |
 
 IDs reservados del módulo: T-040–T-049 (libres: T-045–T-049). T-030 (catalog) consumirá la vista de T-041.
 
@@ -71,6 +71,47 @@ IDs reservados del módulo: T-040–T-049 (libres: T-045–T-049). T-030 (catalo
 - Escalar si: la vista no puede expresar R2 de forma eficiente o hace falta tocar catalog.
 
 ## Traspasos
+
+#### Traspaso T-044 — 2026-10-27 — backend-dev
+1. Estado final: IN_REVIEW. Preparado sin commit (D-028): qa-reviewer ejecuta las pruebas y los mutantes de M1 y M2; acepta claude-leader. Base `c94c9f4`.
+2. Cambios:
+   - **M1** (`adapters/persistence.py`). El patrón de `q` se construye en SQL: `'%' || replace(replace(replace(app.f_unaccent(:q), '/', '//'), '%', '/%'), '_', '/_') || '%'`, con `ILIKE … ESCAPE '/'`. El escape se aplica **después** de `unaccent`, así que un `/` que cree `unaccent` (`½` → ` 1/2`) ya no actúa de escape. El patrón se construye una vez (`_contains`) y sirve para el SKU y el nombre (`_matches`).
+   - **M3** (`_stock_view`). `available = max(on_hand − reserved, 0)`; `on_hand` y `reserved` salen tal cual (SPEC §7). El `status` sigue saliendo de la vista, y con `available` negativo da lo mismo que con 0.
+   - **M4** (`domain.py`). `InsufficientStock` lleva `on_hand` y `reserved` a `None` por defecto: en la ruta de reservas ya no parecen datos. `_conflict` acepta `int | None`. Nadie más lee esos campos (grep).
+3. Archivos modificados:
+   - `backend/src/valmont/modules/inventory/domain.py`.
+   - `backend/src/valmont/modules/inventory/adapters/{persistence,admin_http}.py`.
+   - `backend/tests/inventory/{test_domain,test_admin_db,test_concurrency}.py`.
+   - Este STATUS: fila de T-044 y este traspaso.
+4. Decisiones tomadas: ninguna nueva. Aplico la de M3 del Leader (SPEC §7) y la receta de M1 de QA.
+5. Pruebas ejecutadas → resultado observado (solo análisis estático, D-028, desde `backend/`):
+   - `uv run ruff format .` → 90 files left unchanged.
+   - `uv run ruff check .` → All checks passed!
+   - Capas: `grep -rnE "^(from|import) (fastapi|pydantic|sqlalchemy|httpx|supabase)" src/valmont/modules/*/domain* src/valmont/modules/*/application*` → sin salida (exit 1).
+6. Pruebas no ejecutadas y motivo: NO EJECUTADO: pruebas (D-028), ni `pytest -q`, ni `pytest -m integration -q`, ni `alembic check`. Recuento esperado: **unitarias sin cambio (691)** y **+4 de integración (236)**.
+   - `test_domain`: `test_plan_reservations_fails_whole_with_the_short_products` comprueba además `on_hand`/`reserved` = `None` (M4). Se refuerza; no hay prueba nueva.
+   - `test_admin_db` +3:
+     - `test_search_treats_slashes_as_literals_also_after_unaccent` (M1 y M2). "1/2 <tag>" encuentra "Reloj 1/2" y no "Reloj 12"; "½ <tag>" encuentra "Reloj ½" y no "Reloj 12", cada caso con su propio tag. Con el escape antes de `unaccent`, "½" encontraría "Reloj 12". Sin escapar `/`, "1/2" también.
+     - Dos casos nuevos en la tabla de CA-INVENTORY-05 (M3): `stock` y `backorder` con on_hand 1 y 2 reservadas → `(1, 2, 0, out_of_stock)` y `(1, 2, 0, on_request)`. Se comprueban en el detalle, el listado y el filtro `status`.
+   - `test_concurrency` +1: `test_shrinkage_that_waited_for_an_uncommitted_reservation_respects_it` (M2, la receta `race.py` de QA). Con on_hand 3:
+     1. T1 hace `ReserveStock` de 2 y no confirma.
+     2. T2 hace una `merma` de 2 con `RecordMovement` y espera el bloqueo (`pg_stat_activity`).
+     3. T1 confirma.
+     4. T2 recibe `StockReserved(3, 2)`; on_hand sigue en 3, sin movimientos y con una reserva activa.
+
+     La auditoría va en memoria: una fila en `app.audit_log` no se podría borrar si el mutante deja pasar la merma. Con lo reservado leído antes del `lock`, la merma pasaría y la prueba falla.
+7. Dependencias pendientes: ejecución por qa-reviewer.
+8. Riesgos conocidos:
+   - Pruebas sin ejecutar.
+   - La prueba de `½` supone que `unaccent` lo convierte en ` 1/2`, como observó QA. Si la regla dejara `½` sin tocar, la prueba seguiría pasando, pero ya no ejercitaría M1.
+9. Preguntas que requieren decisión: ninguna.
+10. Documentación actualizada: este STATUS. La SPEC no se ha tocado.
+11. Siguiente acción recomendada: que qa-reviewer pase las puertas y estos mutantes:
+    - escapar en Python antes de `unaccent`;
+    - no escapar `/`;
+    - quitar el `max` de `available`;
+    - leer lo reservado antes del `lock` en la carrera.
+12. Commits: ninguno — preparado (D-028). Rutas: las del punto 3. Mensaje propuesto: `fix(inventory): búsqueda tras unaccent, available no negativo y seguimiento de QA (T-044)`.
 
 #### Verificación T-043 — 2026-10-27 — qa-reviewer (anotada por claude-leader)
 - **Veredicto:** APROBADO sobre lo preparado.

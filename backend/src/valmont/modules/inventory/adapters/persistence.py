@@ -21,6 +21,7 @@ from sqlalchemy import (
     column,
     func,
     insert,
+    literal,
     or_,
     select,
     table,
@@ -328,12 +329,20 @@ class SqlAvailabilityReader:
 _LIKE_ESCAPE = "/"
 
 
-def _matches(column: ColumnElement[Any], value: str) -> ColumnElement[bool]:
-    """Coincidencia parcial sin tildes ni mayúsculas (SPEC §7), con la misma app.f_unaccent que
-    la búsqueda de catalog. %, _ y el escape del texto son literales; viaja como parámetro."""
+def _contains(value: str) -> ColumnElement[Any]:
+    """Patrón de coincidencia parcial de `value` sin tildes (SPEC §7); viaja como parámetro.
+
+    Se escapa en SQL y después de app.f_unaccent (M1 de QA en T-043): unaccent puede crear un
+    / (½ → " 1/2") que, escapado antes, actuaría de escape. %, _ y / quedan literales.
+    """
+    escaped: ColumnElement[Any] = func.app.f_unaccent(value)
     for char in (_LIKE_ESCAPE, "%", "_"):  # el escape, el primero
-        value = value.replace(char, _LIKE_ESCAPE + char)
-    pattern = func.app.f_unaccent(f"%{value}%")
+        escaped = func.replace(escaped, char, _LIKE_ESCAPE + char)
+    return literal("%").concat(escaped).concat("%")
+
+
+def _matches(column: ColumnElement[Any], pattern: ColumnElement[Any]) -> ColumnElement[bool]:
+    # Sin tildes ni mayúsculas, con la misma app.f_unaccent que la búsqueda de catalog.
     return func.app.f_unaccent(column).ilike(pattern, escape=_LIKE_ESCAPE)
 
 
@@ -365,7 +374,9 @@ def _stock_view(row: Row[Any]) -> StockView:
         product_status=row.product_status,
         on_hand=row.on_hand,
         reserved=row.on_hand - row.available,  # la vista: available = on_hand − reservas (R1)
-        available=row.available,
+        # SPEC §7: nunca negativo. reserved > on_hand solo con el desfase de I-8, y se ve en
+        # on_hand y reserved, que salen tal cual (M3 de QA en T-043).
+        available=max(row.available, 0),
         status=AvailabilityStatus(row.status),
     )
 
@@ -379,8 +390,9 @@ class SqlStockReader:
         if query.status is not None:
             conditions.append(_availability.c.status == query.status)
         if query.q is not None:
+            pattern = _contains(query.q)
             conditions.append(
-                or_(_matches(_products.c.sku, query.q), _matches(_products.c.name, query.q))
+                or_(_matches(_products.c.sku, pattern), _matches(_products.c.name, pattern))
             )
         rows = _stock_select().where(*conditions)
         total = self._session.scalar(select(func.count()).select_from(rows.subquery()))

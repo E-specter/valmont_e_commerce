@@ -398,6 +398,10 @@ def test_detail_of_a_product_without_stock_row(client: TestClient, db_session: S
         ),
         ("stock", 3, [], 5, (3, 0, 3, "low_stock")),  # umbral cambiado por PATCH (D-027)
         ("stock", 2, [], 1, (2, 0, 2, "in_stock")),
+        # M3 de QA en T-043 (SPEC §7): más reservado que on_hand, solo posible con el desfase
+        # de I-8. on_hand y reserved salen tal cual; available, acotado a 0.
+        ("stock", 1, [(2, "active", 30)], 2, (1, 2, 0, "out_of_stock")),
+        ("backorder", 1, [(2, "active", 30)], 2, (1, 2, 0, "on_request")),
     ],
 )
 def test_stock_status_follows_inventory_r1_and_r2(
@@ -479,6 +483,27 @@ def test_search_ignores_accents_and_case_and_escapes_like_wildcards(
     assert found(f"{tag} 10_") == set()  # _ literal, no comodín
     everything = client.get(f"{BASE}/stock").json()["total"]
     assert client.get(f"{BASE}/stock", params={"q": "   "}).json()["total"] == everything
+
+
+def test_search_treats_slashes_as_literals_also_after_unaccent(
+    client: TestClient, db_session: Session
+) -> None:
+    # M1 y M2 de QA en T-043. El escape del LIKE es /: uno del propio q es literal, y también
+    # el que crea unaccent (½ → " 1/2"), porque se escapa después de app.f_unaccent. Si se
+    # escapara antes, ese / escaparía al 2 y "½" buscaría "12".
+    slash_tag, half_tag = uuid4().hex[:8], uuid4().hex[:8]
+    slash = product(db_session, None, sku=f"TST-BAR-{slash_tag}-1", name=f"Reloj 1/2 {slash_tag}")
+    product(db_session, None, sku=f"TST-BAR-{slash_tag}-2", name=f"Reloj 12 {slash_tag}")
+    half = product(db_session, None, sku=f"TST-BAR-{half_tag}-1", name=f"Reloj ½ {half_tag}")
+    product(db_session, None, sku=f"TST-BAR-{half_tag}-2", name=f"Reloj 12 {half_tag}")
+
+    def found(q: str) -> set[str]:
+        response = client.get(f"{BASE}/stock", params={"q": q})
+        assert response.status_code == 200
+        return {item["product_id"] for item in response.json()["items"]}
+
+    assert found(f"1/2 {slash_tag}") == {str(slash)}
+    assert found(f"½ {half_tag}") == {str(half)}
 
 
 def test_threshold_change_is_audited_and_the_same_value_is_not(

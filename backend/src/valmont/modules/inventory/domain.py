@@ -34,10 +34,13 @@ class ProductNotFound(Exception):
 class InsufficientStock(Exception):
     """Sin stock suficiente: un movimiento dejaría on_hand bajo 0 (409 insufficient_stock,
     INVENTORY-R6, con on_hand y lo reservado) o un pedido no se puede reservar
-    (UC-INVENTORY-04, con sus productos)."""
+    (UC-INVENTORY-04, con sus productos; ahí on_hand y reserved son None, no datos)."""
 
     def __init__(
-        self, product_ids: tuple[UUID, ...] = (), on_hand: int = 0, reserved: int = 0
+        self,
+        product_ids: tuple[UUID, ...] = (),
+        on_hand: int | None = None,
+        reserved: int | None = None,
     ) -> None:
         super().__init__(product_ids)
         self.product_ids = product_ids
