@@ -18,6 +18,8 @@ from sqlalchemy import (
     Select,
     Text,
     UniqueConstraint,
+    case,
+    delete,
     exists,
     func,
     insert,
@@ -384,6 +386,34 @@ class SqlProductRepository:
 
     def add_image(self, image: ProductImage) -> None:
         _write(self._session, insert(ProductImageRow).values(**asdict(image)))
+
+    def update_image_alt(self, product_id: UUID, image_id: UUID, alt: str) -> ProductImage | None:
+        stmt = (
+            update(ProductImageRow)
+            .filter_by(id=image_id, product_id=product_id)
+            .values(alt=alt)
+            .returning(ProductImageRow)
+            .execution_options(populate_existing=True)
+        )
+        row = self._session.execute(stmt).scalar_one_or_none()
+        return _image(row) if row else None
+
+    def delete_image(self, image_id: UUID) -> None:
+        stmt = delete(ProductImageRow).filter_by(id=image_id)
+        self._session.execute(stmt.execution_options(synchronize_session=False))
+
+    def set_image_order(self, product_id: UUID, image_ids: list[UUID]) -> None:
+        if not image_ids:
+            return
+        of_product = ProductImageRow.product_id == product_id
+        # UNIQUE (product_id, position) no es diferible y PostgreSQL lo comprueba fila a fila:
+        # un intercambio directo chocaría. Primero todas a negativas (siguen siendo únicas).
+        for position in (
+            -1 - ProductImageRow.position,
+            case({image_id: n for n, image_id in enumerate(image_ids)}, value=ProductImageRow.id),
+        ):
+            stmt = update(ProductImageRow).where(of_product).values(position=position)
+            self._session.execute(stmt.execution_options(synchronize_session=False))
 
     def list_published(self, query: ProductQuery) -> ProductPage:
         conditions = _filters(query)

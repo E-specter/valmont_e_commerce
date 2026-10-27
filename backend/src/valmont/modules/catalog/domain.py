@@ -24,6 +24,7 @@ SPECS_MAX = 40
 SPEC_LABEL_MAX = 60
 SPEC_VALUE_MAX = 200
 ALT_MAX = 150
+IMAGE_MAX_BYTES = 5 * 1024 * 1024  # el del bucket products (D-019)
 
 _SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
@@ -66,6 +67,32 @@ class InvalidReference(Exception):
     def __init__(self, field: str) -> None:
         super().__init__(f"No existe el valor indicado en {field}.")
         self.field = field
+
+
+class ImageTooLarge(Exception):
+    """La imagen supera IMAGE_MAX_BYTES: 413."""
+
+
+class UnsupportedImage(Exception):
+    """El archivo no es JPEG, PNG ni WebP según su firma: 415."""
+
+
+class LastImage(Exception):
+    """CATALOG-R11: un producto publicado no se queda sin imágenes: 409."""
+
+
+def image_format(data: bytes) -> tuple[str, str]:
+    """(extensión, tipo MIME) por la firma del archivo (SPEC §9), nunca por su nombre ni por el
+    Content-Type que declara el cliente."""
+    if len(data) > IMAGE_MAX_BYTES:
+        raise ImageTooLarge(f"La imagen no puede superar {IMAGE_MAX_BYTES // 2**20} MiB.")
+    if data.startswith(b"\xff\xd8\xff"):
+        return "jpg", "image/jpeg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png", "image/png"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp", "image/webp"
+    raise UnsupportedImage("Solo se aceptan imágenes JPEG, PNG o WebP.")
 
 
 class ProductStatus(StrEnum):
@@ -185,6 +212,14 @@ class ProductImage:
         _set(self, "alt", clean_text(self.alt, ALT_MAX))
 
 
+def order_images(images: list[ProductImage], image_ids: list[UUID]) -> list[ProductImage]:
+    """Nuevo orden de las imágenes de un producto: exactamente todos sus ids, sin repetir."""
+    if len(image_ids) != len(images) or set(image_ids) != {image.id for image in images}:
+        raise CatalogError("El orden debe incluir exactamente todas las imágenes del producto.")
+    by_id = {image.id: image for image in images}
+    return [replace(by_id[image_id], position=n) for n, image_id in enumerate(image_ids)]
+
+
 @dataclass(frozen=True)
 class SpecEntry:
     """Una fila de la ficha técnica (D-020, C-1): se muestra en orden editorial y no filtra."""
@@ -277,6 +312,11 @@ class Product:
     def ensure_slug_can_change(self, slug: str) -> None:
         if slug != self.slug and self.published_at is not None:
             raise SlugLocked("El slug no cambia después de la primera publicación.")
+
+    def ensure_image_can_be_removed(self, image_count: int) -> None:
+        """CATALOG-R11 (CATALOG-R2 como invariante del publicado)."""
+        if self.status is ProductStatus.PUBLISHED and image_count <= 1:
+            raise LastImage("Un producto publicado necesita al menos una imagen.")
 
 
 @dataclass(frozen=True)

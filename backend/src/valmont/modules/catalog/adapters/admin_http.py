@@ -1,11 +1,24 @@
-from collections.abc import Iterator
+from collections.abc import Callable, Coroutine, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
+from functools import cache
 from typing import Annotated, Any, Self
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Body,
+    Depends,
+    File,
+    Form,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+)
+from fastapi.routing import APIRoute
 from pydantic import (
     AfterValidator,
     BaseModel,
@@ -29,20 +42,30 @@ from valmont.modules.catalog.adapters.http import (
     SearchText,
     SpecOut,
 )
+from valmont.modules.catalog.adapters.storage import SupabaseImageStorage
 from valmont.modules.catalog.application import (
     Actor,
+    AddProductImage,
     CreateCategory,
     CreateProduct,
+    ImageStorage,
     PublishProduct,
+    RemoveProductImage,
+    ReorderProductImages,
+    StorageUnavailable,
     UnpublishProduct,
     UpdateAttributeValue,
     UpdateCategory,
     UpdateProduct,
+    UpdateProductImage,
+    discard_file,
 )
 from valmont.modules.catalog.domain import (
+    ALT_MAX,
     CATEGORY_DESCRIPTION_MAX,
     CATEGORY_NAME_MAX,
     DESCRIPTION_MAX,
+    IMAGE_MAX_BYTES,
     LABEL_MAX,
     NAME_MAX,
     PAGE_SIZE_DEFAULT,
@@ -57,12 +80,15 @@ from valmont.modules.catalog.domain import (
     CatalogNotFound,
     Category,
     CategoryInUse,
+    ImageTooLarge,
     InvalidReference,
+    LastImage,
     NotPublishable,
     OrderPolicy,
     ProductStatus,
     SlugLocked,
     SpecEntry,
+    UnsupportedImage,
     check_slug,
     check_specs,
     clean_text,
@@ -71,6 +97,7 @@ from valmont.modules.catalog.domain import (
 
 # Excepción documentada en modules.md §3: require_admin (y su CurrentUser) desde identity.
 from valmont.modules.identity.adapters.http import CurrentUser, require_admin
+from valmont.shared.config import get_settings
 from valmont.shared.errors import ERROR_RESPONSES, AppError, ErrorOut
 from valmont.shared.money import Money
 
@@ -133,6 +160,15 @@ def _domain_errors() -> Iterator[None]:
         raise AppError("publish_requirements_unmet", str(exc), 409, details) from None
     except CategoryInUse as exc:
         raise AppError("category_in_use", str(exc), 409) from None
+    except LastImage as exc:
+        raise AppError("last_image", str(exc), 409) from None
+    except ImageTooLarge as exc:
+        raise AppError("file_too_large", str(exc), 413) from None
+    except UnsupportedImage as exc:
+        raise AppError("unsupported_media_type", str(exc), 415) from None
+    except StorageUnavailable:
+        message = "El almacenamiento de imágenes no está disponible."
+        raise AppError("storage_unavailable", message, 503) from None
     except InvalidReference as exc:
         raise _invalid(exc.field, "reference_not_found", str(exc)) from None
     except CatalogError as exc:
@@ -534,3 +570,116 @@ def _attribute_routes(path: str, kind: AttributeKind) -> None:
 
 _attribute_routes("/movement-types", AttributeKind.MOVEMENT)
 _attribute_routes("/case-materials", AttributeKind.CASE_MATERIAL)
+
+
+# --- Imágenes (T-029; SPEC §7 y §9) ---
+
+
+@cache
+def get_image_storage() -> ImageStorage:
+    """Un cliente para toda la app. Las pruebas lo sustituyen con dependency_overrides."""
+    settings = get_settings()
+    key = settings.supabase_service_role_key
+    if not (settings.supabase_url and key and key.get_secret_value()):
+        raise RuntimeError("Falta SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY (backend/.env).")
+    return SupabaseImageStorage(settings.supabase_url, key.get_secret_value())
+
+
+Storage = Annotated[ImageStorage, Depends(get_image_storage)]
+Alt = Annotated[str, AfterValidator(lambda v: clean_text(v, ALT_MAX))]
+_MAX_MIB = IMAGE_MAX_BYTES // 2**20
+_BODY_MAX = IMAGE_MAX_BYTES + 64 * 1024  # el archivo más el resto del multipart (alt, límites)
+_IMAGE_ERRORS: dict[int | str, dict[str, Any]] = {
+    413: {"model": ErrorOut, "description": f"`file_too_large`: más de {_MAX_MIB} MiB."},
+    415: {
+        "model": ErrorOut,
+        "description": "`unsupported_media_type`: por su firma, no es JPEG, PNG ni WebP.",
+    },
+    503: {
+        "model": ErrorOut,
+        "description": "`auth_unavailable` o `storage_unavailable`: Auth o Storage no responden.",
+    },
+}
+
+
+class _BoundedBodyRoute(APIRoute):
+    """Rechaza el cuerpo por su Content-Length antes de que FastAPI lo lea (SPEC §9). Sin
+    Content-Length tampoco se lee: su tamaño no se podría acotar."""
+
+    def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
+        handler = super().get_route_handler()
+
+        async def bounded(request: Request) -> Response:
+            length = request.headers.get("content-length", "")
+            if not length.isdigit() or int(length) > _BODY_MAX:
+                message = f"La imagen no puede superar {_MAX_MIB} MiB (con Content-Length)."
+                raise AppError("file_too_large", message, 413)
+            return await handler(request)
+
+        return bounded
+
+
+class ImageUpdateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    alt: Alt
+
+
+def upload_image(
+    product_id: UUID,
+    file: Annotated[UploadFile, File()],
+    alt: Annotated[Alt, Form()],
+    repo: Products,
+    storage: Storage,
+) -> ProductImageOut:
+    # Como mucho el límite + 1 bytes: lo justo para saber si lo supera. Se ignoran el nombre y
+    # el Content-Type del archivo: el tipo sale de su firma.
+    data = file.file.read(IMAGE_MAX_BYTES + 1)
+    with _domain_errors():
+        return ProductImageOut.from_domain(AddProductImage(repo, storage)(product_id, data, alt))
+
+
+router.add_api_route(
+    "/products/{product_id}/images",
+    upload_image,
+    methods=["POST"],
+    status_code=201,
+    responses=_errors(404, 422) | _IMAGE_ERRORS,
+    route_class_override=_BoundedBodyRoute,
+)
+
+
+@router.patch("/products/{product_id}/images/{image_id}", responses=_errors(404, 422))
+def update_image(
+    product_id: UUID, image_id: UUID, body: ImageUpdateIn, repo: Products
+) -> ProductImageOut:
+    with _domain_errors():
+        return ProductImageOut.from_domain(UpdateProductImage(repo)(product_id, image_id, body.alt))
+
+
+@router.put("/products/{product_id}/images/order", responses=_errors(404, 422))
+def reorder_images(
+    product_id: UUID, image_ids: Annotated[list[UUID], Body()], repo: Products
+) -> list[ProductImageOut]:
+    with _domain_errors():
+        images = ReorderProductImages(repo)(product_id, image_ids)
+    return [ProductImageOut.from_domain(image) for image in images]
+
+
+@router.delete(
+    "/products/{product_id}/images/{image_id}",
+    status_code=204,
+    responses=_errors(404, 422, conflicts=("last_image",)),
+)
+def delete_image(
+    product_id: UUID,
+    image_id: UUID,
+    repo: Products,
+    storage: Storage,
+    background: BackgroundTasks,
+) -> None:
+    with _domain_errors():
+        path = RemoveProductImage(repo)(product_id, image_id)
+    # Corre tras enviar la respuesta, y por tanto tras el commit (SessionDep): si la transacción
+    # falla, la fila sigue y el archivo también.
+    background.add_task(discard_file, storage, path)

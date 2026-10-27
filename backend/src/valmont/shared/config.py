@@ -1,6 +1,7 @@
 from functools import cache
 from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,6 +19,8 @@ class Settings(BaseSettings):
     supabase_jwt_issuer: str | None = None  # None → f"{supabase_url}/auth/v1"
     # Base de las URL públicas de Storage que ve el navegador (SPEC catalog §6). None → supabase_url
     storage_public_url: str | None = None
+    # Sube y borra imágenes (D-019). Salta RLS: SecretStr para que no salga en repr ni en logs.
+    supabase_service_role_key: SecretStr | None = None
 
 
 @cache

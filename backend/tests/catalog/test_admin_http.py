@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from tests.identity.identity_helpers import T0, InMemoryProfiles, make_token, use_test_auth
 from valmont.main import create_app
 from valmont.modules.audit.adapters.http import get_audit_recorder
-from valmont.modules.catalog.adapters import http
+from valmont.modules.catalog.adapters import admin_http, http
 from valmont.modules.identity.adapters.http import get_profile_repository
 from valmont.modules.identity.domain import Profile, Role
 
@@ -41,6 +41,11 @@ ROUTES = [
     ("PATCH", "/movement-types/prueba", {"label": "Otra"}),
     ("POST", "/case-materials", {"code": "prueba", "label": "Prueba"}),
     ("PATCH", "/case-materials/prueba", {"label": "Otra"}),
+    # Imágenes (T-029)
+    ("POST", f"/products/{ANY_ID}/images", None),
+    ("PATCH", f"/products/{ANY_ID}/images/{ANY_ID}", {"alt": "Otra"}),
+    ("PUT", f"/products/{ANY_ID}/images/order", [ANY_ID]),
+    ("DELETE", f"/products/{ANY_ID}/images/{ANY_ID}", None),
 ]
 
 
@@ -64,6 +69,7 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         http.get_category_repository,
         http.get_attribute_repository,
         get_audit_recorder,
+        admin_http.get_image_storage,
     ):
         app.dependency_overrides[dependency] = Untouchable
     return TestClient(app, raise_server_exceptions=False)
@@ -255,6 +261,7 @@ CONFLICT_CODES = {
     "publish_requirements_unmet",
     "category_in_use",
     "code_taken",
+    "last_image",
 }
 
 
@@ -272,6 +279,7 @@ CONFLICT_CODES = {
         ("patch", "/categories/{category_id}", {"slug_taken", "category_in_use"}),
         ("post", "/movement-types", {"code_taken"}),
         ("post", "/case-materials", {"code_taken"}),
+        ("delete", "/products/{product_id}/images/{image_id}", {"last_image"}),
     ],
 )
 def test_each_409_lists_only_the_codes_of_its_route(
@@ -286,7 +294,13 @@ def test_each_409_lists_only_the_codes_of_its_route(
 
 @pytest.mark.parametrize(
     ("method", "path"),
-    [("post", "/products/{product_id}/unpublish"), ("patch", "/movement-types/{code}")],
+    [
+        ("post", "/products/{product_id}/unpublish"),
+        ("patch", "/movement-types/{code}"),
+        ("post", "/products/{product_id}/images"),
+        ("patch", "/products/{product_id}/images/{image_id}"),
+        ("put", "/products/{product_id}/images/order"),
+    ],
 )
 def test_routes_that_cannot_conflict_declare_no_409(method: str, path: str) -> None:
     responses = create_app().openapi()["paths"][f"{BASE}{path}"][method]["responses"]

@@ -1,5 +1,7 @@
 """Datos de prueba de catalog. Ficticios: ningún nombre, SKU ni texto es de un producto real."""
 
+import struct
+import zlib
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -12,6 +14,7 @@ from valmont.modules.catalog.adapters.persistence import (
     SqlCategoryRepository,
     SqlProductRepository,
 )
+from valmont.modules.catalog.application import StorageUnavailable
 from valmont.modules.catalog.domain import (
     AttributeKind,
     AttributeValue,
@@ -65,6 +68,38 @@ def make_product(
 def make_image(product: Product, position: int) -> ProductImage:
     path = f"products/{product.id}/{uuid4()}.webp"
     return ProductImage(uuid4(), product.id, path, f"Vista {position}", position)
+
+
+def tiny_png() -> bytes:
+    """PNG válido de 1×1 píxel blanco, generado aquí: ninguna imagen real."""
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        crc = zlib.crc32(kind + data)
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", crc)
+
+    header = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)  # 1×1, 8 bits, RGB
+    pixels = zlib.compress(b"\x00\xff\xff\xff")  # filtro 0 + un píxel blanco
+    return (
+        b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) + chunk(b"IDAT", pixels) + chunk(b"IEND", b"")
+    )
+
+
+class InMemoryStorage:
+    """ImageStorage en memoria; fails=True simula Storage caído."""
+
+    def __init__(self, fails: bool = False) -> None:
+        self.files: dict[str, tuple[bytes, str]] = {}
+        self.fails = fails
+
+    def put(self, path: str, data: bytes, content_type: str) -> None:
+        if self.fails:
+            raise StorageUnavailable
+        self.files[path] = (data, content_type)
+
+    def delete(self, path: str) -> None:
+        if self.fails:
+            raise StorageUnavailable
+        self.files.pop(path, None)
 
 
 def names(page: ProductPage) -> list[str]:

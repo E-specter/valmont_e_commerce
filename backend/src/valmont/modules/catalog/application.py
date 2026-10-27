@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
@@ -7,6 +8,7 @@ from uuid import UUID, uuid4
 # AuditEntry forma parte de la firma del puerto público de audit (modules.md §3, excepción 2).
 from valmont.modules.audit.application import AuditEntry, AuditRecorder
 from valmont.modules.catalog.domain import (
+    ALT_MAX,
     AdminProductPage,
     AdminProductQuery,
     AdminProductView,
@@ -22,8 +24,13 @@ from valmont.modules.catalog.domain import (
     ProductQuery,
     ProductStatus,
     ProductSummary,
+    clean_text,
+    image_format,
+    order_images,
     slugify,
 )
+
+logger = logging.getLogger(__name__)
 
 RowLock = Literal["share", "update"]
 
@@ -71,6 +78,28 @@ class ProductRepository(Protocol):
     def list_all(self, query: AdminProductQuery) -> AdminProductPage:
         """Borradores incluidos; los cambiados más recientemente primero."""
         ...
+
+    def update_image_alt(self, product_id: UUID, image_id: UUID, alt: str) -> ProductImage | None:
+        """None si la imagen no existe o es de otro producto."""
+        ...
+
+    def delete_image(self, image_id: UUID) -> None: ...
+
+    def set_image_order(self, product_id: UUID, image_ids: list[UUID]) -> None:
+        """Posiciones 0…n-1 en el orden recibido (todos los ids del producto)."""
+        ...
+
+
+class StorageUnavailable(Exception):
+    """Storage no respondió o rechazó la operación: 503 storage_unavailable, sin detalles."""
+
+
+class ImageStorage(Protocol):
+    """Archivos de imagen del bucket products (D-019). Fallos → StorageUnavailable."""
+
+    def put(self, path: str, data: bytes, content_type: str) -> None: ...
+
+    def delete(self, path: str) -> None: ...
 
 
 class CategoryRepository(Protocol):
@@ -294,3 +323,78 @@ class UpdateAttributeValue:
         if (value := self._attributes.update(kind, code, changes)) is None:
             raise CatalogNotFound
         return value
+
+
+# --- Imágenes (T-029). Subir, ordenar y retirar bloquean el producto: así se serializan las
+# posiciones (UNIQUE product_id, position) y CATALOG-R11 frente a una publicación concurrente.
+
+
+def discard_file(storage: ImageStorage, path: str) -> None:
+    """Borra un archivo que ya no tiene fila. Si Storage falla, queda huérfano: aviso y sigue."""
+    try:
+        storage.delete(path)
+    except StorageUnavailable:
+        logger.warning("No se pudo borrar de Storage la imagen %s; queda huérfana.", path)
+
+
+class AddProductImage:
+    def __init__(self, products: ProductRepository, storage: ImageStorage) -> None:
+        self._products = products
+        self._storage = storage
+
+    def __call__(self, product_id: UUID, data: bytes, alt: str) -> ProductImage:
+        extension, content_type = image_format(data)  # 413/415 antes de tocar nada
+        _lock(self._products, product_id)
+        positions = [image.position for image in self._products.list_images(product_id)]
+        image_id = uuid4()
+        image = ProductImage(
+            id=image_id,
+            product_id=product_id,
+            storage_path=f"{product_id}/{image_id}.{extension}",  # el nombre del cliente no cuenta
+            alt=alt,
+            position=max(positions, default=-1) + 1,
+        )
+        self._storage.put(image.storage_path, data, content_type)
+        try:
+            self._products.add_image(image)
+        except Exception:
+            discard_file(self._storage, image.storage_path)
+            raise
+        return image
+
+
+class UpdateProductImage:
+    def __init__(self, products: ProductRepository) -> None:
+        self._products = products
+
+    def __call__(self, product_id: UUID, image_id: UUID, alt: str) -> ProductImage:
+        alt = clean_text(alt, ALT_MAX)  # mismo criterio que ProductImage
+        if (image := self._products.update_image_alt(product_id, image_id, alt)) is None:
+            raise CatalogNotFound
+        return image
+
+
+class ReorderProductImages:
+    def __init__(self, products: ProductRepository) -> None:
+        self._products = products
+
+    def __call__(self, product_id: UUID, image_ids: list[UUID]) -> list[ProductImage]:
+        _lock(self._products, product_id)
+        ordered = order_images(self._products.list_images(product_id), image_ids)
+        self._products.set_image_order(product_id, [image.id for image in ordered])
+        return ordered
+
+
+class RemoveProductImage:
+    def __init__(self, products: ProductRepository) -> None:
+        self._products = products
+
+    def __call__(self, product_id: UUID, image_id: UUID) -> str:
+        """Borra la fila y devuelve la ruta del archivo, que se borra después del commit."""
+        product = _lock(self._products, product_id)
+        images = self._products.list_images(product_id)
+        if (image := next((i for i in images if i.id == image_id), None)) is None:
+            raise CatalogNotFound
+        product.ensure_image_can_be_removed(len(images))
+        self._products.delete_image(image_id)
+        return image.storage_path

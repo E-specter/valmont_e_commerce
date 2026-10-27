@@ -9,7 +9,7 @@
 | T-026 | Esquema `0004`, dominio y repositorios de catalog | backend-dev | T-021 | DONE (2 rondas; verificado por claude-leader: 319 unitarias + 71 integración) |
 | T-027 | API pública: listado con filtros, búsqueda, orden y paginación; ficha con relacionados; categorías y atributos (incluye T-019) | backend-dev | T-026 | DONE (verificado por claude-leader: 355 unitarias + 94 integración) |
 | T-028 | API de administración: productos, publicación, categorías y listas de valores, con auditoría | backend-dev + qa-reviewer | T-026, T-021 | DONE (`6d66054`; qa-reviewer APROBADO en la re-verificación) |
-| T-029 | Activar Supabase Storage (puerta Docker) e imágenes: subida, orden y retirada | claude-leader + backend-dev | T-028 | IN_PROGRESS (Storage activado y verificado por claude-leader el 2026-10-27; faltan los endpoints de imágenes) |
+| T-029 | Activar Supabase Storage (puerta Docker) e imágenes: subida, orden y retirada | claude-leader + backend-dev | T-028 | IN_REVIEW (Storage verificado por claude-leader; endpoints de imágenes entregados por backend-dev el 2026-10-27) |
 | T-030 | Conectar la disponibilidad con inventory (`AvailabilityReader`) | backend-dev | módulo inventory | BACKLOG |
 | T-031 | Semillas de demostración para `dev` (aprobadas por el usuario, P-CATALOG-1) | backend-dev | T-026 | BACKLOG |
 
@@ -74,6 +74,48 @@ IDs reservados del módulo: T-025–T-039 (libres: T-032–T-039).
 - Escalar si: la SPEC no cubre un caso, hace falta una dependencia, o hay que tocar `shared/` u otro módulo.
 
 ## Traspasos
+
+#### Traspaso T-029 — 2026-10-27 — backend-dev
+1. Estado final: IN_REVIEW (revisa claude-leader).
+2. Cambios:
+   - Puerto `ImageStorage` (`put`, `delete`) y `StorageUnavailable` en `application.py`. Adaptador `SupabaseImageStorage` (`adapters/storage.py`): `httpx` con la clave de servicio en `Authorization` y `apikey`, timeout de 10 s (3 s de conexión) y sin seguir redirecciones. Un 3xx, 4xx, 5xx o un error de red → `StorageUnavailable` → 503 `storage_unavailable`, sin detalles. El log guarda solo el estado o la clase del error: ni el cuerpo de Storage ni la clave.
+   - Dominio: `image_format` detecta el tipo por la firma (JPEG `FF D8 FF`, PNG de 8 bytes, WebP `RIFF….WEBP`); otro → 415 `unsupported_media_type`, más de 5 MiB → 413 `file_too_large`. `Product.ensure_image_can_be_removed` aplica CATALOG-R11 → 409 `last_image`. `order_images` exige exactamente todos los ids, sin repetir (si no → 422) y renumera 0…n-1.
+   - Casos de uso `AddProductImage`, `UpdateProductImage`, `ReorderProductImages` y `RemoveProductImage`, más `discard_file`. Subir, ordenar y retirar toman el producto con `lock()`. La subida valida el archivo y el `alt`, bloquea el producto, sube el archivo y después inserta la fila en la siguiente posición libre (máx. + 1); si la inserción falla, borra el archivo. La retirada borra la fila y el router borra el archivo en una `BackgroundTask` tras el commit; si Storage falla, deja un aviso.
+   - Rutas en el router de administración, todas con `require_admin`: `POST /products/{id}/images` (multipart `file` + `alt`, 201), `PATCH …/images/{image_id}` (`{alt}`), `PUT …/images/order` (`[image_id]`) y `DELETE …/images/{image_id}` (204). Responden `ProductImageOut` `{id, url, alt}` con la URL de §6.
+   - Límite de tamaño antes de leer el cuerpo: solo la ruta de subida usa `_BoundedBodyRoute`, que rechaza por `Content-Length` (> 5 MiB + 64 KiB, o ausente) antes de que FastAPI lea el multipart. Después se leen como mucho 5 MiB + 1 bytes del archivo.
+   - Persistencia: `update_image_alt`, `delete_image` y `set_image_order`. Este último hace dos `UPDATE`: primero las posiciones a negativas y después a las finales. Comprobado en PostgreSQL: un intercambio directo da `UniqueViolation`, porque el UNIQUE no es diferible.
+   - `Settings.supabase_service_role_key: SecretStr | None`. `httpx` y `python-multipart`, declaradas como directas con las versiones que ya estaban en el lock.
+3. Archivos modificados:
+   - Código: `backend/src/valmont/modules/catalog/{domain.py, application.py, adapters/admin_http.py, adapters/persistence.py}` y `adapters/storage.py` (nuevo).
+   - Compartidos: `backend/src/valmont/shared/config.py` (un campo), `backend/pyproject.toml` y `backend/uv.lock`.
+   - Pruebas: `backend/tests/catalog/{catalog_helpers.py (tiny_png, InMemoryStorage), test_admin_http.py (4 rutas más en ROUTES, last_image)}`; nuevas: `test_domain_images.py`, `test_application_images.py`, `test_images_http.py`, `test_storage_adapter.py`, `test_images_db.py` y `test_storage_supabase.py`.
+   - `main.py` no cambia: las rutas van en el router de administración ya registrado.
+4. Decisiones tomadas (supuestos a revisar, sin cambio de contrato):
+   - Un cuerpo sin `Content-Length` (transferencia por trozos) → 413 `file_too_large`. Sin ese dato no se puede acotar antes de leer, y un 411 no está en el contrato. Este 413 llega antes que el 401/403.
+   - Errores de validación (413, 415, 422) antes que el 404 del producto.
+   - La ruta de Storage es `{product_id}/{image_id}.{ext}`: el uuid del archivo es el id de la imagen. JPEG se guarda como `.jpg`.
+   - Tras una retirada quedan huecos en las posiciones. "Siguiente libre" es máx. + 1, y ordenar renumera desde 0.
+   - Solo la subida declara `storage_unavailable` en su 503. En la retirada, un fallo de Storage solo deja un aviso: el archivo queda huérfano y la respuesta es 204.
+   - El aviso de huérfano registra la `storage_path`, que solo contiene UUID (sin datos personales), para poder limpiarla.
+   - Sin `SUPABASE_URL` o sin la clave → `RuntimeError` (500), como hace `_image_url`.
+5. Pruebas ejecutadas → resultado observado (desde `backend/`):
+   - `uv run ruff format --check .` → 71 files already formatted
+   - `uv run ruff check .` → All checks passed!
+   - `uv run pytest -q` → 545 passed, 140 deselected (línea base: 474 passed, 124 deselected)
+   - `uv run pytest -m integration -q` → 140 passed, 545 deselected (línea base: 124 passed). Incluye `test_images_db.py` (14 casos por HTTP contra `valmont_test` con Storage en memoria: subida y posición, 404, 503 sin filas, intercambio de posiciones, 422 sin cambios, `alt`, imagen de otro producto, CATALOG-R11, borrado de la fila y del archivo, borrador) y `test_storage_supabase.py` (Storage local real: sube un PNG de 1×1, lo lee por la URL pública con `image/png` y los mismos bytes, lo borra y la URL deja de servirlo; una clave falsa → `StorageUnavailable`).
+   - Capas (grep de `fastapi|pydantic|sqlalchemy|httpx|supabase` en `domain*` y `application*`) → vacío.
+   - `uv run alembic current` → 0004 (head) · `uv run alembic check` → No new upgrade operations detected.
+   - `app.openapi()` → 18 rutas admin. Subida {201, 401, 403, 404, 413, 415, 422, 503}; PATCH y PUT {200, 401, 403, 404, 422, 503}; DELETE {204, 401, 403, 404, 409, 422, 503}. El 409 del DELETE lista solo `last_image`. `ProductImageOut` = {id, url, alt}. Sin `HTTPValidationError`.
+   - En PostgreSQL, un `UPDATE … CASE` que intercambia dos posiciones en una tabla temporal con UNIQUE → `UniqueViolation`; por eso se hace en dos pasos.
+6. Pruebas no ejecutadas y motivo: E2E y tipos (no configurados). Sin prueba de dos subidas concurrentes con hilos: lo cubre el diseño (`lock()` del producto).
+7. Dependencias pendientes: T-031 puede subir sus marcadores con `AddProductImage` y `get_image_storage()`. El PNG debe generarse en su propio script, porque `tiny_png` vive en las pruebas.
+8. Riesgos conocidos:
+   - Quedan archivos huérfanos (sin fila) en dos casos, sin limpieza automática: si falla el commit después de una subida correcta, o si Storage falla al borrar tras una retirada (en este caso queda un aviso en el log).
+   - En los datos semilla de las pruebas hay publicados sin imagen, así que la ficha pública de un producto con relacionados da 500 (ya anotado en T-027). Las pruebas nuevas no dependen de esa ficha.
+9. Preguntas que requieren decisión: ninguna bloqueante; los supuestos del punto 4 quedan para la revisión.
+10. Documentación actualizada: este STATUS (fila T-029 y este traspaso).
+11. Siguiente acción recomendada: claude-leader revisa T-029 (en especial el 413 sin `Content-Length` y los huérfanos) y, después, lanza T-031.
+12. Commits: el que contiene este traspaso, `feat(catalog): imágenes de producto en Supabase Storage (T-029)` (el hash va en el traspaso al Leader).
 
 #### Traspaso T-028 (ronda 2: correcciones de qa-reviewer) — 2026-10-27 — backend-dev
 1. Estado final: IN_REVIEW (vuelve a qa-reviewer).
