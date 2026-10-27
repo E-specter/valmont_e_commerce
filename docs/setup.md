@@ -12,8 +12,9 @@
 | uv | 0.12.1 | Backend: intérprete, dependencias y ejecución |
 | Python (gestionado por uv) | 3.14.7 | Backend (`backend/.python-version`) |
 | VS Code | 1.143.1 | Extensiones: Kombai 2.0.158, Astro 2.16.20, Figma 0.4.8 |
-| Docker | **no instalado** | Necesario para Supabase self-hosted (D-011) |
-| Supabase CLI / psql | **no instalados** | — |
+| Docker Desktop / Compose | 29.9.2 / v5.6.1 | Contenedores de Supabase local (D-011) |
+| CLI de Supabase | 2.120.0 (fijada en el `package.json` raíz, vía `npx`) | Supabase local |
+| psql | no instalado en Windows | `docker exec -it supabase_db_valmont psql -U postgres` |
 | WSL2 (Ubuntu) | presente | Candidato para Docker Engine (D-011) |
 
 ## 2. Estructura del repositorio
@@ -37,6 +38,18 @@ valmont_e_commerce/
 ```
 
 ## 3. Comandos
+
+### Base de datos local (raíz del repo)
+
+| Acción | Comando |
+|---|---|
+| Arrancar Supabase (la 1.ª vez descarga ~3–5 GB) | `npm run db:start` |
+| Estado y URLs | `npm run db:status` (las claves, con `npx supabase status -o env`; nunca pegarlas en chats ni en docs) |
+| Detener (conserva los datos) | `npm run db:stop` |
+| Consola SQL | `docker exec -it supabase_db_valmont psql -U postgres` |
+| Studio · Mailpit (correos de Auth) | http://127.0.0.1:54323 · http://127.0.0.1:54324 |
+
+Servicios activos: Postgres 17, Auth (GoTrue), Kong, PostgREST, Studio, pg-meta y Mailpit. Apagados en `supabase/config.toml`: realtime, storage, edge runtime y analytics. `backend/.env` se crea a partir de `backend/.env.example`.
 
 ### Backend (`cd backend`)
 
@@ -65,7 +78,7 @@ Las puertas de calidad completas están en la skill `testing-and-quality-gates`.
 
 | Entorno | Propósito | Base de datos | Secretos |
 |---|---|---|---|
-| `dev` | Desarrollo local | Supabase self-hosted local (D-011) | `.env` local, fuera de git |
+| `dev` | Desarrollo local | Supabase local vía CLI (`npm run db:start`) | `backend/.env`, fuera de git |
 | `test` | Pruebas automatizadas | BD efímera o esquema aislado | Variables del runner |
 | `prod` | Producción | Supabase self-hosted del servidor | Gestor de secretos del servidor |
 
@@ -78,7 +91,7 @@ Cada componente tendrá un `.env.example` sin valores reales cuando aparezca la 
 | Figma (conector claude.ai) | disponible en la cuenta | Lectura de diseños por Claude; el flujo principal es Kombai (D-006) |
 | Kombai MCP Server | no configurado | Requiere la **app de escritorio** de Kombai (no la extensión). Escribe en `~/.claude.json`, que las terminales de VS Code de este workspace **no** leen (usan `CLAUDE_CONFIG_DIR=%USERPROFILE%\.claude-valmont`) |
 | Astro docs MCP | no configurado | Opcional; mientras tanto, enlaces en `frontend/AGENTS.md` |
-| Supabase MCP | no configurado | Requiere Supabase en ejecución (D-011); solo en `dev` y con aprobación si escribe |
+| Supabase MCP (local) | disponible en `http://127.0.0.1:54321/mcp` con Supabase en marcha; no configurado en Claude Code | Solo en `dev` y con aprobación si escribe |
 | GitHub MCP | falla (HTTP 400, cabecera de autorización) | Revisar el token del conector |
 
 ## Problemas conocidos
@@ -87,4 +100,7 @@ Cada componente tendrá un `.env.example` sin valores reales cuando aparezca la 
 |---|---|---|
 | `EnterWorktree` falla | El repo no tiene commits (o no es repo git) | Resuelto con el commit base (D-013); si reaparece, comprobar `git log` |
 | "Device or resource busy" al mover carpetas | Windows bloquea archivos abiertos (VS Code, `.venv`, terminales) | No mover `backend/` ni `frontend/`; cerrar los procesos o copiar en vez de mover |
+| `docker` no se encuentra justo después de instalar | La terminal abierta antes de instalar no tiene el PATH nuevo | Abrir una terminal nueva (o anteponer `C:\Program Files\Docker\Docker\resources\bin` al PATH) |
+| PowerShell 5.1 marca como error la salida de `docker` | Trata como error todo lo que un programa escribe en stderr | Usar Git Bash, o fiarse del código de salida |
+| Puertos de Supabase publicados en `0.0.0.0` | Docker Desktop publica en todas las interfaces | Decisión pendiente: regla de firewall de Windows para 54321–54324 |
 | Kombai no ve el `AGENTS.md` de `frontend/` | Kombai solo lee el `AGENTS.md` de la raíz | Las reglas de Kombai van en `AGENTS.md` raíz o en `.kombai/rules/` |
