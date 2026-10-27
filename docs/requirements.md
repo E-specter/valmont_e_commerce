@@ -182,8 +182,8 @@
 
 | ID | Requisito | Prioridad | Estado |
 |---|---|---|---|
-| RF14.01 | Registrar las operaciones críticas (precio, stock, estado de pedido, pagos, roles) con actor, fecha, entidad, valor anterior y nuevo. | MVP | PROPUESTO |
-| RF14.02 | Hacer los registros de auditoría de solo inserción: no editables ni borrables desde la aplicación. | MVP | PROPUESTO |
+| RF14.01 | Registrar las operaciones críticas (precio, stock, estado de pedido, pagos, roles) con actor, fecha, entidad, valor anterior y nuevo. | MVP | IMPLEMENTADO parcial (mecanismo en T-021; cada módulo registra sus operaciones) |
+| RF14.02 | Hacer los registros de auditoría de solo inserción: no editables ni borrables desde la aplicación. | MVP | IMPLEMENTADO (T-021) |
 
 ## 5. Requisitos no funcionales
 

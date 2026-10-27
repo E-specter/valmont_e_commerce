@@ -23,6 +23,10 @@
 | D-016 | 2026-10-26 | Cancelación: cliente solo sin pagar; admin pagados con reembolso simulado | APROBADA |
 | D-017 | 2026-10-26 | Reserva de stock de 30 min al crear el pedido | APROBADA |
 | D-018 | 2026-10-27 | Verificación de tokens con el JWKS de Supabase (ES256); reemplaza el mecanismo de D-009 | APROBADA |
+| D-019 | 2026-10-27 | Imágenes de producto en Supabase Storage, subidas a través del backend | APROBADA |
+| D-020 | 2026-10-27 | Atributos de relojería: columnas para filtros + ficha técnica libre | APROBADA |
+| D-021 | 2026-10-27 | Catálogo con categorías planas y sin variantes | APROBADA |
+| D-022 | 2026-10-27 | Precios guardados con IGV incluido | APROBADA |
 
 ---
 
@@ -105,3 +109,19 @@
 - **Contexto:** en la prueba de punta a punta de T-016, un access token real de Supabase local llegó con `alg: ES256`, y la verificación HS256 lo rechazó (401). Supabase recomienda validar contra su JWKS público.
 - **Decisión del usuario:** FastAPI descarga y cachea las claves públicas de `<SUPABASE_URL>/auth/v1/.well-known/jwks.json` y valida firma ES256, `aud=authenticated`, `iss` esperado, `exp` y `sub`. Ajustes: `SUPABASE_URL` (dónde el backend alcanza Auth) y `SUPABASE_JWT_ISSUER` opcional (por defecto `<SUPABASE_URL>/auth/v1`; en producción el `iss` público puede diferir de la URL interna de Docker). El backend ya no guarda ningún secreto compartido. Si Auth no responde → 503 `auth_unavailable`; un token inválido → 401 `unauthenticated`.
 - **Alternativas descartadas:** preguntar a Auth en cada solicitud (una llamada de red por solicitud) y forzar HS256 (no recomendado por Supabase y sin forma documentada).
+
+### D-019 — Imágenes de producto en Supabase Storage (APROBADA)
+- **Decisión del usuario:** un bucket público `products`. El administrador sube desde el backoffice; FastAPI valida (JPEG, PNG o WebP; hasta 5 MB) y sube con la clave de servicio de Supabase, que solo existe en el backend (`SUPABASE_SERVICE_ROLE_KEY`). La URL pública y la ruta se guardan en `app.product_images`. En producción, los archivos viven en el volumen del Supabase autohospedado, con el mismo backup que la BD.
+- **Consecuencia:** hay que activar `[storage]` en `supabase/config.toml` (puerta Docker) antes de la tarea de imágenes.
+- **Alternativas descartadas:** carpeta en el servidor del backend (backup y escalado aparte) y URLs externas (dependencia de terceros).
+
+### D-020 — Atributos de relojería (APROBADA)
+- **Decisión del usuario:** columnas tipadas para los filtros de RF02.03 (tipo de movimiento, material de la caja, diámetro en mm, resistencia al agua en m), con listas de valores que gestiona el administrador (`app.movement_types`, `app.case_materials`), y una ficha técnica libre `specs` (jsonb) que se muestra pero no filtra.
+- **Alternativa descartada:** atributos dinámicos tipo EAV (filtros complejos y lentos).
+
+### D-021 — Categorías planas, sin variantes (APROBADA)
+- **Decisión del usuario:** cada reloj es un producto con su SKU y su stock; cada producto pertenece a una sola categoría de primer nivel.
+- **Alternativas descartadas:** colecciones editoriales y variantes por correa o tamaño (se pueden añadir después sin romper el modelo).
+
+### D-022 — Precio con IGV incluido (APROBADA)
+- **Decisión del usuario:** el precio guardado y mostrado es el precio final al consumidor, en céntimos de PEN, con IGV incluido. El desglose del IGV (18 %) solo se calculará cuando haya comprobantes electrónicos (fuera del MVP).

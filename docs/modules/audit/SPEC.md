@@ -1,5 +1,5 @@
 # audit — Especificación
-> Estado: PROPUESTO (sin preguntas de negocio bloqueantes) · Requisitos: RF14.01, RF14.02 · Decisiones: D-010 · Dueño: backend · Última actualización: 2026-10-27 claude-leader
+> Estado: IMPLEMENTADO (T-021) · Requisitos: RF14.01, RF14.02 · Decisiones: D-010 · Dueño: backend · Última actualización: 2026-10-27 claude-leader
 
 ## 1. Problema y alcance
 
@@ -78,11 +78,11 @@ No hay endpoints en esta fase. La consulta del administrador (UC-AUDIT-03) se es
 
 ## 10. Criterios de aceptación
 
-- [ ] CA-AUDIT-01 (UC-AUDIT-01; RF14.01): `record` inserta una fila con todos los campos, `occurred_at` del servidor y el `request_id` de la solicitud en curso.
-- [ ] CA-AUDIT-02 (AUDIT-R1): si la transacción que rodea al registro hace rollback, no queda ninguna fila.
-- [ ] CA-AUDIT-03 (UC-AUDIT-02; RF14.02): `UPDATE`, `DELETE` y `TRUNCATE` sobre `app.audit_log` fallan y no cambian nada.
-- [ ] CA-AUDIT-04 (AUDIT-R3, AUDIT-R6): una acción mal nombrada o sin `before` ni `after` se rechaza en el dominio, y también por los CHECK de la BD.
-- [ ] CA-AUDIT-05: `alembic check` limpio; bajar y subir la migración funciona (prueba de reversibilidad existente).
+- [x] CA-AUDIT-01 (UC-AUDIT-01; RF14.01): `record` inserta una fila con todos los campos, `occurred_at` del servidor y el `request_id` de la solicitud en curso.
+- [x] CA-AUDIT-02 (AUDIT-R1): si la transacción que rodea al registro hace rollback, no queda ninguna fila.
+- [x] CA-AUDIT-03 (UC-AUDIT-02; RF14.02): `UPDATE`, `DELETE` y `TRUNCATE` sobre `app.audit_log` fallan y no cambian nada.
+- [x] CA-AUDIT-04 (AUDIT-R3, AUDIT-R6): una acción mal nombrada o sin `before` ni `after` se rechaza en el dominio, y también por los CHECK de la BD.
+- [x] CA-AUDIT-05: `alembic check` limpio; bajar y subir la migración funciona (prueba de reversibilidad existente).
 
 ## 11. Plan de pruebas
 

@@ -41,8 +41,8 @@ La lógica de negocio crítica vive solo en el backend. El frontend presenta y o
 | Módulo | Responsabilidad | RF | Depende de | Fase | Estado |
 |---|---|---|---|---|---|
 | `identity` | Cuentas, sesión, roles, perfil básico y preferencias | RF01, RF11.02, RF13.01, RF13.02, RF13.04 | — | 1–2 | BACKLOG |
-| `audit` | Registro de solo inserción de operaciones críticas | RF14 | identity | 2 | IN_PROGRESS |
-| `catalog` | Productos, categorías, atributos, imágenes, búsqueda y filtros | RF02, RF06.01–03 | identity | 2–3 | BACKLOG |
+| `audit` | Registro de solo inserción de operaciones críticas | RF14 | identity | 2 | DONE (backend) |
+| `catalog` | Productos, categorías, atributos, imágenes, búsqueda y filtros | RF02, RF06.01–03 | identity, audit | 2–3 | SPECIFICATION |
 | `inventory` | Stock, movimientos y reservas | RF06.04–06 | catalog | 2 | BACKLOG |
 | `promotions` | Promociones y precio vigente | RF09 | catalog | 3 | BACKLOG |
 | `cart` | Carrito único y selección de artículos | RF03 | identity, catalog, inventory, promotions | 4 | BACKLOG |
