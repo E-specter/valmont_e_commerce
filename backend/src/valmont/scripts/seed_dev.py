@@ -46,8 +46,7 @@ from valmont.modules.catalog.domain import (
 from valmont.shared.config import get_settings
 from valmont.shared.db import get_engine
 
-# AUDIT-R5: actor nulo = sistema. Actor tipa user_id como UUID; cambiarlo es de application.py.
-SYSTEM = Actor(None, None)  # type: ignore[arg-type]
+SYSTEM = Actor(None, None)  # AUDIT-R5: actor nulo = sistema
 ALT = "Imagen de marcador (demo)"
 
 CATEGORIES: list[dict[str, Any]] = [

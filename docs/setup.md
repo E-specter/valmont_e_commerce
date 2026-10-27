@@ -49,6 +49,10 @@ valmont_e_commerce/
 
 Procedimiento completo: skill `version-control`.
 
+### Datos de demostración (solo desarrollo)
+
+`cd backend` → `uv run python -m valmont.scripts.seed_dev`: crea 4 categorías `demo-…`, movimientos, materiales y 12 relojes ficticios `DEMO-001…012` publicados con imagen de marcador (P-CATALOG-1). Es idempotente y se niega a correr con `ENVIRONMENT=prod`.
+
 ### Base de datos local (raíz del repo)
 
 | Acción | Comando |

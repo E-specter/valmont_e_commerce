@@ -11,7 +11,7 @@
 | T-028 | API de administración: productos, publicación, categorías y listas de valores, con auditoría | backend-dev + qa-reviewer | T-026, T-021 | DONE (`6d66054`; qa-reviewer APROBADO en la re-verificación) |
 | T-029 | Activar Supabase Storage (puerta Docker) e imágenes: subida, orden y retirada | claude-leader + backend-dev | T-028 | DONE (`b86a17a`; verificado por claude-leader: 545 unitarias + 140 integración, Storage real) |
 | T-030 | Conectar la disponibilidad con inventory (`AvailabilityReader`) | backend-dev | módulo inventory | BACKLOG |
-| T-031 | Semillas de demostración para `dev` (aprobadas por el usuario, P-CATALOG-1) | backend-dev | T-029 | IN_REVIEW (entregada por backend-dev el 2026-10-27; ejecutada dos veces en `dev`) |
+| T-031 | Semillas de demostración para `dev` (aprobadas por el usuario, P-CATALOG-1) | backend-dev | T-029 | DONE (`3eff7f9`; `Actor` nulo para el sistema corregido por claude-leader) |
 
 IDs reservados del módulo: T-025–T-039 (libres: T-032–T-039).
 
