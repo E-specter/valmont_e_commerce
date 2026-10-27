@@ -40,6 +40,8 @@ Saber cuántas unidades de cada reloj se pueden vender, sin vender nunca dos vec
 - **INVENTORY-R6:** ningún movimiento deja `on_hand` por debajo de 0 (409 `insufficient_stock`) ni por debajo de lo reservado vigente (409 `stock_reserved`): no se pueden incumplir pedidos ya reservados.
 - **INVENTORY-R7 (auditoría, RF14.01):** se auditan `inventory.stock_adjusted` (before/after `on_hand`, motivo) y `inventory.threshold_changed`.
 - **INVENTORY-R8:** consumir una reserva vencida falla (`ReservationExpired`): orders decide (el pedido pasa a `expirado`, RF04.06).
+- **INVENTORY-R9 (decisión del Leader, I-1 de T-041):** un `ajuste_inventario` cuya cantidad contada coincide con `on_hand` responde 422 `no_change` (no hay movimiento que registrar; la BD prohíbe deltas 0).
+- **INVENTORY-R10 (líneas `backorder`, para T-042):** si hay disponible ≥ cantidad, se reserva como una línea de stock; si no, la línea entera va bajo pedido sin reserva (no se parten líneas en el MVP). Las líneas `made_to_order` nunca reservan (RN-16).
 
 ## 5. Modelo de dominio
 

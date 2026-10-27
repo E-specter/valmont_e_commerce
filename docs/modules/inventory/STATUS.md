@@ -6,13 +6,28 @@
 | ID | Título | Rol | Depende de | Estado |
 |---|---|---|---|---|
 | T-040 | SPEC de inventory | claude-leader | D-017, D-023, D-027 | DONE |
-| T-041 | Esquema `0005`, dominio, repositorios, settings y vista `product_availability` | backend-dev | T-026 | IN_REVIEW |
-| T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | BACKLOG |
+| T-041 | Esquema `0005`, dominio, repositorios, settings y vista `product_availability` | backend-dev | T-026 | DONE (`84d60d8`; verificado por claude-leader: 597 unitarias + 182 integración) |
+| T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | IN_PROGRESS |
 | T-043 | API de administración (stock, movimientos, settings) con auditoría | backend-dev | T-041 | BACKLOG |
 
 IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalog) consumirá la vista de T-041.
 
 ## Paquetes de tarea
+
+### T-042 — Reservas de stock para orders (con concurrencia)
+- Objetivo: orders puede reservar, consumir y liberar stock de un pedido sin vender nunca dos veces la misma unidad y sin interbloqueos (RN-06, RN-16, D-017).
+- Responsable: backend-dev (revisan claude-leader y qa-reviewer) · Módulo: inventory · Requisitos: RF06.05, RF06.06 · Reglas: INVENTORY-R1, R4, R8, R10 · **Commit: sí**
+- Leer: `docs/modules/inventory/SPEC.md` §3 (UC-04…06), §4, §5; tu código de T-041.
+- Puede modificar: `backend/src/valmont/modules/inventory/**`, `backend/tests/inventory/**` y tu traspaso en este STATUS. Sin migraciones (el esquema ya existe); si hace falta una, escala.
+- Resultado esperado:
+  1. Dominio: `Reservation` y las reglas de R10 (qué líneas reservan según `order_policy` y disponible).
+  2. Repositorio de reservas (insertar, listar activas por pedido, cambiar estado) y lectura de `order_policy`/`lead_time_days` de `app.products` (solo esas columnas, como la vista).
+  3. `ReserveStock(order_id, líneas, now)`: bloquea las filas de stock **ordenadas por `product_id`** (`lock()`), suma las reservas vigentes en una sentencia posterior, decide por R10 y, si alguna línea de stock no alcanza, falla entera con `InsufficientStock(product_ids)` sin dejar nada; vencimiento = `now + 30 min`; devuelve qué líneas reservaron y cuáles van bajo pedido (con `lead_time_days`).
+  4. `ConsumeReservations(order_id, now)`: con las filas bloqueadas en el mismo orden, si alguna reserva activa venció → `ReservationExpired` (sin cambios); si no, descuenta `on_hand`, registra un movimiento `venta` por línea (con `order_id`) y marca `consumed`. Idempotente si ya estaban consumidas.
+  5. `ReleaseReservations(order_id)`: activas → `released`; idempotente.
+- Criterios: CA-INVENTORY-02, 03, 04 y 06 de la SPEC. Pruebas de concurrencia **con dos conexiones reales en hilos** contra `valmont_test`: (a) dos pedidos por la última unidad → exactamente uno reserva; (b) dos pedidos con los productos A y B en orden inverso → ambos terminan sin interbloqueo; (c) una reserva vencida no cuenta y se puede volver a reservar esa unidad. Para limpiar filas confirmadas en estas pruebas usa una base propia de la prueba o borra al final (las tablas de inventory sí permiten borrar; `audit_log` no se toca porque estos casos de uso no auditan).
+- Pruebas obligatorias: format, lint, `pytest -q`, `pytest -m integration -q`, capas, `alembic check`.
+- Escalar si: hace falta otra tabla o columna, o R10 no cubre un caso.
 
 ### T-041 — Esquema, dominio, repositorios y vista de disponibilidad
 - Objetivo: las tablas y la vista de inventory existen con sus restricciones; el dominio calcula el estado (INVENTORY-R2) y los repositorios leen y escriben stock, movimientos y settings.

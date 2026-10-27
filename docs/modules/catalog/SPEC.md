@@ -89,7 +89,7 @@ Esquemas comunes (todas las fechas en UTC ISO 8601; `Money` = `{amount: int, cur
 // Category (público)        {"slug": "clasicos", "name": "Clásicos", "description": null}
 // AttributeValue (público)  {"code": "automatic", "label": "Automático"}
 // ProductImage              {"id": "…", "url": "https://…", "alt": "…"}          // por position; sin storage_path
-// Availability (desde T-030) {"status": "in_stock" | "low_stock" | "out_of_stock" | "on_request", "lead_time_days": 42 | null}
+// Availability (desde T-030) {"status": "in_stock" | "low_stock" | "out_of_stock" | "on_request", "lead_time_days": 42 | null}  // lead_time_days solo con on_request; si no, null
 // ProductSummary
 {"id": "…", "slug": "heritage-38", "sku": "DEMO-H38", "name": "Heritage 38",
  "category": {"slug": "clasicos", "name": "Clásicos"},
