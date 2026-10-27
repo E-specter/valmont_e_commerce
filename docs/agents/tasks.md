@@ -25,8 +25,8 @@
 | T-105 | Protocolo de control de versiones: PROTOCOL §11, skill `version-control` y hooks de `.githooks/` (petición del usuario) | docs, arquitectura | claude-leader | D-026 | docs/agents/PROTOCOL.md §11 | DONE | Hooks probados (9/9 casos) y activos con `core.hooksPath` |
 | T-106 | Las pruebas las ejecuta solo qa-reviewer, y el Leader hace el commit tras su APROBADO (petición del usuario) | docs, arquitectura | claude-leader | D-028 | docs/agents/PROTOCOL.md §1, §3, §5, §11 | DONE | Rige desde 2026-10-27; la ronda 2 de T-042 (`615189d`) es anterior |
 | T-101 | Rol de BD `valmont_app` con privilegios mínimos (migración 0006) | backend, seguridad | backend-dev + qa-reviewer | D-029, RNF02 | paquete abajo | DONE | `b8eb2f9`; APROBADA por qa-reviewer con D-028 (704 + 267, 3 mutantes detectados). Los dos MENOR: uno en la skill de migraciones y otro en T-100 |
-| T-102 | Imagen del frontend: `@astrojs/node` (D-024), `output: 'server'` y `frontend/Dockerfile` | frontend, arquitectura | frontend-dev + qa-reviewer | D-024, D-029 | paquete abajo | IN_REVIEW | Preparada sin commit (D-028), pendiente de qa-reviewer. Discrepancia: se configuró `output: 'static'` (default de D-024) en vez del `'server'` de esta descripción; el adaptador genera igualmente `dist/server/entry.mjs` (traspaso, punto 4) |
-| T-100 | Imagen del backend y stack de despliegue `deploy/`: compose, Caddyfile, Supabase autohospedado fijado, `.env.example` y alta de la contraseña de `valmont_app` | backend, arquitectura | backend-dev + qa-reviewer | D-011, D-018, D-029 | — | BACKLOG | Puerta Docker para los archivos; riesgo ES256. Pendiente de T-101: `ALTER ROLE valmont_app LOGIN PASSWORD` con el rol propietario (que necesita `CREATEROLE`); decidir si se revoca `CONNECT` en las BD ajenas; y su MENOR-1, que la prueba del mapa use `has_any_column_privilege` para SELECT, INSERT, UPDATE y REFERENCES |
+| T-102 | Imagen del frontend: `@astrojs/node` 11.1.9 (D-024), `output: 'static'` con adaptador standalone y `frontend/Dockerfile` | frontend, arquitectura | frontend-dev + qa-reviewer | D-024, D-029 | paquete abajo | DONE | `c8c8ace`; APROBADA por qa-reviewer con D-028. `output: 'static'` confirmado por el Leader (D-024). Sus dos MENOR (`init: true` y `**/.env*`) pasan a T-100 |
+| T-100 | Imagen del backend y stack de despliegue `deploy/`: compose, Caddyfile, Supabase autohospedado fijado, `.env.example` y alta de la contraseña de `valmont_app` | backend, arquitectura | backend-dev + qa-reviewer | D-011, D-018, D-029 | paquete abajo | READY | Puerta Docker para los archivos; riesgo ES256. Pendiente de T-101: `ALTER ROLE valmont_app LOGIN PASSWORD` con el rol propietario (que necesita `CREATEROLE`); decidir si se revoca `CONNECT` en las BD ajenas; y su MENOR-1, que la prueba del mapa use `has_any_column_privilege` para SELECT, INSERT, UPDATE y REFERENCES |
 | T-103 | Copias de seguridad: `pg_dump` diario y restauración probada (RNF12) | arquitectura | backend-dev + qa-reviewer | D-029, RNF12 | — | BACKLOG | — |
 | T-104 | Prueba de lanzamiento en este Windows 11 (`https://localhost`) y sección C de la ficha verificada | arquitectura | claude-leader + qa-reviewer | D-029 | docs/deploy.md §C | BACKLOG | Build y arranque con puerta Docker |
 | T-019 | Ajustes de contrato de identity tras la revisión de frontend-lead: `validation_error.details` sin `url` (solo `loc`, `type`, `msg`) y `Money.currency` obligatorio en el OpenAPI | backend | backend-dev | RF01.06 | docs/modules/identity/SPEC.md §7 | DONE | Hecho con T-027: `Money-Output` exige `amount` y `currency`; `details` = `loc`, `type`, `msg` |
@@ -44,6 +44,82 @@
 Estados válidos: `BACKLOG` · `SPECIFICATION` · `READY` · `IN_PROGRESS` · `BLOCKED` · `IN_REVIEW` · `INTEGRATION` · `DONE` · `CANCELLED`.
 
 ## Paquetes de tareas transversales
+
+### T-100 — Imagen del backend y stack de despliegue `deploy/`
+- **Objetivo:** con `docker compose -f deploy/compose.yml up -d` arranca Valmont completo en Windows 11 o Linux: Caddy, frontend, backend y un Supabase autohospedado mínimo. Solo Caddy publica puertos. El usuario confirmó la ficha de archivos de M1 el 2026-10-27; construir y arrancar es T-104, con otra ficha.
+- **Responsable:** backend-dev (verifica qa-reviewer, acepta claude-leader) · Decisiones: D-009, D-011, D-018, D-019, D-028, D-029 · **Entrega:** preparada sin commit, con el mensaje propuesto (PROTOCOL §11.2).
+- **Leer:**
+  - `docs/decisions.md`: D-018 (ES256 por JWKS) y D-029.
+  - `docs/deploy.md` §C.
+  - `backend/src/valmont/shared/config.py` (variables) y `shared/auth.py` (`supabase_url` para JWKS frente a `supabase_jwt_issuer`).
+  - `backend/src/valmont/main.py` (`app`) y `backend/migrations/env.py`.
+  - `supabase/config.toml`: bucket `products` público, 5 MiB, jpeg/png/webp; `enable_confirmations`.
+  - Los traspasos de T-101 y T-102, en este archivo.
+  - Los archivos oficiales de Supabase autohospedado (`supabase/supabase`, carpeta `docker/`) en una versión fijada.
+- **Puede modificar:**
+  - `backend/Dockerfile` y `backend/.dockerignore` (nuevos);
+  - `deploy/**` (nuevo);
+  - `frontend/.dockerignore`, solo el MENOR-2 de T-102;
+  - `backend/tests/test_app_role.py`, solo el MENOR-1 de T-101;
+  - tu traspaso debajo de este paquete y la fila de T-100.
+  - `docs/deploy.md` no: la completa el Leader en T-104.
+- **Resultado esperado:**
+  1. **`backend/Dockerfile` multietapa.**
+     - `uv` copiado de `ghcr.io/astral-sh/uv` con etiqueta exacta (la local es 0.12.1) y `python:3.14.x-slim` también exacta.
+     - `uv sync --frozen --no-dev` y usuario no root.
+     - `HEALTHCHECK` con Python (`urllib`) a `/health`.
+     - Arranque de producción, por ejemplo `fastapi run src/valmont/main.py --host 0.0.0.0 --port 8000 --proxy-headers`.
+     - La imagen incluye `alembic` y `migrations/`, para poder migrar con `docker compose run --rm`. Las migraciones usan la URL del rol **propietario**, que se pasa solo en ese comando; el servicio usa la de `valmont_app`.
+     - `backend/.dockerignore` con `**/.env*`, `.venv`, cachés y pruebas.
+  2. **`deploy/supabase/`.** Los archivos oficiales en un tag o commit fijado (anota la URL y la versión), con **solo** los servicios necesarios:
+     - `db`, `auth` y `kong`;
+     - `storage`, y lo que `storage` requiera (`rest`, `imgproxy`), justificado;
+     - fuera: studio, realtime, functions, analytics, vector y supavisor. Quita las dependencias que apunten a ellos.
+  3. **Riesgo principal (D-018).** El Auth autohospedado debe firmar los access tokens con **ES256** y publicar `/auth/v1/.well-known/jwks.json`.
+     - Investiga la configuración de GoTrue en la versión fijada (claves asimétricas o JWKS) y cómo se generan las claves.
+     - Si no es posible, devuelve **BLOCKED** con lo que encontraste. No cambies `shared/auth.py` ni D-018.
+  4. **`deploy/compose.yml`**, con proyecto `valmont`.
+     - `caddy` en imagen exacta. Es el único con `ports`: `${BIND_ADDRESS:-127.0.0.1}:80` y `:443`.
+     - `frontend`: build `../frontend`, `init: true` (MENOR-1 de T-102).
+     - `backend`: build `../backend`, `init: true`, con estas variables:
+       - `ENVIRONMENT=prod`;
+       - `DATABASE_URL` con `valmont_app`;
+       - `SUPABASE_URL` interno (`http://kong:8000`);
+       - `SUPABASE_JWT_ISSUER=${PUBLIC_URL}/auth/v1`;
+       - `STORAGE_PUBLIC_URL`;
+       - `SUPABASE_SERVICE_ROLE_KEY`.
+     - Los servicios de Supabase, con `include` o integrados.
+     - Healthchecks con `depends_on: condition: service_healthy`.
+     - Volúmenes con nombre para la BD, el almacenamiento y Caddy.
+     - Para la prueba local se permite un `mailpit` bajo el perfil `local`, enlazado a `127.0.0.1`, para las confirmaciones de correo.
+  5. **`deploy/Caddyfile`.**
+     - `{$SITE_ADDRESS:localhost}`.
+     - Rutas: `/api/*` → backend:8000; `/auth/v1/*` y `/storage/v1/*` → kong:8000; el resto → frontend:4321.
+     - Límite de cuerpo adecuado a las imágenes de 5 MiB. Las subidas deben conservar `Content-Length` (ficha C, paso 13).
+  6. **`deploy/.env.example`.** Solo marcadores, sin un solo valor real.
+     - Contraseñas de Postgres y de `valmont_app`.
+     - Claves de Auth y de API.
+     - `SITE_ADDRESS=localhost`, `BIND_ADDRESS=127.0.0.1` y `PUBLIC_URL=https://localhost`.
+     - SMTP.
+  7. **`deploy/scripts/`, con LF.**
+     - Generar `deploy/.env` con secretos aleatorios y claves sin imprimirlos.
+     - Después de las migraciones:
+       - `ALTER ROLE valmont_app LOGIN PASSWORD …`, con el rol que lo creó (comprueba que tiene `CREATEROLE`/`ADMIN`);
+       - decide y documenta si se revoca `CONNECT` en las BD ajenas;
+       - crea el bucket `products` igual que en `supabase/config.toml`.
+  8. **MENOR pendientes.**
+     - T-101: en `test_app_role.py`, `has_any_column_privilege` para SELECT, INSERT, UPDATE y REFERENCES.
+     - T-102: `frontend/.dockerignore` con `**/.env*` y `**/node_modules`.
+- **Criterios** (los ejecuta qa-reviewer, **sin arrancar contenedores**):
+  - `docker compose -f deploy/compose.yml --env-file deploy/.env.example config --quiet` válido. Es lectura y análisis, no arranca nada.
+  - Todas las imágenes con etiqueta exacta.
+  - Solo Caddy publica puertos.
+  - Ningún secreto versionado.
+  - Los scripts con LF y `sh -n` correcto.
+  - Las puertas del backend en verde, con la prueba de privilegios por columna detectando un `GRANT` por columna.
+  - La comprobación ES256 resuelta con evidencia documental.
+- **D-028:** backend-dev puede ejecutar el análisis estático y `docker compose … config`. No ejecuta pruebas ni `docker build`/`up`/`run`.
+- **Estado inicial:** READY · IDs reservados: ninguno.
 
 ### T-102 — Imagen del frontend (Astro SSR con `@astrojs/node`)
 - **Objetivo:** el frontend se construye y arranca como contenedor Node, listo para el compose de T-100. Ficha de auditoría de archivos confirmada por el usuario el 2026-10-27.
