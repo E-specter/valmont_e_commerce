@@ -48,8 +48,9 @@ Los visitantes deben encontrar y conocer cada reloj de Valmont con precisión, y
 ## 5. Modelo de dominio
 
 - **Product:** `id`, `sku` (1–40), `slug`, `name` (1–120), `description` (texto plano, 1–5000), `category_id`, `price` (céntimos, IGV incluido, ≥ 0), `status` (`draft` | `published`), `order_policy` (`stock` | `made_to_order` | `backorder`), `lead_time_days?` (> 0), `movement_code?`, `case_material_code?`, `case_diameter_mm?` (> 0, un decimal), `water_resistance_m?` (≥ 0), `specs` (lista ordenada de pares `label` 1–60 / `value` 1–200; máx. 40; `label` único), `published_at?`.
-- **Category:** `id`, `slug`, `name`, `description?`, `position`, `is_active`.
-- **AttributeValue** (movimiento y material de la caja): `code`, `label`, `position`, `is_active`.
+- **Category:** `id`, `slug` (≤ 60), `name` (1–60), `description?` (≤ 500), `position`, `is_active`.
+- **AttributeValue** (movimiento y material de la caja): `code` (≤ 60), `label` (1–60), `position`, `is_active`.
+- Slugs y códigos: `^[a-z0-9]+(-[a-z0-9]+)*$`. `description` admite saltos de línea (`\r\n` y `\r` se normalizan a `\n`); el resto de caracteres de control se rechaza. Las etiquetas de `specs` son únicas sin distinguir mayúsculas.
 - **ProductImage:** `id`, `product_id`, `storage_path`, `alt` (1–150), `position`. La URL pública **no se guarda**: se calcula al responder (§6).
 - Los textos de entrada rechazan caracteres de control (criterio de identity).
 
@@ -71,11 +72,12 @@ app.products         id uuid PK · sku text UNIQUE · slug text UNIQUE · name t
                      search tsvector GENERATED ALWAYS AS (to_tsvector('spanish', app.f_unaccent(name || ' ' || sku || ' ' || coalesce(description, '')))) STORED
                      published_at timestamptz NULL · created_at · updated_at
                      INDEX GIN(search) · INDEX (status, published_at) · INDEX (category_id) · INDEX (price_cents)
+                     INDEX (movement_code) · INDEX (case_material_code)
 app.product_images   id uuid PK · product_id uuid FK → products ON DELETE RESTRICT · storage_path text · alt text
                      position int · created_at · UNIQUE (product_id, position)
 ```
 
-- `app.f_unaccent(text)`: envoltorio IMMUTABLE sobre la extensión `unaccent` (la columna generada lo exige); la consulta aplica la misma función al término.
+- `app.f_unaccent(text)`: envoltorio IMMUTABLE sobre la extensión `unaccent`, instalada en el esquema `extensions` (no expuesto por PostgREST; nunca en `public`). La columna generada lo exige y la consulta aplica la misma función al término.
 - **URL de imagen** = `<STORAGE_PUBLIC_URL>/storage/v1/object/public/products/<storage_path>`, con `STORAGE_PUBLIC_URL` como ajuste del backend (la URL que alcanza el navegador, distinta de la interna de Docker en producción). Llega con T-029.
 - Migración `0004`. Revisión: skill `database-migration-review`.
 
