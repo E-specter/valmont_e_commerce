@@ -32,12 +32,12 @@ Los visitantes deben encontrar y conocer cada reloj de Valmont con precisión, y
 
 - **Globales:** RN-09, RN-14, RN-15, RN-16; D-022 (precio final con IGV); D-023 (disponibilidad y política de venta).
 - **CATALOG-R1:** la API pública solo muestra productos `published`; un borrador responde 404 (no se revela que existe).
-- **CATALOG-R2:** publicar exige nombre, descripción, categoría activa, precio > 0, al menos una imagen y, si `order_policy` ≠ `stock`, `lead_time_days`. Si falta algo → 409 `publish_requirements_unmet` con `details.missing` (lista de claves: `name`, `description`, `category`, `price`, `image`, `lead_time_days`).
+- **CATALOG-R2:** publicar exige nombre, descripción, categoría activa, precio > 0, al menos una imagen y, si `order_policy` ≠ `stock`, `lead_time_days`. Si falta algo → 409 `publish_requirements_unmet` con `details.missing` (lista de claves: `name`, `description`, `category`, `price`, `image`, `lead_time_days`). **Es un invariante mientras el producto está publicado:** un `PATCH` que lo rompa (precio 0, descripción vacía, categoría inactiva, política sin plazo…) responde el mismo 409 y no cambia nada (hallazgo B-1 de QA en T-028, 2026-10-27).
 - **CATALOG-R3:** `sku` y `slug` son únicos (409 `sku_taken` / `slug_taken`). El `slug` es opcional al crear (se genera del nombre: minúsculas, sin tildes, guiones). **No cambia después de la primera publicación** (PATCH → 409 `slug_locked`).
 - **CATALOG-R4:** los productos no se borran; se despublican.
 - **CATALOG-R5:** los atributos filtrables son opcionales (RF02.07). En la respuesta siempre aparecen, con `null` si no aplican; esos productos quedan fuera del filtro correspondiente.
 - **CATALOG-R6:** relacionados = hasta 4 publicados de la misma categoría, excluido el propio, los más recientes primero (aprobado por el usuario).
-- **CATALOG-R7:** se auditan `catalog.product_created`, `catalog.price_changed`, `catalog.product_published`, `catalog.product_unpublished` y `catalog.order_policy_changed`.
+- **CATALOG-R7:** se auditan `catalog.product_created`, `catalog.price_changed`, `catalog.product_published`, `catalog.product_unpublished` y `catalog.order_policy_changed` (en esta última, solo los campos que cambian entre `order_policy` y `lead_time_days`, AUDIT-R2).
 - **CATALOG-R8:** orden: `newest` (por defecto sin `q`; `published_at` desc), `price_asc`, `price_desc` y `relevance` (por defecto con `q`; sin `q` → 422). Empates resueltos por `id` para que la paginación sea estable.
 - **CATALOG-R9:** `page_size` entre 1 y 48 (por defecto 24); `page` ≥ 1; una página más allá de la última devuelve `items: []` con el `total` real.
 - **CATALOG-R10:** no se puede desactivar una categoría que tiene productos publicados (409 `category_in_use`), aprobado por el usuario.
@@ -122,7 +122,7 @@ Parámetros de `GET /products`: `q` (≤ 100; vacío = sin búsqueda) · `catego
 | GET | `/products?status&q&page&page_size` | — | página de `AdminProduct` | 422 |
 | GET | `/products/{id}` | — | `AdminProduct` | 404 |
 | POST | `/products` | `ProductCreateIn` | 201 `AdminProduct` (borrador) | 409 `sku_taken`/`slug_taken`, 422 |
-| PATCH | `/products/{id}` | `ProductUpdateIn` (parcial) | `AdminProduct` | 404, 409 `sku_taken`/`slug_taken`/`slug_locked`, 422 |
+| PATCH | `/products/{id}` | `ProductUpdateIn` (parcial) | `AdminProduct` | 404, 409 `sku_taken`/`slug_taken`/`slug_locked`/`publish_requirements_unmet` (si está publicado, CATALOG-R2), 422 |
 | POST | `/products/{id}/publish` · `/unpublish` | — | `AdminProduct` | 404, 409 `publish_requirements_unmet` |
 | POST | `/products/{id}/images` | multipart `file` + `alt` (1–150) | 201 `ProductImage` | 404, 413 `file_too_large`, 415 `unsupported_media_type`, 422 |
 | PATCH | `/products/{id}/images/{image_id}` | `{alt}` | `ProductImage` | 404, 422 |
@@ -136,6 +136,7 @@ Parámetros de `GET /products`: `q` (≤ 100; vacío = sin búsqueda) · `catego
 - `AdminProduct` = `ProductDetail` sin `related` ni `availability`, + `status`, `order_policy`, `lead_time_days`, `category_id`, `movement_code`, `case_material_code`, `published_at`, `created_at`, `updated_at`.
 - `ProductCreateIn` / `ProductUpdateIn`: `sku`, `slug?`, `name`, `description`, `category_id`, `price: Money`, `order_policy`, `lead_time_days?`, `movement_code?`, `case_material_code?`, `case_diameter_mm?`, `water_resistance_m?`, `specs`. En PATCH, `null` borra un atributo opcional. Campos extra (incluido `status`) → 422.
 - `AdminCategory` = `Category` + `id`, `position`, `is_active`; `AdminAttributeValue` = `AttributeValue` + `position`, `is_active`.
+- **Precisiones aprobadas por el Leader tras T-028 (compatibles):** los `POST` de categorías y de valores responden 201; los `PATCH` usan `CategoryUpdateIn` y `AttributeValueUpdateIn` (parciales; el `code` de un valor es inmutable y va solo en la ruta, así que en el cuerpo → 422); `AdminProduct.main_image` admite `null` (un borrador puede no tener imágenes); en la auditoría de altas, el precio va como `price_cents`. Se revisarán con el consumidor frontend en su próxima revisión de contratos.
 - Errores con el formato común, declarados en el OpenAPI (`ERROR_RESPONSES`).
 
 ## 8. Dependencias
