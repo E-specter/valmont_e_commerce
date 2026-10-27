@@ -32,6 +32,7 @@
 | D-025 | 2026-10-27 | Sesión en cookies con `@supabase/ssr`; el servidor de Astro reenvía el Bearer a FastAPI | APROBADA |
 | D-026 | 2026-10-27 | Protocolo de control de versiones: commits atómicos comunicados, paquete de push y push del usuario | APROBADA |
 | D-027 | 2026-10-27 | Inventory: umbral de "Últimas unidades" 2 (configurable), un solo almacén y motivos cerrados con nota | APROBADA |
+| D-028 | 2026-10-27 | Las pruebas las ejecuta solo qa-reviewer; el Leader hace el commit tras su APROBADO | APROBADA |
 
 ---
 
@@ -147,7 +148,28 @@
 - **Petición del usuario (2026-10-27):** cada implementación o aporte atómico completo queda registrado en un commit; los agentes pueden hacer commits, pero siempre se comunican al usuario y se recopilan para que él haga el push.
 - **Decisión:** reglas en `docs/agents/PROTOCOL.md` §11 y procedimiento en la skill `version-control`. Un commit por aporte atómico con puertas en verde; formato `<tipo>(<ámbito>): <resumen> (T-NNN)` con trailer `Agent:`; los subagentes hacen commit solo si su paquete dice `Commit: sí` y lo listan en el punto 12 del traspaso; el Leader lo informa al usuario en el mismo turno y prepara el paquete de push desde `git log` (sin listas a mano). Solo el usuario hace push; integrar en `main`, con su autorización.
 - **Cumplimiento:** hooks versionados en `.githooks/` (`commit-msg`: formato y `T-NNN`; `pre-commit`: `.env`, secretos literales, JWT y valores en `.env.example`), activos con `git config core.hooksPath .githooks`.
+- **Modificada por D-028:** los commits del trabajo delegado los hace el Leader tras el `APROBADO` de qa-reviewer; los subagentes ya no hacen commit.
 
 ### D-027 — Inventory: umbral, ubicación y motivos (APROBADA)
 - **Decisiones del usuario:** "Últimas unidades" con 2 o menos unidades disponibles, como ajuste global que el admin cambia sin desplegar; un único almacén (las ubicaciones se pueden añadir después sin romper el modelo); motivos de movimiento cerrados (`entrada`, `ajuste_inventario`, `merma`, `devolucion`) con nota obligatoria en ajustes y mermas, más `venta`, que registra el sistema.
 - **Refinamiento técnico del Leader:** como las reservas vencen solas (D-017), la reserva atómica bloquea la fila de stock (`FOR UPDATE`), suma las reservas vigentes e inserta la nueva; varias líneas se bloquean ordenadas por producto. Misma garantía sin carreras que pedía D-017 (SPEC de inventory, INVENTORY-R4).
+
+### D-028 — Las pruebas las ejecuta QA (APROBADA)
+- **Petición del usuario (2026-10-27):** "Cada pruebas y tests las corren los QA, no los mismos desarrolladores".
+- **Qué puede ejecutar quien implementa** (backend-dev, frontend-dev, Kombai u otro agente, por elección del usuario): escribe el código y sus pruebas, pero no las ejecuta.
+  - No ejecuta `pytest` (unitarias o de integración), las migraciones reversibles, `alembic check`, `npm run build` ni E2E.
+  - Solo puede pasar el análisis estático (`ruff format`, `ruff check`, capas, `npm run check`), que no cuenta como evidencia.
+- **Quién verifica:** `qa-reviewer` ejecuta todas las puertas de toda tarea con código y es el único que puede declarar que pasan. Los líderes, el coordinador y el Leader tampoco ejecutan pruebas: se las piden.
+- **Commit tras el APROBADO (también elegido por el usuario):**
+  1. Quien implementa deja el cambio preparado (`git add`), sin commit, y propone el mensaje.
+  2. QA verifica exactamente lo preparado y anota su huella (`git diff --cached | git hash-object --stdin`).
+  3. El Leader comprueba que la huella no ha cambiado y hace el commit.
+
+  Esto cambia D-026 en quién hace el commit.
+- **Vigencia:** desde 2026-10-27, después del commit `615189d` (ronda 2 de T-042, hecha antes de la regla).
+- **Coste asumido:** toda tarea con código pasa por qa-reviewer, y una errata en una prueba cuesta una ronda de QA.
+- **Dónde se aplica:**
+  - `AGENTS.md` y `CLAUDE.md`.
+  - `docs/agents/PROTOCOL.md` §1, §3, §5, §6 y §11.
+  - `.claude/agents/*`.
+  - Las skills `testing-and-quality-gates`, `version-control`, `context-handoff`, `backend-module-implementation` y `frontend-module-implementation`.

@@ -25,7 +25,7 @@ Sigue `context-handoff` §A. Lee `docs/modules.md` §3–§8 y lo que cite tu ta
 ## Cómo trabajas
 - **Planificar un módulo:** usa `module-planning`, o delega en `module-coordinator` con un paquete completo (`PROTOCOL.md` §3).
 - **Implementar:** delega en `backend-dev` con el paquete completo (no tiene tu contexto), o hazlo tú si la tarea es pequeña.
-- **Revisar un traspaso:** vuelve a ejecutar las puertas (`testing-and-quality-gates`), contrasta el diff con la SPEC y los criterios de aceptación, y acepta (`IN_REVIEW` → `INTEGRATION`) o devuelve observaciones concretas con `archivo:línea`.
+- **Revisar un traspaso:** pide a `qa-reviewer` que ejecute las puertas (D-028), contrasta el diff con la SPEC y los criterios de aceptación, y acepta (`IN_REVIEW` → `INTEGRATION`) o devuelve observaciones concretas con `archivo:línea`.
 
 ## Límites
 - No cambias contratos compartidos ni entidades de otros módulos sin una propuesta aprobada por el Leader (`PROTOCOL.md` §7).

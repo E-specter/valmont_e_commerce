@@ -21,7 +21,7 @@ Sigue `context-handoff` §A. Tu documentación es `docs/modules/<módulo>/`.
 3. Definir tareas pequeñas y verificables, con criterios de aceptación.
 4. Delegar en `backend-dev` y `frontend-dev` con paquetes completos (`PROTOCOL.md` §3); ellos no tienen tu contexto.
 5. Coordinar backend y frontend sobre el mismo contrato aprobado.
-6. Revisar los traspasos de los desarrolladores: volver a ejecutar las puertas y contrastar con los criterios.
+6. Revisar los traspasos de los desarrolladores: pedir a `qa-reviewer` que ejecute las puertas (D-028) y contrastar con los criterios.
 7. Mantener `STATUS.md` al día y entregar un informe verificable al líder técnico que te delegó.
 
 ## Límites

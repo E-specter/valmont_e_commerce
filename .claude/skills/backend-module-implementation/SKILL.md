@@ -15,7 +15,7 @@ Convenciones canónicas: `docs/modules.md` §4 (estructura y capas) y §7 (segur
 
 ## Procedimiento
 
-1. **Línea base:** `cd backend && uv run pytest -q`. Anota los fallos previos como preexistentes.
+1. **Línea base:** el último veredicto de QA en el STATUS (no ejecutas pruebas, D-028).
 2. **Dominio (prueba primero):** escribe `tests/<módulo>/test_domain.py` y después `src/valmont/modules/<módulo>/domain.py` con dataclasses e invariantes. Si se viola una regla, lanza una excepción de dominio; nunca `HTTPException`.
 3. **Aplicación:** en `application.py`, un caso de uso por clase, que recibe sus puertos (`typing.Protocol`) en el constructor. Aquí van la transacción y la coordinación. Pruébalo con fakes en memoria (`tests/<módulo>/test_application.py`).
 4. **Adaptador HTTP:** en `adapters/http.py`, `APIRouter(prefix="/api/v1/<módulo>", tags=["<módulo>"])` con esquemas Pydantic `<Nombre>In` y `<Nombre>Out`. El caso de uso se construye con `Depends`, y la sesión se pide **siempre** con `SessionDep` (`valmont.shared.db`), nunca con `Depends(get_session)`. Sin lógica de negocio en el router. Pruebas en `tests/<módulo>/test_http.py` con `TestClient` y `app.dependency_overrides`.
@@ -26,7 +26,10 @@ Convenciones canónicas: `docs/modules.md` §4 (estructura y capas) y §7 (segur
    ```bash
    grep -rnE "^(from|import) (fastapi|pydantic|sqlalchemy|httpx|supabase)" src/valmont/modules/*/domain* src/valmont/modules/*/application*
    ```
-9. **Puertas** (skill `testing-and-quality-gates`) y **traspaso** (skill `context-handoff` §C).
+9. Cierre:
+   - **Análisis estático:** `ruff format`, `ruff check` y capas. Las pruebas las ejecuta qa-reviewer (D-028).
+   - **Entrega preparada:** skill `version-control` §A.
+   - **Traspaso:** skill `context-handoff` §C.
 
 ## Ejemplo mínimo de forma
 

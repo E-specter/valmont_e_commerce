@@ -5,29 +5,44 @@ description: Protocolo de control de versiones de Valmont con git. Úsala al hac
 
 # Control de versiones
 
-Reglas: `docs/agents/PROTOCOL.md` §11 (D-026). Esta skill es el procedimiento. Todos los comandos son de Git Bash y se ejecutan desde la raíz del repo o del worktree.
+Reglas: `docs/agents/PROTOCOL.md` §11 (D-026, D-028). Esta skill es el procedimiento. Todos los comandos son de Git Bash y se ejecutan desde la raíz del repo o del worktree.
 
-## A. Commit atómico
+## A. Entrega preparada (quien implementa; sin commit)
 
-1. **Puertas en verde** (skill `testing-and-quality-gates`). Si alguna falla, no hay commit.
-2. **Identifica lo tuyo:** `git status --short`. Solo entran los archivos de tu tarea.
-3. **Añade rutas concretas:** `git add backend/src/valmont/modules/catalog backend/tests/catalog` (nunca `git add -A` si hay más agentes en la misma copia).
-4. **Revisa lo preparado:** `git diff --cached --stat`. Si aparece algo ajeno: `git restore --staged <ruta>`.
-5. **Commit** con el formato de §11.4. Los hooks validan el asunto, la tarea y los secretos:
+1. **Identifica lo tuyo:** `git status --short`. Solo entran los archivos de tu tarea.
+2. **Prepara rutas concretas:** `git add backend/src/valmont/modules/catalog backend/tests/catalog`. Nunca uses `git add -A` si hay más agentes en la misma copia.
+3. **Revisa lo preparado:** `git diff --cached --stat`. Si aparece algo ajeno, `git restore --staged <ruta>`. `git diff` debe salir vacío: no puede quedar nada sin preparar.
+4. **No hagas commit.** En el punto 12 de tu traspaso pon "ninguno — preparado", las rutas y el mensaje propuesto con el formato de §11.4. Si después corriges algo tras la revisión, vuelve a prepararlo.
+
+## A2. Verificación (qa-reviewer)
+
+Antes de las puertas, anota:
+- el commit base: `git rev-parse --short HEAD`;
+- el estado: `git status --short` (un archivo de la tarea sin preparar es un hallazgo);
+- que `git diff` sale vacío;
+- la huella de lo preparado: `git diff --cached | git hash-object --stdin`.
+
+Todo eso va en el punto 12 del veredicto.
+
+## A3. Commit (Leader, tras el `APROBADO`)
+
+1. Comprueba que lo preparado sigue siendo lo verificado: `git diff --cached | git hash-object --stdin` debe dar la huella de QA. Si no coincide, no hay commit: vuelve a QA.
+2. Haz el commit con el mensaje propuesto. Los hooks validan el asunto, la tarea y los secretos:
    ```bash
    git commit -m "feat(catalog): API de administración del catálogo (T-028)" \
-     -m "Qué cambia y por qué. Evidencias: pytest -q → 445 passed; pytest -m integration -q → 117 passed." \
+     -m "Qué cambia y por qué. Verificado por qa-reviewer (APROBADO, huella 3f2a…): pytest -q → 445 passed; pytest -m integration -q → 117 passed." \
      -m "Agent: backend-dev
    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
    ```
-6. **Anota el resultado:** `git log -1 --format="%h %s"` → va al punto 12 de tu traspaso.
+3. Anota el resultado con `git log -1 --format="%h %s"`. En un cambio solo de documentación, el Leader revisa y hace el commit sin pasar por QA.
 
 Si el hook rechaza el commit, corrige la causa (mensaje, archivo `.env` o secreto). **Nunca** uses `--no-verify`.
 
 ## B. Informar commits
 
-- **Subagente:** punto 12 del traspaso (`PROTOCOL.md` §5): `hash corto — asunto`, uno por línea, o "ninguno" con el motivo.
-- **Leader:** en el mismo turno, al usuario: tabla con hash, asunto y tarea. Si el Leader añade commits de revisión, también los lista.
+- **Quien implementa:** punto 12 del traspaso (`PROTOCOL.md` §5): "ninguno — preparado" y el mensaje propuesto.
+- **qa-reviewer:** commit base y huella verificada.
+- **Leader:** en el mismo turno, al usuario: tabla con hash, asunto, tarea y veredicto de QA.
 
 ## C. Paquete de push (para el usuario)
 
@@ -43,7 +58,7 @@ git branch --no-merged main        # ramas de trabajo aún sin integrar
 Entrega al usuario:
 1. La lista de commits pendientes (hash, fecha, asunto).
 2. Las tareas que cubren.
-3. Las puertas ejecutadas sobre `main` en ese momento (`comando → resultado`).
+3. El último veredicto de qa-reviewer sobre la punta de `main` (`comando → resultado`); si no lo hay, pídeselo.
 4. Los riesgos.
 5. El comando para subir, que ejecuta **el usuario**: `git push origin main` (la primera vez, `git remote add origin <url>` y `git push -u origin main`).
 

@@ -7,6 +7,11 @@ description: Puertas de calidad de Valmont con los comandos reales del repositor
 
 Estrategia por niveles: `docs/planning.md` ("Estrategia de pruebas"). Casos E2E prioritarios: `docs/prompt_maestro.md` §13.4.
 
+**Quién ejecuta (D-028):**
+- Las pruebas solo las ejecuta `qa-reviewer`, y solo su resultado cuenta como evidencia. Son pruebas: pytest (unitarias y de integración), las migraciones reversibles, `alembic check`, `npm run build` y E2E.
+- Quien implementa escribe las pruebas y puede pasar el análisis estático (formato, lint, capas, `npm run check`, secretos) para detectar erratas.
+- Los líderes, el coordinador y el Leader piden la verificación a `qa-reviewer`.
+
 ## 1. Puertas disponibles
 
 | Área | Puerta | Comando | Estado |
@@ -37,15 +42,16 @@ En la tabla, `\|` es un `|` escapado: en la terminal se escribe sin la barra inv
 | Migración o esquema | skill `database-migration-review` + migraciones reversibles + `pytest -m integration` |
 | Repositorio o endpoint que toca la BD | unitarias + `pytest -m integration` |
 | Página o componente | check, build, lista `docs/design_ui/DESIGN.md` §9 |
-| Autenticación, roles, datos de otro usuario, pagos o asistente | lo que corresponda + revisión de `qa-reviewer` |
+| Cualquier cambio de código | `qa-reviewer` ejecuta las puertas sobre lo preparado (D-028) |
+| Autenticación, roles, datos de otro usuario, stock, pedidos, pagos o asistente | lo que corresponda + revisión de seguridad a fondo de `qa-reviewer` |
 | Solo documentación | IDs citados existen; `_registry.md` al día |
 
 ## 3. Política ante fallos
 
-1. Ejecuta la línea base **antes** de cambiar nada; así distingues los fallos preexistentes de los introducidos.
+1. **Línea base:** es el último veredicto aprobado de qa-reviewer, anotado en el STATUS. Con ella, QA distingue los fallos preexistentes de los introducidos.
 2. Si algo falla, investiga la causa raíz. **Nunca** borres pruebas, debilites aserciones, añadas `skip`/`xfail` ni cambies la configuración para que pase.
 3. Si un fallo preexistente bloquea tu tarea, regístralo en el STATUS como discrepancia y escala; no lo arregles fuera de tu alcance sin autorización.
-4. Una tarea con puertas en rojo no pasa de `IN_PROGRESS`; como mucho, se entrega como parcial con el fallo explicado.
+4. Si qa-reviewer ve una puerta en rojo, la tarea vuelve a `IN_PROGRESS` y no hay commit hasta su `APROBADO`.
 
 ## 4. Formato de evidencia (en el traspaso)
 
@@ -59,3 +65,5 @@ NO EJECUTADO: E2E (no configurado)
 ```
 
 Cada línea: el comando exacto y lo que se **observó**. Lo que no se ejecutó se declara con su motivo.
+- qa-reviewer añade el commit base (`git rev-parse --short HEAD`) y la huella de lo preparado (`git diff --cached | git hash-object --stdin`, con `git diff` vacío).
+- Quien implementa declara `NO EJECUTADO: pruebas (D-028)`.

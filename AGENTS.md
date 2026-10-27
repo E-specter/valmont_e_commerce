@@ -23,9 +23,9 @@ Comercio electrónico de alta relojería mecánica (Valmont): catálogo, carrito
 1. Antes de tocar código: identifica tu `task_id`, lee solo lo que cita su paquete y verifica el estado real del código.
 2. Modifica solo lo autorizado en el paquete. Un cambio transversal se propone; no se implementa por tu cuenta.
 3. No inventes endpoints, campos, reglas ni datos: marca `BLOCKED` y escala.
-4. Ejecuta las puertas de calidad y reporta `comando → resultado`. Sin evidencia, nada "pasa".
+4. Las pruebas las ejecuta solo `qa-reviewer` (D-028). Quien implementa escribe las pruebas y solo puede pasar el análisis estático (`ruff format`, `ruff check`, `npm run check`), que no cuenta como evidencia. Sin evidencia de QA (`comando → resultado`), nada "pasa".
 5. Termina con el traspaso de `docs/agents/PROTOCOL.md` §5 y actualiza tu fila en `docs/agents/tasks.md` (escritura aditiva).
-6. Cada aporte atómico completo va en su propio commit (`<tipo>(<ámbito>): <resumen> (T-NNN)`), solo con tus archivos y comunicado en tu traspaso. Nunca `push`, `--no-verify` ni commits en `main` (`docs/agents/PROTOCOL.md` §11, skill `version-control`).
+6. Cada aporte atómico completo va en su propio commit (`<tipo>(<ámbito>): <resumen> (T-NNN)`), que hace el Leader cuando `qa-reviewer` lo aprueba: quien implementa deja preparados solo sus archivos (`git add <rutas>`, sin commit) y propone el mensaje en su traspaso. Nunca `push`, `--no-verify` ni commits en `main` (`docs/agents/PROTOCOL.md` §11, skill `version-control`).
 
 ## Reglas no negociables
 

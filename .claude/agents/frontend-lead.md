@@ -27,7 +27,7 @@ Sigue `context-handoff` §A. Lee `docs/modules.md` §5, `docs/design_ui/DESIGN.m
 ## Cómo trabajas
 - **Planificar:** usa `module-planning`, o delega en `module-coordinator`.
 - **Implementar:** delega en `frontend-dev` con el paquete completo, o hazlo tú si la tarea es pequeña.
-- **Revisar:** `npm run check`, `npm run build`, la lista de `DESIGN.md` §9 y el contraste con el contrato. Acepta o devuelve observaciones con `archivo:línea`.
+- **Revisar:** pide a `qa-reviewer` `npm run check` y `npm run build` (D-028); tú revisas la lista de `DESIGN.md` §9 y el contraste con el contrato. Acepta o devuelve observaciones con `archivo:línea`.
 
 ## Límites
 - No inventas endpoints ni campos; los cambios de contrato se acuerdan con backend-lead (`api-contract-review`).

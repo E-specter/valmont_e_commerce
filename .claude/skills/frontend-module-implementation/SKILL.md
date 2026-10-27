@@ -9,7 +9,7 @@ Fuentes canónicas: `docs/modules.md` §5 (estructura y reglas), `docs/design_ui
 
 ## Procedimiento
 
-1. **Contexto** (skill `context-handoff` §A): paquete de tarea, contrato, DESIGN.md §2–§7. Línea base: `cd frontend && npm run check && npm run build`.
+1. **Contexto** (skill `context-handoff` §A): paquete de tarea, contrato, DESIGN.md §2–§7. Línea base: el último veredicto de QA en el STATUS (no ejecutas pruebas ni el build, D-028).
 2. **Decide el renderizado:**
    - página pública sin datos por usuario → estática (por defecto);
    - datos por usuario (cuenta, carrito, pedidos) → SSR. Requiere un adaptador de Astro; si aún no está configurado, es una decisión del frontend-lead: `BLOCKED`.
@@ -22,7 +22,10 @@ Fuentes canónicas: `docs/modules.md` §5 (estructura y reglas), `docs/design_ui
 5. **Estados:** cargando · error (con reintento) · vacío · éxito · pendiente, en cada vista con datos.
 6. **Accesibilidad:** HTML semántico, un solo `h1` por página, etiquetas en los campos, foco visible, navegación por teclado, `alt` descriptivo, contraste ≥ 4,5:1, `lang="es"`.
 7. **Prohibido en el cliente:** calcular precios, totales o descuentos definitivos (se muestran los del servidor, RN-09), decidir permisos (RF13.02) y usar variables de entorno que no sean `PUBLIC_*`.
-8. **Puertas** (skill `testing-and-quality-gates`) y **traspaso** (skill `context-handoff` §C). Incluye capturas o la ruta de la página para la revisión visual de frontend-lead.
+8. Cierre:
+   - **Análisis estático:** `npm run check`. El build y las pruebas los ejecuta qa-reviewer (D-028).
+   - **Entrega preparada:** skill `version-control` §A.
+   - **Traspaso:** skill `context-handoff` §C. Incluye capturas o la ruta de la página para la revisión visual de frontend-lead.
 
 ## No hacer
 

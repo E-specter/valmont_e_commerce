@@ -15,7 +15,7 @@ Las reglas están en `docs/agents/PROTOCOL.md` §2 (inicio), §5 (plantilla de t
    ```bash
    grep -n "RF02\.03\|RN-05" docs/requirements.md
    ```
-4. Verifica el estado real: abre los archivos de código citados y, si vas a modificar un área, ejecuta antes sus pruebas para tener una línea base (skill `testing-and-quality-gates`).
+4. Verifica el estado real: abre los archivos de código citados. La línea base de pruebas es el último veredicto de qa-reviewer en el STATUS: solo QA ejecuta pruebas (D-028).
 5. Anota para ti un plan de 3 a 7 pasos y dos listas: "puedo tocar" y "no puedo tocar".
 6. Pasa tu fila de la tarea a `IN_PROGRESS` (solo tu fila).
 
@@ -29,8 +29,10 @@ Las reglas están en `docs/agents/PROTOCOL.md` §2 (inicio), §5 (plantilla de t
 
 ## C. Al terminar: traspaso
 
-1. Ejecuta las puertas de calidad que exige la tarea y guarda cada `comando → resultado observado`.
-2. Rellena los 11 puntos de la plantilla de `PROTOCOL.md` §5. Las pruebas, literales: `uv run pytest -q → 12 passed`, no "las pruebas pasan".
+1. Guarda cada `comando → resultado observado` de lo que ejecutaste:
+   - Si implementas: solo el análisis estático, más `NO EJECUTADO: pruebas (D-028)`.
+   - Si eres qa-reviewer: todas las puertas.
+2. Rellena los 12 puntos de la plantilla de `PROTOCOL.md` §5. Las pruebas, literales: `uv run pytest -q → 12 passed`, no "las pruebas pasan".
 3. Añade el traspaso al STATUS del módulo (sección "Traspasos", el más reciente arriba) o debajo del paquete en `tasks.md`.
 4. Pon tu fila en `IN_REVIEW` (si otro debe revisar) o en `BLOCKED`. Quien implementa nunca marca `DONE`: lo marca quien acepta.
 5. Tu respuesta final **es** el traspaso: es lo único que recibe quien te lanzó.

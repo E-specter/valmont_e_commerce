@@ -8,7 +8,7 @@
 | T-040 | SPEC de inventory | claude-leader | D-017, D-023, D-027 | DONE |
 | T-041 | Esquema `0005`, dominio, repositorios, settings y vista `product_availability` | backend-dev | T-026 | DONE (`84d60d8`; verificado por claude-leader: 597 unitarias + 182 integración) |
 | T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | IN_REVIEW (ronda 2: B-1, I-1 y M-1 corregidos) |
-| T-043 | API de administración (stock, movimientos, settings) con auditoría | backend-dev | T-041 | BACKLOG |
+| T-043 | API de administración (stock, movimientos, settings) con auditoría | backend-dev + qa-reviewer | T-041 | BACKLOG |
 
 IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalog) consumirá la vista de T-041.
 
@@ -16,12 +16,12 @@ IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalo
 
 ### T-043 — API de administración de inventory
 - Objetivo: el admin consulta el stock (con reservado, disponible y estado), registra movimientos con su motivo y cambia el umbral, por la API de la SPEC §7, con auditoría.
-- Responsable: backend-dev (revisa claude-leader) · Módulo: inventory · Requisitos: RF06.04, RF06.06, RF14.01 · Decisiones: D-027 · **Commit: sí**
+- Responsable: backend-dev (verifica qa-reviewer, acepta claude-leader) · Módulo: inventory · Requisitos: RF06.04, RF06.06, RF14.01 · Decisiones: D-027, D-028 · **Entrega:** preparada sin commit, con el mensaje propuesto (PROTOCOL §11.2)
 - Leer: `docs/modules/inventory/SPEC.md` §3 (UC-01…03), §4 (R5, R6, R7, R9), §7; patrones de `catalog/adapters/admin_http.py` (router con `require_admin`, `_domain_errors`, `ERROR_RESPONSES`, 409 por ruta) y `AuditRecorderDep`.
 - Puede modificar: `backend/src/valmont/modules/inventory/**`, `backend/src/valmont/main.py` (registrar el router), `backend/tests/inventory/**`, tu traspaso en este STATUS.
 - Resultado esperado: router `/api/v1/inventory/admin` con las 5 rutas de §7; `POST …/movements` bajo `lock()` del producto: R5 (delta del ajuste calculado por el servidor, nota obligatoria), R6 (409 `insufficient_stock` / `stock_reserved`, con lo reservado leído tras el bloqueo), R9 (422 `no_change`); producto inexistente → 404; auditoría `inventory.stock_adjusted` (before/after `on_hand`, `kind`) y `inventory.threshold_changed` en la misma transacción, con el actor del token; listado con `q` (SKU o nombre), filtro `status` y paginación como en catalog.
 - Criterios: CA-INVENTORY-01 y 05 por HTTP contra `valmont_test`; 401/403 en todas las rutas; OpenAPI con `ErrorOut`.
-- Pruebas obligatorias: format, lint, `pytest -q`, `pytest -m integration -q`, capas, `alembic check`, OpenAPI.
+- Pruebas obligatorias: las escribe backend-dev; qa-reviewer ejecuta format, lint, `pytest -q`, `pytest -m integration -q`, capas, `alembic check` y OpenAPI (D-028).
 
 ### T-042 — Reservas de stock para orders (con concurrencia)
 - Objetivo: orders puede reservar, consumir y liberar stock de un pedido sin vender nunca dos veces la misma unidad y sin interbloqueos (RN-06, RN-16, D-017).
