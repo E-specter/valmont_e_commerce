@@ -1,3 +1,6 @@
 # Los scripts de shell y los hooks se ejecutan con sh: siempre LF, también al clonar en Windows.
 .githooks/* text eol=lf
 *.sh text eol=lf
+# Los archivos de Docker se leen al construir las imágenes Linux: siempre LF.
+Dockerfile text eol=lf
+.dockerignore text eol=lf

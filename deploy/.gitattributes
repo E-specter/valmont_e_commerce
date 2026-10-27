@@ -1,0 +1,3 @@
+# Todo deploy/ se usa dentro de contenedores Linux (sh, psql, YAML, Caddyfile): siempre LF,
+# también al clonar en Windows con core.autocrlf=true.
+* text=auto eol=lf

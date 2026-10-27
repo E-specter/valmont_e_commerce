@@ -1,0 +1,237 @@
+# Stack de despliegue de Valmont (hito M1, D-029): Caddy delante del frontend, el backend y un
+# Supabase autohospedado mínimo. Solo Caddy publica puertos (Mailpit, solo con el perfil local).
+#
+# Uso, desde la raíz del repositorio (cada acción de Docker pasa la puerta D-011):
+#   sh deploy/scripts/generate-env.sh                     # una vez: deploy/.env con los secretos
+#   docker compose -f deploy/compose.yml up -d --build    # prueba local con correo: --profile local
+#   sh deploy/scripts/migrate.sh                          # migraciones, valmont_app y bucket products
+# Compose lee deploy/.env (directorio del proyecto). Mailpit (perfil local): http://127.0.0.1:8025
+#
+# Supabase: servicios db, auth, storage y kong adaptados de los archivos oficiales de
+# https://github.com/supabase/supabase/tree/self-hosted/v0.8.3/docker
+# (tag self-hosted/v0.8.3, commit bc27d2661edd09a5d0b8d76ce33da6d4071a756e, 2026-10-16):
+#   - docker-compose.yml para db, auth y storage; docker-compose.kong.yml para kong (el gateway
+#     por defecto de esa versión es Envoy, con el alias de red "kong"; Kong es su override oficial).
+#   - Copiados sin cambios: supabase/volumes/api/kong-entrypoint.sh y supabase/volumes/db/jwt.sql.
+#     Recortados (ver su cabecera): supabase/volumes/api/kong.yml y supabase/volumes/db/roles.sql.
+#   - Fuera: studio, meta, realtime, functions, analytics, vector, supavisor, rest e imgproxy.
+#     rest e imgproxy: storage-api v1.81.0 no usa PostgREST (no lee POSTGREST_URL) e imgproxy solo
+#     sirve para transformar imágenes, que aquí se desactiva (ENABLE_IMAGE_TRANSFORMATION=false).
+#   - Ajustes de Valmont: volúmenes con nombre, la configuración de supabase/config.toml (correo
+#     con confirmación, Storage de 5 MiB) y Auth firmando con ES256 (GOTRUE_JWT_KEYS, D-018).
+
+name: valmont
+
+services:
+  caddy:
+    image: caddy:2.11.7-alpine
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:80:80"
+      - "${BIND_ADDRESS:-127.0.0.1}:443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+      kong:
+        condition: service_healthy
+
+  frontend:
+    build: ../frontend
+    init: true
+    restart: unless-stopped
+
+  backend:
+    build: ../backend
+    init: true
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: prod
+      # Rol de privilegios mínimos (T-101). Las migraciones usan el propietario: scripts/migrate.sh.
+      DATABASE_URL: postgresql+psycopg://valmont_app:${VALMONT_APP_DB_PASSWORD}@db:5432/postgres
+      # Auth y Storage por la red interna; el emisor de los tokens es la URL pública (D-018).
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_JWT_ISSUER: ${PUBLIC_URL}/auth/v1
+      STORAGE_PUBLIC_URL: ${PUBLIC_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+      kong:
+        condition: service_healthy
+
+  # --- Supabase autohospedado (tag self-hosted/v0.8.3) ---
+
+  kong:
+    image: kong/kong:3.9.3
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      auth:
+        condition: service_healthy
+      storage:
+        condition: service_healthy
+    volumes:
+      - ./supabase/volumes/api/kong.yml:/home/kong/temp.yml:ro,z
+      - ./supabase/volumes/api/kong-entrypoint.sh:/home/kong/kong-entrypoint.sh:ro,z
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /usr/local/kong/kong.yml
+      KONG_ROUTER_FLAVOR: expressions
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_DNS_NOT_FOUND_TTL: 1
+      KONG_DNS_VALID_TTL: 5
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth,request-termination,ip-restriction,post-function
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      KONG_PROXY_ACCESS_LOG: /dev/stdout combined
+      # Detrás de Caddy en el 443, como indica el override oficial docker-compose.caddy.yml.
+      KONG_PORT_MAPS: "443:8000"
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+    entrypoint: ["/bin/sh", "/home/kong/kong-entrypoint.sh"]
+
+  auth:
+    image: supabase/gotrue:v2.197.0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
+      timeout: 5s
+      interval: 5s
+      retries: 3
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${PUBLIC_URL}/auth/v1
+
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+
+      GOTRUE_SITE_URL: ${PUBLIC_URL}
+      GOTRUE_DISABLE_SIGNUP: "false"
+
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: 3600 # jwt_expiry de supabase/config.toml
+      # Clave simétrica heredada (firma las claves de API ANON_KEY y SERVICE_ROLE_KEY).
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      # JWK EC P-256 privada con key_ops "sign" + la simétrica: Auth firma los access tokens con
+      # ES256 y publica la clave pública en /.well-known/jwks.json (D-018). Vacía, Auth no arranca.
+      GOTRUE_JWT_KEYS: ${JWT_KEYS}
+      # El backend exige este iss (SUPABASE_JWT_ISSUER).
+      GOTRUE_JWT_ISSUER: ${PUBLIC_URL}/auth/v1
+
+      # Correo con confirmación obligatoria (enable_confirmations de supabase/config.toml).
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "false"
+      GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: "false"
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+      GOTRUE_SMS_AUTOCONFIRM: "false"
+      GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL}
+      GOTRUE_SMTP_HOST: ${SMTP_HOST}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT}
+      GOTRUE_SMTP_USER: ${SMTP_USER}
+      GOTRUE_SMTP_PASS: ${SMTP_PASS}
+      GOTRUE_SMTP_SENDER_NAME: ${SMTP_SENDER_NAME}
+      GOTRUE_MAILER_URLPATHS_INVITE: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_RECOVERY: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: /auth/v1/verify
+
+  storage:
+    image: supabase/storage-api:v1.81.0
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://storage:5000/status"]
+      timeout: 5s
+      interval: 5s
+      retries: 3
+      start_period: 10s
+    environment:
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      AUTH_JWT_SECRET: ${JWT_SECRET}
+      # JWKS pública (EC + simétrica): valida tanto los tokens ES256 como las claves HS256.
+      JWT_JWKS: ${JWT_JWKS}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      STORAGE_PUBLIC_URL: ${PUBLIC_URL}
+      REQUEST_ALLOW_X_FORWARDED_PATH: "true"
+      FILE_SIZE_LIMIT: 5242880 # 5 MiB, file_size_limit de [storage] en supabase/config.toml
+      STORAGE_BACKEND: file
+      # Con STORAGE_BACKEND=file es el nombre del directorio dentro del volumen.
+      GLOBAL_S3_BUCKET: stub
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: stub
+      # Sin transformaciones (no hay imgproxy) ni endpoint S3: Valmont solo sube y sirve objetos.
+      ENABLE_IMAGE_TRANSFORMATION: "false"
+      S3_PROTOCOL_ENABLED: "false"
+    volumes:
+      - storage-data:/var/lib/storage
+
+  db:
+    image: supabase/postgres:17.6.1.136
+    restart: unless-stopped
+    volumes:
+      # Must be superuser to alter reserved role
+      - ./supabase/volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
+      # Initialize the database settings with JWT_EXP
+      - ./supabase/volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
+      - db-data:/var/lib/postgresql/data
+      # Use named volume to persist pgsodium decryption key between restarts
+      - db-config:/etc/postgresql-custom
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: 5432
+      POSTGRES_PORT: 5432
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: postgres
+      POSTGRES_DB: postgres
+      JWT_EXP: 3600
+    command:
+      [
+        "postgres",
+        "-c",
+        "config_file=/etc/postgresql/postgresql.conf",
+        "-c",
+        "log_min_messages=fatal" # oficial; además no deja en el log el ALTER ROLE … PASSWORD de migrate.sh
+      ]
+
+  # Solo para la prueba local (--profile local): recibe los correos de confirmación de Auth.
+  mailpit:
+    image: axllent/mailpit:v1.31.6
+    profiles: ["local"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
+
+volumes:
+  db-data:
+  db-config:
+  storage-data:
+  caddy-data:
+  caddy-config:

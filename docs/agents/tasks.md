@@ -26,7 +26,7 @@
 | T-106 | Las pruebas las ejecuta solo qa-reviewer, y el Leader hace el commit tras su APROBADO (petición del usuario) | docs, arquitectura | claude-leader | D-028 | docs/agents/PROTOCOL.md §1, §3, §5, §11 | DONE | Rige desde 2026-10-27; la ronda 2 de T-042 (`615189d`) es anterior |
 | T-101 | Rol de BD `valmont_app` con privilegios mínimos (migración 0006) | backend, seguridad | backend-dev + qa-reviewer | D-029, RNF02 | paquete abajo | DONE | `b8eb2f9`; APROBADA por qa-reviewer con D-028 (704 + 267, 3 mutantes detectados). Los dos MENOR: uno en la skill de migraciones y otro en T-100 |
 | T-102 | Imagen del frontend: `@astrojs/node` 11.1.9 (D-024), `output: 'static'` con adaptador standalone y `frontend/Dockerfile` | frontend, arquitectura | frontend-dev + qa-reviewer | D-024, D-029 | paquete abajo | DONE | `c8c8ace`; APROBADA por qa-reviewer con D-028. `output: 'static'` confirmado por el Leader (D-024). Sus dos MENOR (`init: true` y `**/.env*`) pasan a T-100 |
-| T-100 | Imagen del backend y stack de despliegue `deploy/`: compose, Caddyfile, Supabase autohospedado fijado, `.env.example` y alta de la contraseña de `valmont_app` | backend, arquitectura | backend-dev + qa-reviewer | D-011, D-018, D-029 | paquete abajo | READY | Puerta Docker para los archivos; riesgo ES256. Pendiente de T-101: `ALTER ROLE valmont_app LOGIN PASSWORD` con el rol propietario (que necesita `CREATEROLE`); decidir si se revoca `CONNECT` en las BD ajenas; y su MENOR-1, que la prueba del mapa use `has_any_column_privilege` para SELECT, INSERT, UPDATE y REFERENCES |
+| T-100 | Imagen del backend y stack de despliegue `deploy/`: compose, Caddyfile, Supabase autohospedado fijado, `.env.example` y alta de la contraseña de `valmont_app` | backend, arquitectura | backend-dev + qa-reviewer | D-011, D-018, D-029 | paquete abajo | IN_REVIEW | Ronda 2 preparada: `roles.sql` recortado (BLOQUEANTE-1), Caddy solo con h1/h2 y `.gitattributes` con LF para los archivos de Docker; pendiente de qa-reviewer. Supabase fijado en el tag `self-hosted/v0.8.3`. ES256 resuelto con `GOTRUE_JWT_KEYS` (Auth v2.197.0); evidencia en el traspaso. Gateway Kong (override oficial, en desuso a favor de Envoy). `CONNECT` no se revoca (decisión en `deploy/scripts/migrate.sh`). Hechos los MENOR de T-101 y T-102 |
 | T-103 | Copias de seguridad: `pg_dump` diario y restauración probada (RNF12) | arquitectura | backend-dev + qa-reviewer | D-029, RNF12 | — | BACKLOG | — |
 | T-104 | Prueba de lanzamiento en este Windows 11 (`https://localhost`) y sección C de la ficha verificada | arquitectura | claude-leader + qa-reviewer | D-029 | docs/deploy.md §C | BACKLOG | Build y arranque con puerta Docker |
 | T-019 | Ajustes de contrato de identity tras la revisión de frontend-lead: `validation_error.details` sin `url` (solo `loc`, `type`, `msg`) y `Money.currency` obligatorio en el OpenAPI | backend | backend-dev | RF01.06 | docs/modules/identity/SPEC.md §7 | DONE | Hecho con T-027: `Money-Output` exige `amount` y `currency`; `details` = `loc`, `type`, `msg` |
@@ -120,6 +120,152 @@ Estados válidos: `BACKLOG` · `SPECIFICATION` · `READY` · `IN_PROGRESS` · `B
   - La comprobación ES256 resuelta con evidencia documental.
 - **D-028:** backend-dev puede ejecutar el análisis estático y `docker compose … config`. No ejecuta pruebas ni `docker build`/`up`/`run`.
 - **Estado inicial:** READY · IDs reservados: ninguno.
+
+#### Traspaso T-100, ronda 2 — 2026-10-27 — backend-dev
+Responde a la revisión de qa-reviewer: un BLOQUEANTE y dos MENOR. Lo demás se dio por verificado. Estado: IN_REVIEW.
+- **BLOQUEANTE-1, `roles.sql` (decisión del Leader):**
+  - `deploy/supabase/volumes/db/roles.sql` pasa a ser una copia recortada: se quita `ALTER USER supabase_functions_admin …`. La cabecera explica el recorte, igual que en `kong.yml`.
+  - El código de `supabase/postgres` 17.6.1.136 lo confirma:
+    - el rol solo se crea en `migrations/db/init-scripts/00000000000003-post-setup.sql` (`issue_pg_net_access`, al instalar `pg_net`);
+    - `migrations/db/migrate.sh:44` corre los scripts de inicio con `ON_ERROR_STOP=1`.
+  - `webhooks.sql` sigue sin montarse.
+- **Repaso de los scripts de BD que montamos:**
+  - En `roles.sql` todos los roles los crea la imagen:
+    - `pgbouncer`, en `init-scripts/00-schema.sql`, que `Dockerfile-17:159` copia de `ansible/files/pgbouncer_config/pgbouncer_auth_schema.sql`;
+    - `authenticator`, en `00000000000000-initial-schema.sql`;
+    - `supabase_auth_admin`, en `…0001-auth-schema.sql`;
+    - `supabase_storage_admin`, en `…0002-storage-schema.sql`.
+  - `jwt.sql` solo usa la BD `postgres`, el parámetro `app.settings.jwt_exp` y la variable `JWT_EXP`, que está en el `environment` de `db`. No depende de los servicios quitados.
+- **`deploy/compose.yml`:** la cabecera ya no da `roles.sql` por copia sin cambios. Copias exactas: `kong-entrypoint.sh` y `jwt.sql`. Recortados: `kong.yml` y `roles.sql`.
+- **MENOR-2:** el `Caddyfile` añade las opciones globales `servers { protocols h1 h2 }`, sin HTTP/3. Así lo anunciado coincide con lo publicado (`443/tcp`) y lo comprobado sobre `Content-Length` para el paso 13 sigue valiendo.
+- **MENOR-1 (alcance ampliado por el Leader):** el `.gitattributes` raíz añade `Dockerfile text eol=lf` y `.dockerignore text eol=lf`, con su comentario. Queda resuelto el riesgo de CRLF en los Dockerfiles de la ronda 1. `git check-attr` da `eol: lf` en los dos Dockerfiles y en los dos `.dockerignore`.
+- **Riesgo nuevo, sin cambios (decisión del Leader):** `--forwarded-allow-ips *` hace que el backend acepte `X-Forwarded-*` de cualquier contenedor de la red interna, que es única. Hoy no se usa la IP del cliente. Si algún día se usa (límites de peticiones o auditoría por IP), hay que restringirla a Caddy o segmentar la red.
+- **Evidencias (solo análisis estático):**
+  - `docker compose -f deploy/compose.yml --env-file deploy/.env.example config --quiet` → exit 0.
+  - `sh -n` sobre `migrate.sh`, `generate-env.sh` y `kong-entrypoint.sh` → exit 0 en los tres.
+  - Búsqueda de `\r` en `deploy/` → ningún archivo.
+- **NO EJECUTADO:**
+  - Pruebas y Docker (D-028, D-011).
+  - La sintaxis del `Caddyfile`: no hay `caddy` local y `caddy adapt` necesitaría Docker. qa-reviewer puede validarla en T-104 o en su revisión.
+- **Commits:** ninguno, queda preparado. El mensaje propuesto no cambia.
+
+#### Traspaso T-100 — 2026-10-27 — backend-dev
+1. Estado final: IN_REVIEW (pendiente de qa-reviewer, D-028). No se construyó ni arrancó nada.
+2. Cambios:
+   - **`backend/Dockerfile`** multietapa, según la guía de uv en Docker:
+     - `build` sobre `python:3.14.7-slim-trixie` con `uv` de `ghcr.io/astral-sh/uv:0.12.1`. Primero `uv sync --frozen --no-dev --no-install-project`, después `uv sync --frozen --no-dev --no-editable`.
+     - `runtime`: la misma base, con `.venv`, `alembic.ini` y `migrations/`. Usuario `valmont` (uid 10001), `HEALTHCHECK` con `urllib` a `http://127.0.0.1:8000/health`.
+     - Arranque: `fastapi run --entrypoint valmont.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips *`.
+   - **`backend/.dockerignore`:** `**/.env*`, `.venv`, cachés, `tests` y los archivos de Docker.
+   - **`deploy/compose.yml`** (proyecto `valmont`):
+     - `caddy` (`caddy:2.11.7-alpine`) es el único servicio con `ports`, en `${BIND_ADDRESS:-127.0.0.1}:80` y `:443`.
+     - `frontend` y `backend` con `build` e `init: true`. El backend recibe las variables del paquete.
+     - Supabase: `db`, `auth`, `storage` y `kong`. Cada uno con healthcheck y `depends_on: service_healthy` (db → auth/storage → kong → backend → caddy).
+     - Volúmenes con nombre: `db-data`, `db-config`, `storage-data`, `caddy-data` y `caddy-config`.
+     - `mailpit` (`axllent/mailpit:v1.31.6`) solo con el perfil `local`, en `127.0.0.1:8025`.
+   - **`deploy/supabase/`:** copias sin cambios de `volumes/api/kong-entrypoint.sh`, `volumes/db/roles.sql` y `volumes/db/jwt.sql`, con el mismo SHA-256 que en el tag. `volumes/api/kong.yml` está recortado: solo quedan las rutas oficiales de Auth y Storage, y su cabecera explica lo quitado.
+   - **`deploy/Caddyfile`:** `{$SITE_ADDRESS:localhost}` con `request_body max_size 6MiB`. Enruta `/api/*` → `backend:8000`, `/auth/v1/*` y `/storage/v1/*` → `kong:8000`, y el resto → `frontend:4321`.
+   - **`deploy/.env.example`:** solo marcadores. Los secretos van vacíos; los valores por defecto son `SITE_ADDRESS`, `BIND_ADDRESS` y `PUBLIC_URL`, y el SMTP apunta a Mailpit.
+   - **`deploy/scripts/`:**
+     - `generate-env.sh` + `generate-env.mjs` escriben `deploy/.env` sin imprimir nada, con permisos 600. Nunca sobrescriben: usan `flag: 'wx'`.
+     - `migrate.sh`, en este orden:
+       1. `alembic upgrade head` con la URL del propietario `postgres`, que viaja por el entorno (`-e DATABASE_URL`);
+       2. comprueba `CREATEROLE` + `ADMIN`, `CONNECT` y el esquema de Storage;
+       3. `ALTER ROLE valmont_app LOGIN PASSWORD`, con la contraseña entrando por stdin;
+       4. `INSERT … ON CONFLICT` del bucket `products` (público, 5242880 bytes, jpeg/png/webp).
+   - **`deploy/.gitattributes`:** `* text=auto eol=lf`. Con `core.autocrlf=true`, `kong-entrypoint.sh`, el SQL y el YAML llegarían con CRLF a los contenedores.
+   - **MENOR-1 de T-101:** `TABLE_PRIVILEGES` usa `has_any_column_privilege` para SELECT, INSERT, UPDATE y REFERENCES, y `has_table_privilege` para el resto.
+   - **MENOR-2 de T-102:** `frontend/.dockerignore` con `**/node_modules` y `**/.env*`.
+3. Archivos modificados:
+   - nuevos: `backend/Dockerfile`, `backend/.dockerignore`, `deploy/.env.example`, `deploy/.gitattributes`, `deploy/Caddyfile`, `deploy/compose.yml`, `deploy/scripts/generate-env.mjs`, `deploy/scripts/generate-env.sh`, `deploy/scripts/migrate.sh`, `deploy/supabase/volumes/api/kong-entrypoint.sh`, `deploy/supabase/volumes/api/kong.yml`, `deploy/supabase/volumes/db/jwt.sql` y `deploy/supabase/volumes/db/roles.sql`;
+   - modificados: `backend/tests/test_app_role.py`, `frontend/.dockerignore` y `docs/agents/tasks.md`.
+4. Decisiones tomadas (técnicas, dentro del paquete; ninguna D-xxx nueva):
+   - **Riesgo ES256 (D-018): resuelto, no BLOCKED.**
+     - Configuración: `GOTRUE_JWT_KEYS=${JWT_KEYS}`, un array JSON con una JWK EC P-256 privada (`alg: ES256`, `key_ops: ["sign","verify"]`) y la simétrica `oct`. `GOTRUE_JWT_ISSUER=${PUBLIC_URL}/auth/v1` coincide con `SUPABASE_JWT_ISSUER` del backend.
+     - Fuentes, todas en la versión fijada:
+       - (a) `docker/docker-compose.yml` del tag `self-hosted/v0.8.3` trae `#GOTRUE_JWT_KEYS: ${JWT_KEYS:-[]}` ("JSON array of signing JWKs (EC private + legacy symmetric)") y la imagen `supabase/gotrue:v2.197.0`.
+       - (b) La guía oficial `apps/docs/content/guides/self-hosting/self-hosted-auth-keys.mdx` dice: "When `JWT_KEYS` is set, Auth will start signing new user session JWTs with the new asymmetric ES256 key pair". Añade que `curl …/auth/v1/.well-known/jwks.json` "should return the EC public key (the symmetric key is excluded)".
+       - (c) El código de `supabase/auth` v2.197.0:
+         - `internal/conf/configuration.go`: `JWTConfiguration.Keys JwtKeysDecoder`, es decir, `GOTRUE_JWT_KEYS`;
+         - `internal/conf/jwk.go`: `GetSigningJwk` firma con la JWK cuyo `key_ops` contiene `sign`, y `Validate` exige exactamente una; `GetSigningAlg` → `ES256`;
+         - `internal/api/jwks.go`: `WellKnownJwks` publica las claves públicas y omite las `oct`.
+       - (d) `kong.yml` oficial: la ruta abierta `auth-v1-open-jwks` (`/auth/v1/.well-known/jwks.json`) no pide `apikey`, así que el backend la alcanza en `http://kong:8000`.
+     - Generación de claves: replica `utils/generate-keys.sh` y `utils/add-new-auth-keys.sh` del mismo tag (EC P-256 con `crypto` de Node, `kid` UUID y `oct` = base64url de `JWT_SECRET`). No uso las claves opacas `sb_`, que no hacen falta.
+   - **Versión de Supabase:** tag `self-hosted/v0.8.3` (commit `bc27d2661edd09a5d0b8d76ce33da6d4071a756e`, 2026-10-16), en https://github.com/supabase/supabase/tree/self-hosted/v0.8.3/docker. Es la última release; frente a `master` del 2026-10-22 solo cambian dos comentarios.
+   - **Servicios integrados en `deploy/compose.yml`, sin `include`.** Así `docker compose config` y la interpolación usan un único `.env`.
+   - **Gateway Kong, como pide el paquete.** En v0.8.3 el gateway por defecto es Envoy (servicio `api-gw` con los alias `envoy` y `kong`), y Kong es el override oficial `docker-compose.kong.yml`. Lo copié de ahí: imagen, healthcheck, entorno y entrypoint. Más `KONG_PORT_MAPS: "443:8000"`, como indica `docker-compose.caddy.yml`.
+   - **`rest` e `imgproxy` quedan fuera** (el paquete pedía justificarlos):
+     - en el código de `supabase/storage` v1.81.0, `src/config.ts` no lee `POSTGREST_URL`; el `depends_on: rest` oficial es heredado;
+     - imgproxy solo se usa si `ENABLE_IMAGE_TRANSFORMATION=true` (`src/http/routes/render/index.ts` no registra rutas si no). Lo desactivo y Valmont sirve las imágenes tal cual;
+     - desactivo también el endpoint S3 con `S3_PROTOCOL_ENABLED=false` (`src/http/routes/s3/index.ts`), así no hace falta ningún par de claves S3.
+   - **BD:** solo se montan `roles.sql` (contraseñas de los roles internos de Auth y Storage) y `jwt.sql`. Quedan fuera los de `_supabase`, realtime, logs, pooler y webhooks, que solo sirven a servicios excluidos.
+   - **Paridad con `supabase/config.toml`:** confirmación de correo obligatoria (`GOTRUE_MAILER_AUTOCONFIRM=false`), `jwt_expiry` 3600, Storage con límite de 5 MiB, y teléfono y anónimos desactivados.
+   - **`Content-Length`:** comprobado en el código de Caddy v2.11.7:
+     - `cloneRequest` copia la petición entera, incluido `ContentLength`;
+     - `request_body` solo envuelve el cuerpo en `MaxBytesReader` y responde 413 si se pasa;
+     - sin `request_buffers` no se reescribe el cuerpo.
+
+     El backend sigue viendo el `Content-Length` del cliente. No activo `request_buffers` porque cambiaría la regla de T-029 (aceptaría cuerpos sin `Content-Length`).
+   - **`CONNECT` no se revoca.** Está documentado en `migrate.sh`:
+     - la única BD con datos es `postgres`, y valmont_app necesita `CONNECT` en ella (el script lo comprueba);
+     - no se crea `_supabase`;
+     - revocárselo a `PUBLIC` en `postgres` cortaría a los roles de Supabase que entran por esa vía.
+   - **El rol que hace `ALTER ROLE` es `postgres`,** el mismo que corre las migraciones. En PostgreSQL 16+ recibe `ADMIN` al crear valmont_app en la 0006. El script exige `rolsuper` o `rolcreaterole` + `pg_has_role(current_user, 'valmont_app', 'MEMBER WITH ADMIN OPTION')` y, si no, falla con un mensaje claro.
+   - **Base `python:3.14.7-slim-trixie`:** la misma versión que el Python local, donde qa-reviewer pasa `pytest`, y con la distribución fijada (criterio de T-102). Existen ya 3.14.8–3.14.10.
+5. Pruebas ejecutadas → resultado observado (solo análisis estático, D-028):
+   - `docker compose -f deploy/compose.yml --env-file deploy/.env.example config --quiet` → exit 0, sin avisos.
+   - `… config --format json`, con y sin `--profile local` → `name: valmont`, todas las imágenes con etiqueta exacta y solo `caddy` con puertos (`127.0.0.1:80` y `:443`). Con el perfil `local` se añade `mailpit`, en `127.0.0.1:8025`.
+   - `sh -n` sobre `deploy/scripts/generate-env.sh`, `deploy/scripts/migrate.sh` y `deploy/supabase/volumes/api/kong-entrypoint.sh` → exit 0 en los tres.
+   - `node --check deploy/scripts/generate-env.mjs` → exit 0.
+   - Búsqueda de `\r` en `deploy/` → ningún archivo (todos en LF).
+   - `git check-ignore --no-index -v deploy/.env` → `.gitignore:8:.env`.
+   - `cd backend && uv run ruff format .` → `93 files left unchanged`.
+   - `cd backend && uv run ruff check .` → `All checks passed!`.
+   - capas (grep) → vacío.
+   - Sobre `git diff --cached`: grep de secretos literales → vacío; `^\+[A-Z_]*(KEY|SECRET|PASSWORD|TOKEN)[A-Z_]*=.+` → vacío; grep de JWT pegados (`eyJ…`) → vacío.
+   - `git diff --cached --stat` → 16 archivos, solo los de T-100. `git diff` → vacío.
+6. Pruebas no ejecutadas y motivo: NO EJECUTADO: pruebas y Docker (D-028, D-011). Lo que espero que observe qa-reviewer:
+   - `pytest -q` → 704 passed, sin unitarias nuevas.
+   - `pytest -m integration -q` → 267 passed. Mutante para el MENOR-1: con `GRANT SELECT (version_num) ON app.alembic_version TO valmont_app`, la prueba del mapa debe fallar.
+   - Generador, sin Docker: `node deploy/scripts/generate-env.mjs deploy/.env.example <tmp>/x.env`. El archivo tiene las 7 claves rellenas y `JWT_KEYS` lleva una sola JWK con `key_ops` `sign`. Una segunda ejecución sobre el mismo destino falla con `EEXIST`.
+   - T-104 (con ficha Docker):
+     - `docker compose … up -d --build`, con todos los servicios `healthy`;
+     - `sh deploy/scripts/migrate.sh`;
+     - `curl -k https://localhost/auth/v1/.well-known/jwks.json` devuelve una clave `EC`/`ES256`;
+     - registro → correo en Mailpit → token con `alg: ES256` → `GET /api/v1/identity/me` → 200;
+     - subida de imagen de 5 MiB → 201, y de más de 5 MiB → 413.
+7. Dependencias pendientes:
+   - T-104: construir, arrancar, `migrate.sh` y la prueba de humo. `docs/deploy.md` §C está desactualizada:
+     - el paso 4 cita `generate-keys.sh` (ahora `deploy/scripts/generate-env.sh`);
+     - el paso 6 migra con `run --rm backend alembic upgrade head` sin la URL del propietario. Usar `deploy/scripts/migrate.sh`; con la URL del servicio (valmont_app) fallaría;
+     - el paso 9 pide `GET /health`, pero Caddy no enruta `/health`: se comprueba con el estado `healthy` del contenedor.
+   - T-018: sigue pendiente lo que listaba.
+8. Riesgos conocidos:
+   - **Kong está anunciado en desuso** en el CHANGELOG de v0.8.3 ("Upcoming deprecations: `docker-compose.kong.yml` … superseded by Envoy"). Pasar a Envoy no toca Caddy ni el backend, porque Envoy declara el alias `kong`, pero habría que recortar su `lds.template.yaml`. Conviene decidirlo antes de actualizar Supabase.
+   - **No verificado en ejecución:**
+     - que storage-api v1.81.0 arranque sin `rest` ni `imgproxy` (verificado solo en el código);
+     - que `postgres` pueda escribir en `storage.buckets` en el autohospedado (la guía de Storage crea buckets por SQL);
+     - que `pg_has_role(..., 'MEMBER WITH ADMIN OPTION')` dé verdadero con el `ADMIN` automático. Si no, el script falla con un mensaje claro, sin efectos a medias.
+   - **Certificado de `https://localhost`:** lo firma la CA interna de Caddy, que el navegador del anfitrión no conoce. En T-104 habrá que aceptar el aviso o importar la raíz desde el volumen `caddy-data`.
+   - **SMTP:** `.env.example` apunta a Mailpit. Sin `--profile local` y sin un SMTP real, Auth no envía los correos de confirmación.
+   - **`deploy/.env` no se puede regenerar** tras el primer arranque sin perder el acceso a la BD (`roles.sql` solo corre al crearla). El generador se niega a sobrescribirlo.
+   - **Respaldo con Docker:** en Linux sin Node, el generador usa `docker run node:26.12.1-trixie-slim` (puerta D-011).
+   - **Dockerfiles con CRLF:** `backend/Dockerfile` y `frontend/Dockerfile` llegarán con CRLF en un clon de Windows (`core.autocrlf=true`). BuildKit suele tolerarlo, pero no lo he comprobado. Para fijar LF habría que añadir `Dockerfile* eol=lf` al `.gitattributes` raíz, que está fuera de mi alcance.
+9. Preguntas que requieren decisión:
+   - claude-leader: ¿Kong (lo que pide el paquete, en desuso en upstream) o Envoy (el gateway por defecto)? No bloquea.
+   - claude-leader: ¿subir la base a `python:3.14.10-slim-trixie` tras la verificación? No bloquea.
+10. Documentación actualizada: `docs/agents/tasks.md` (fila T-100 y este traspaso). `docs/deploy.md` no se toca: es de T-104.
+11. Siguiente acción recomendada: qa-reviewer verifica lo preparado:
+    - `config --quiet`, `sh -n`, ruff, capas y las puertas de secretos;
+    - `pytest -q` y `pytest -m integration -q`, con el mutante por columna;
+    - el generador sobre un destino temporal;
+    - revisión estática de los Dockerfiles y del compose;
+    - la huella de lo preparado.
+
+    Después, el Leader hace el commit y abre T-104 con su ficha Docker.
+12. Commits: ninguno — preparado (D-028).
+    - Rutas preparadas: `backend/Dockerfile`, `backend/.dockerignore`, `backend/tests/test_app_role.py`, `frontend/.dockerignore`, `deploy/` (11 archivos) y `docs/agents/tasks.md`.
+    - Mensaje propuesto: `feat(deploy): imagen del backend y stack de despliegue con Caddy y Supabase autohospedado (T-100)`.
 
 ### T-102 — Imagen del frontend (Astro SSR con `@astrojs/node`)
 - **Objetivo:** el frontend se construye y arranca como contenedor Node, listo para el compose de T-100. Ficha de auditoría de archivos confirmada por el usuario el 2026-10-27.

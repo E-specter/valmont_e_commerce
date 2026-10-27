@@ -31,10 +31,14 @@ EXPECTED_SEQUENCES = {
     "audit_log_id_seq": {"USAGE", "SELECT"},
     "stock_movements_id_seq": {"USAGE", "SELECT"},
 }
-# Privilegios efectivos (directos o por PUBLIC) de valmont_app en cada relación de app.
+# Privilegios efectivos (directos o por PUBLIC) de valmont_app en cada relación de app. SELECT,
+# INSERT, UPDATE y REFERENCES admiten GRANT por columna: has_any_column_privilege los ve, así un
+# GRANT sobre una sola columna rompe el mapa en vez de pasar inadvertido.
 TABLE_PRIVILEGES = text(
-    "SELECT c.relname, array_agg(p.privilege)"
-    " FILTER (WHERE has_table_privilege('valmont_app', c.oid, p.privilege))"
+    "SELECT c.relname, array_agg(p.privilege) FILTER (WHERE CASE"
+    " WHEN p.privilege IN ('SELECT', 'INSERT', 'UPDATE', 'REFERENCES')"
+    " THEN has_any_column_privilege('valmont_app', c.oid, p.privilege)"
+    " ELSE has_table_privilege('valmont_app', c.oid, p.privilege) END)"
     " FROM pg_class AS c CROSS JOIN unnest(ARRAY["
     "'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'"
     "]) AS p(privilege)"

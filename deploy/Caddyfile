@@ -1,0 +1,36 @@
+# Proxy inverso de Valmont (D-029): el único servicio con puertos publicados (deploy/compose.yml).
+# SITE_ADDRESS=localhost en la prueba local (certificado de la CA interna de Caddy). Con un dominio
+# real que apunte a este equipo, Caddy obtiene el certificado público automáticamente.
+{
+	servers {
+		# Sin HTTP/3: compose.yml solo publica 443/tcp, y así las subidas llegan siempre por
+		# HTTP/1.1 o HTTP/2, donde se comprobó que se conserva Content-Length (ficha C paso 13).
+		protocols h1 h2
+	}
+}
+
+{$SITE_ADDRESS:localhost} {
+	# Imágenes de producto de hasta 5 MiB (D-019) más el resto del multipart. El backend aplica su
+	# propio límite (5 MiB + 64 KiB) y responde 413 con el formato de error común.
+	request_body {
+		max_size 6MiB
+	}
+
+	# reverse_proxy reenvía el Content-Length del cliente tal cual (sin request_buffers no cambia
+	# el cuerpo); el backend rechaza con 413 las subidas que no lo traen (T-029, ficha C paso 13).
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	# Supabase Auth y Storage, a través de su gateway.
+	handle /auth/v1/* {
+		reverse_proxy kong:8000
+	}
+	handle /storage/v1/* {
+		reverse_proxy kong:8000
+	}
+
+	handle {
+		reverse_proxy frontend:4321
+	}
+}

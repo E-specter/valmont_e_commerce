@@ -1,0 +1,14 @@
+# Secretos y configuración local: nunca en la imagen
+**/.env*
+
+# Entorno, cachés y pruebas: se generan dentro de la imagen o no entran
+.venv
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.ruff_cache
+tests
+
+# Docker
+Dockerfile
+.dockerignore
