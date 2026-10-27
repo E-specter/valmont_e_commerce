@@ -25,7 +25,7 @@
 | T-105 | Protocolo de control de versiones: PROTOCOL §11, skill `version-control` y hooks de `.githooks/` (petición del usuario) | docs, arquitectura | claude-leader | D-026 | docs/agents/PROTOCOL.md §11 | DONE | Hooks probados (9/9 casos) y activos con `core.hooksPath` |
 | T-106 | Las pruebas las ejecuta solo qa-reviewer, y el Leader hace el commit tras su APROBADO (petición del usuario) | docs, arquitectura | claude-leader | D-028 | docs/agents/PROTOCOL.md §1, §3, §5, §11 | DONE | Rige desde 2026-10-27; la ronda 2 de T-042 (`615189d`) es anterior |
 | T-101 | Rol de BD `valmont_app` con privilegios mínimos (migración 0006) | backend, seguridad | backend-dev + qa-reviewer | D-029, RNF02 | paquete abajo | DONE | `b8eb2f9`; APROBADA por qa-reviewer con D-028 (704 + 267, 3 mutantes detectados). Los dos MENOR: uno en la skill de migraciones y otro en T-100 |
-| T-102 | Imagen del frontend: `@astrojs/node` (D-024), `output: 'server'` y `frontend/Dockerfile` | frontend, arquitectura | frontend-dev + qa-reviewer | D-024, D-029 | paquete abajo | READY | Ficha de archivos de M1 confirmada por el usuario (2026-10-27) |
+| T-102 | Imagen del frontend: `@astrojs/node` (D-024), `output: 'server'` y `frontend/Dockerfile` | frontend, arquitectura | frontend-dev + qa-reviewer | D-024, D-029 | paquete abajo | IN_REVIEW | Preparada sin commit (D-028), pendiente de qa-reviewer. Discrepancia: se configuró `output: 'static'` (default de D-024) en vez del `'server'` de esta descripción; el adaptador genera igualmente `dist/server/entry.mjs` (traspaso, punto 4) |
 | T-100 | Imagen del backend y stack de despliegue `deploy/`: compose, Caddyfile, Supabase autohospedado fijado, `.env.example` y alta de la contraseña de `valmont_app` | backend, arquitectura | backend-dev + qa-reviewer | D-011, D-018, D-029 | — | BACKLOG | Puerta Docker para los archivos; riesgo ES256. Pendiente de T-101: `ALTER ROLE valmont_app LOGIN PASSWORD` con el rol propietario (que necesita `CREATEROLE`); decidir si se revoca `CONNECT` en las BD ajenas; y su MENOR-1, que la prueba del mapa use `has_any_column_privilege` para SELECT, INSERT, UPDATE y REFERENCES |
 | T-103 | Copias de seguridad: `pg_dump` diario y restauración probada (RNF12) | arquitectura | backend-dev + qa-reviewer | D-029, RNF12 | — | BACKLOG | — |
 | T-104 | Prueba de lanzamiento en este Windows 11 (`https://localhost`) y sección C de la ficha verificada | arquitectura | claude-leader + qa-reviewer | D-029 | docs/deploy.md §C | BACKLOG | Build y arranque con puerta Docker |
@@ -76,6 +76,71 @@ Estados válidos: `BACKLOG` · `SPECIFICATION` · `READY` · `IN_PROGRESS` · `B
   - La imagen se construye en T-104, con su propia ficha Docker.
 - **D-028:** frontend-dev puede ejecutar `npm install` (para añadir la dependencia) y `npm run check` (análisis estático). No ejecuta `npm run build`, el servidor ni Docker.
 - **Estado inicial:** READY · IDs reservados: ninguno.
+
+#### Traspaso T-102 — 2026-10-27 — frontend-dev
+1. Estado final: IN_REVIEW (pendiente de qa-reviewer, D-028).
+2. Cambios:
+   - **Adaptador:** `npm install --save-exact @astrojs/node@11.1.9` → `added 284 packages … found 0 vulnerabilities`. En `package.json` queda `"@astrojs/node": "11.1.9"`. En el lock solo hay líneas añadidas (222 inserciones, 0 borrados) y `astro` sigue en 7.4.2.
+   - **`astro.config.mjs`:** `output: 'static'` y `adapter: node({ mode: 'standalone' })`.
+   - **`Dockerfile`:** sigue la receta multietapa oficial (docs.astro.build/en/recipes/docker/), con estas etapas:
+     - `base`: copia solo `package.json` y `package-lock.json`;
+     - `prod-deps`: `npm ci --omit=dev`;
+     - `build`: `npm ci`, después `COPY . .` y `npm run build`;
+     - `runtime`: sobre `node:26.12.1-trixie-slim`, con `NODE_ENV=production`, `HOST=0.0.0.0` y `PORT=4321`. Copia `package.json`, `node_modules` de producción y `dist/`. Corre con `USER node` y `EXPOSE 4321`. El `HEALTHCHECK` es exec con `fetch` de Node a `http://127.0.0.1:$PORT/`, y arranca con `CMD ["node", "./dist/server/entry.mjs"]`.
+     - No lleva `ARG` ni `ENV` de la aplicación ni secretos.
+   - **`.dockerignore`:** excluye `node_modules`, `dist`, `.astro`, `.env*`, `.git`, `Dockerfile`, `.dockerignore`, editores (`.vscode`, `.idea`), `.DS_Store`, registros de npm/yarn/pnpm y `AGENTS.md`.
+3. Archivos modificados:
+   - `frontend/package.json` y `frontend/package-lock.json`;
+   - `frontend/astro.config.mjs`;
+   - `frontend/Dockerfile` y `frontend/.dockerignore` (nuevos);
+   - `docs/agents/tasks.md` (fila T-102 y este traspaso).
+4. Decisiones tomadas (técnicas, dentro del paquete; ninguna D-xxx nueva):
+   - **`output: 'static'`, no `'server'` (discrepancia con el texto de la fila).**
+     - D-024 pide portada y legales estáticas, y solo listado, categoría y ficha bajo demanda. `modules.md` §5 dice "SSG por defecto".
+     - La guía oficial (docs.astro.build/en/guides/on-demand-rendering/) recomienda mantener `'static'` mientras la mayoría de páginas sean estáticas. Con `'server'`, la portada actual se renderizaría bajo demanda, salvo que se añadiera `prerender = true` a `index.astro`, que queda fuera de mi alcance.
+     - Las páginas del catálogo pondrán `export const prerender = false`.
+     - `dist/server/entry.mjs` se genera aunque todo esté prerenderizado. Lo comprobé en el código instalado:
+       - `node_modules/@astrojs/node/dist/index.js` declara `adapterFeatures.buildOutput: "server"`;
+       - `node_modules/astro/dist/integrations/hooks.js` (`setAdapter`) pone `settings.buildOutput = "server"` cuando ese valor no es `"static"`;
+       - `node_modules/astro/dist/core/build/index.js` lo aplica después de la línea que lo fija según `output`.
+     - La guía del adaptador confirma la ruta `./dist/server/entry.mjs` y que el modo standalone sirve `dist/client/`, donde queda la portada prerenderizada.
+   - **Versión 11.1.9:**
+     - `npm view @astrojs/node dist-tags` → `latest: 11.1.9`;
+     - `npm view @astrojs/node@latest peerDependencies` → `astro: ^7.2.1`, que cubre la 7.4.2;
+     - la guía del adaptador documenta la v11.1.9.
+   - **Imagen base `node:26.12.1-trixie-slim`** (API de etiquetas de Docker Hub: amd64 y arm64, publicada el 2026-10-21):
+     - fija la misma versión que la local (v26.12.1) y la distribución, mientras que `26.12.1-slim` es un alias que puede cambiar de Debian;
+     - el lock trae los binarios nativos `linux-x64-gnu` y `linux-arm64-gnu` (rolldown, lightningcss, compilador de Astro y sharp), así que `npm ci` funciona en glibc.
+   - **`prod-deps` es una etapa aparte**, como en la receta oficial: la caché de npm no llega a la imagen final y esa capa solo se rehace si cambian los manifiestos.
+   - **Los archivos de la etapa final son de root**, de solo lectura para `node`: el servidor no escribe en disco.
+   - **El `HEALTHCHECK` usa `127.0.0.1` y no `localhost`.** Node puede resolver `localhost` a `::1`, y el servidor escucha en `0.0.0.0` (solo IPv4).
+   - **Configuración en tiempo de ejecución (pauta para cuando haga falta, por ejemplo la URL del backend o las claves de Supabase de D-025):**
+     - No se usará `import.meta.env.PUBLIC_*` para valores que cambien según el entorno: Vite los sustituye en el build y quedarían dentro de la imagen.
+     - Tampoco sirve `astro:env` con `access: 'public'`, ni siquiera con `context: 'server'`. Lo comprobé en `node_modules/astro/dist/env/vite-plugin-env.js`: las variables públicas se escriben como `export const KEY = "valor"` en el build.
+     - Solo `envField.string({ context: 'server', access: 'secret' })` se lee al arrancar, mediante `_internalGetSecret` y `process.env` en el adaptador Node (`envGetSecret: "stable"`). Se usa aunque el valor no sea secreto, se importa desde `astro:env/server` y se pasa con `environment:` en el compose de T-100.
+     - Si el navegador necesita un valor, el servidor lo escribe en la página.
+     - Con `validateSecrets: true`, una variable que falte hace fallar el arranque.
+5. Pruebas ejecutadas → resultado observado (solo análisis estático, D-028), desde `frontend/`:
+   - `npm run check` (línea base, tras instalar y antes de tocar la configuración) → `Result (3 files): 0 errors, 0 warnings, 0 hints`
+   - `npm run check` (con `astro.config.mjs` nuevo) → `Result (3 files): 0 errors, 0 warnings, 0 hints`
+6. Pruebas no ejecutadas y motivo: NO EJECUTADO: build, servidor y Docker (D-028). Lo que espero que observe qa-reviewer:
+   - `npm run build` termina con `mode: "server"` y deja `dist/server/entry.mjs` y `dist/client/index.html`. También registra el aviso del adaptador `Enabling sessions with filesystem storage` (punto 8).
+   - `HOST=127.0.0.1 PORT=4321 node ./dist/server/entry.mjs` sirve la portada con 200. Sin `PORT`, el adaptador usa el `server.port` de Astro, que por defecto es 4321.
+   - Revisión estática del `Dockerfile`: la imagen se construye en T-104.
+7. Dependencias pendientes:
+   - T-100: el servicio del compose con `build: ./frontend`, el puerto 4321 solo en la red interna (lo publica Caddy, D-029) y las variables de entorno según la pauta del punto 4.
+   - T-104: construir la imagen y comprobar el `HEALTHCHECK`, `docker inspect --format '{{.State.Health.Status}}'` → `healthy`.
+8. Riesgos conocidos:
+   - **Sesiones de Astro.** El adaptador activa por defecto sesiones en disco, en `node_modules/.astro/sessions` dentro del contenedor (`cacheDir`). Hoy nadie usa `Astro.session` y D-025 lleva la sesión en cookies de `@supabase/ssr`. Si algún día se usa, el usuario `node` no puede escribir en `/app`: habría que poner `session: false` o elegir otro driver.
+   - **Detrás de Caddy.** Astro comprueba el origen en los POST de páginas bajo demanda (`security.checkOrigin`). Con TLS terminado en Caddy, el servidor ve `http`. Hay que comprobarlo en T-104 con el primer formulario bajo demanda y, si falla, revisar `security.allowedDomains` y las cabeceras `X-Forwarded-*`. Hoy no hay páginas bajo demanda, así que no aplica.
+   - **La versión de npm de la imagen no está verificada.** En local hay npm 12.2.1. El lock es compatible con cualquier npm reciente.
+9. Preguntas que requieren decisión:
+   - claude-leader: confirmar `output: 'static'` (punto 4) y, si procede, corregir "`output: 'server'`" en la descripción de la fila T-102. No bloquea.
+10. Documentación actualizada: `docs/agents/tasks.md` (fila T-102 y este traspaso).
+11. Siguiente acción recomendada: qa-reviewer ejecuta en `frontend/` `npm run check`, `npm run build` (comprobar `dist/server/entry.mjs`) y `node ./dist/server/entry.mjs` con `curl http://127.0.0.1:4321/` → 200. Después hace la revisión estática del `Dockerfile` y anota la huella de lo preparado.
+12. Commits: ninguno — preparado (D-028).
+    - Rutas preparadas: `frontend/package.json`, `frontend/package-lock.json`, `frontend/astro.config.mjs`, `frontend/Dockerfile`, `frontend/.dockerignore` y `docs/agents/tasks.md`.
+    - Mensaje propuesto: `feat(frontend): imagen Docker con @astrojs/node (T-102)`.
 
 ### T-101 — Rol de BD `valmont_app` con privilegios mínimos
 - **Objetivo:** el backend desplegado se conecta con un rol que no puede cambiar el esquema ni alterar el registro de auditoría (defensa en profundidad, además de los triggers de `audit_log`).
