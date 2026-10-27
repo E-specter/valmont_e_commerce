@@ -28,7 +28,7 @@ Comercio electrónico de alta relojería mecánica (Valmont): catálogo, carrito
 
 ## Reglas no negociables
 
-- **Secretos:** nunca en código, `docs/` ni logs. `.claude_session/` contiene credenciales: no leer, no versionar.
+- **Secretos:** nunca en código, `docs/` ni logs. `.env` no se versiona. Las credenciales de las herramientas viven fuera del proyecto (D-013).
 - **Autorización siempre en el backend:** el frontend no decide permisos ni calcula importes.
 - **Precio, stock y estado de pedidos** salen de la base de datos, nunca de la memoria de un modelo.
 - **Un cliente solo accede a sus propios datos:** la identidad sale de la sesión validada, nunca de un id recibido.

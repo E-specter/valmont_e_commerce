@@ -16,9 +16,9 @@
 | T-009 | SPEC del módulo `catalog` | requisitos | module-coordinator | RF02, RF06.01–03 | requirements.md RF02, RF06 | READY | Usar la skill `module-planning` |
 | T-010 | Sistema de diseño Kombai (`.ds`) y primer componente desde Figma | ui | frontend-lead + Kombai | D-006, D-012 | design_ui/DESIGN.md | BLOCKED | Requiere D-012 y la URL del frame de Figma |
 | T-011 | Inicializar git y commit base | — | usuario | D-013 | decisions.md D-013 | CANCELLED | Fusionada en T-012 |
-| T-012 | Credenciales fuera del proyecto + `git init` + commit base | — | claude-leader + usuario | D-013 | decisions.md D-013 | IN_PROGRESS | El usuario cierra VS Code para mover `.claude_session/` |
+| T-012 | Credenciales fuera del proyecto + `git init` + commit base | — | claude-leader + usuario | D-013 | decisions.md D-013 | DONE | Credenciales en `%USERPROFILE%\.claude-valmont`; commit base `f931a54` en `main`; trabajo en la rama `worktree-fase1-backend-db` |
 | T-013 | Documentación al día con D-009…D-017 y correcciones de la auditoría | docs | claude-leader | D-009…D-017 | decisions, requirements, modules, skills | DONE | — |
-| T-014 | Instalar Docker Desktop | arquitectura | claude-leader | D-011 | setup.md §1 | BLOCKED | Puerta Docker: espera la confirmación del usuario |
+| T-014 | Instalar Docker Desktop | arquitectura | claude-leader | D-011 | setup.md §1 | IN_PROGRESS | Confirmado por el usuario el 2026-10-26; instalación con winget en curso |
 | T-015 | Capa de datos: SQLAlchemy + Alembic, esquema `app`, BD de pruebas | backend | claude-leader / backend-dev | D-010 | modules.md §4 | BACKLOG | Depende de T-006 |
 | T-016 | Autenticación: verificación del JWT, `app.profiles`, `current_user` / `require_admin` | backend, seguridad | backend-dev + qa-reviewer | RF01.05, RF13.01, RF13.02, D-009 | SPEC de identity | BACKLOG | Depende de T-008 y T-015 |
 | T-017 | Ficha de lanzamiento `docs/deploy.md` (Windows 11 / Linux) | docs, arquitectura | claude-leader | D-011 | setup.md | BACKLOG | Los pasos de desarrollo se escriben al verificarse en T-014…T-016 |

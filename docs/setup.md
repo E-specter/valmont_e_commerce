@@ -32,8 +32,7 @@ valmont_e_commerce/
 │   ├── rules/                reglas de proyecto que Kombai aplica siempre
 │   ├── design-systems/       sistema de diseño .ds de Kombai (se genera desde docs/design_ui/DESIGN.md)
 │   └── canvas/               diseños .canvas del modo Design de Kombai
-├── .claude_session/          CLAUDE_CONFIG_DIR de las terminales de VS Code: credenciales y sesiones. NO versionar, NO leer.
-├── .vscode/settings.json     fija CLAUDE_CONFIG_DIR=.claude_session en la terminal integrada
+├── .vscode/settings.json     fija CLAUDE_CONFIG_DIR=%USERPROFILE%\.claude-valmont (credenciales FUERA del proyecto, D-013)
 └── valmont_e_commerce.code-workspace
 ```
 
@@ -77,7 +76,7 @@ Cada componente tendrá un `.env.example` sin valores reales cuando aparezca la 
 | Herramienta | Estado verificado (2026-10-26) | Notas |
 |---|---|---|
 | Figma (conector claude.ai) | disponible en la cuenta | Lectura de diseños por Claude; el flujo principal es Kombai (D-006) |
-| Kombai MCP Server | no configurado | Requiere la **app de escritorio** de Kombai (no la extensión). Escribe en `~/.claude.json`, que las terminales de VS Code de este workspace **no** leen (usan `CLAUDE_CONFIG_DIR=.claude_session`) |
+| Kombai MCP Server | no configurado | Requiere la **app de escritorio** de Kombai (no la extensión). Escribe en `~/.claude.json`, que las terminales de VS Code de este workspace **no** leen (usan `CLAUDE_CONFIG_DIR=%USERPROFILE%\.claude-valmont`) |
 | Astro docs MCP | no configurado | Opcional; mientras tanto, enlaces en `frontend/AGENTS.md` |
 | Supabase MCP | no configurado | Requiere Supabase en ejecución (D-011); solo en `dev` y con aprobación si escribe |
 | GitHub MCP | falla (HTTP 400, cabecera de autorización) | Revisar el token del conector |
@@ -86,6 +85,6 @@ Cada componente tendrá un `.env.example` sin valores reales cuando aparezca la 
 
 | Problema | Causa | Cómo evitarlo |
 |---|---|---|
-| `EnterWorktree` falla | La carpeta no es repo git, o el repo no tiene commits | Resolver D-013 (commit base) antes de usar worktrees |
+| `EnterWorktree` falla | El repo no tiene commits (o no es repo git) | Resuelto con el commit base (D-013); si reaparece, comprobar `git log` |
 | "Device or resource busy" al mover carpetas | Windows bloquea archivos abiertos (VS Code, `.venv`, terminales) | No mover `backend/` ni `frontend/`; cerrar los procesos o copiar en vez de mover |
 | Kombai no ve el `AGENTS.md` de `frontend/` | Kombai solo lee el `AGENTS.md` de la raíz | Las reglas de Kombai van en `AGENTS.md` raíz o en `.kombai/rules/` |

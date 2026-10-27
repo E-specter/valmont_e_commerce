@@ -21,6 +21,7 @@ Delegar = enviar completo el paquete de `docs/agents/PROTOCOL.md` §3: el subage
 
 ## Entorno
 
-- La carpeta todavía no es un repositorio git (D-013): `EnterWorktree` falla hasta que exista un commit base. Mientras tanto, se trabaja en la carpeta del proyecto.
+- Repositorio git con rama principal `main` (D-013). Cada tarea va en su propia rama (o worktree); integrar en `main` requiere autorización del usuario.
 - Windows: no muevas `backend/` ni `frontend/` (bloqueos de archivos). Copia si hace falta.
-- Las terminales de VS Code de este workspace usan `CLAUDE_CONFIG_DIR=.claude_session`.
+- Las terminales de VS Code de este workspace usan `CLAUDE_CONFIG_DIR=%USERPROFILE%\.claude-valmont`, fuera del proyecto.
+- **Puerta Docker (D-011):** antes de instalar, configurar, arrancar o detener contenedores, o borrar volúmenes, muestra una ficha de auditoría (qué hace, qué cambia, riesgos, cómo revertir) y espera la confirmación del usuario.

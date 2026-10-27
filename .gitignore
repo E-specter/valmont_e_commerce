@@ -1,4 +1,4 @@
-# Directorio de configuración de Claude Code de este workspace (credenciales, sesiones). Nunca versionar.
+# Antigua carpeta de configuración de Claude Code (ya se movió fuera, D-013); se ignora por si alguien la recrea.
 .claude_session/
 # Worktrees y ajustes personales de agentes
 .claude/worktrees/
