@@ -57,7 +57,11 @@ Servicios activos: Postgres 17, Auth (GoTrue), Kong, PostgREST, Studio, pg-meta 
 |---|---|
 | Instalar o sincronizar dependencias | `uv sync` |
 | Servidor de desarrollo | `uv run fastapi dev src/valmont/main.py` → http://127.0.0.1:8000/docs |
-| Pruebas | `uv run pytest -q` |
+| Pruebas unitarias | `uv run pytest -q` |
+| Pruebas de integración (con `npm run db:start`) | `uv run pytest -m integration -q` (usa la BD `valmont_test`, que se crea sola) |
+| Aplicar migraciones (BD de desarrollo) | `uv run alembic upgrade head` |
+| Nueva migración | `uv run alembic revision --autogenerate --rev-id 00NN -m "<cambio>"` → revisar → `upgrade head` |
+| ¿Modelos y BD sincronizados? | `uv run alembic check` |
 | Lint | `uv run ruff check .` |
 | Formato (verificar / aplicar) | `uv run ruff format --check .` / `uv run ruff format .` |
 | Añadir dependencia | `uv add <paquete>` (requiere aprobación de backend-lead) |

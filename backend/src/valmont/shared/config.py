@@ -10,6 +10,8 @@ class Settings(BaseSettings):
 
     environment: Literal["dev", "test", "prod"] = "dev"
     log_level: str = "INFO"
+    database_url: str | None = None
+    test_database_url: str | None = None
 
 
 @cache

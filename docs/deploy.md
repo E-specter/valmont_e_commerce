@@ -15,7 +15,7 @@
 | 5 | Arrancar la BD local | `npm run db:start` (la 1.ª vez descarga ~3–5 GB) → `npm run db:status` | ✅ |
 | 6 | Configurar el backend | `cd backend` → `Copy-Item .env.example .env` → en `.env`, `SUPABASE_JWT_SECRET` = valor de `JWT_SECRET` que muestra `npx supabase status -o env` (solo en tu equipo) | ✅ |
 | 7 | Instalar y probar el backend | `uv sync` → `uv run pytest -q` | ✅ |
-| 8 | Crear las tablas | `uv run alembic upgrade head` | 🕒 T-015 |
+| 8 | Crear las tablas | `uv run alembic upgrade head` → `uv run alembic current` muestra `(head)` | ✅ |
 | 9 | Levantar la API | `uv run fastapi dev src/valmont/main.py` → http://127.0.0.1:8000/docs | ✅ |
 | 10 | Levantar el frontend | `cd frontend` → `npm install` → `npx astro dev` → http://localhost:4321 | ✅ build verificado (`astro dev` aún sin abrir) |
 | 11 | Primer administrador | Registrar el usuario desde la app (o Studio → Authentication → Add user), llamar una vez a `GET /api/v1/identity/me` para crear su perfil, y en Studio → SQL: `update app.profiles set role = 'admin' where user_id = '<uuid>';` | 🕒 T-016 |
@@ -69,6 +69,6 @@ navegador ──HTTPS──► proxy inverso (por decidir en M1)
 
 ## E. Estado actual
 
-- **Funciona hoy:** sección A, pasos 1–7, 9, 10 y 12.
-- **Pendiente:** A-8 (T-015), A-11 (T-016), sección B (verificar en un equipo Linux) y sección C completa (hito M1, tras catalog + inventory).
+- **Funciona hoy:** sección A, pasos 1–10 y 12.
+- **Pendiente:** A-11 (T-016), sección B (verificar en un equipo Linux) y sección C completa (hito M1, tras catalog + inventory).
 - **Riesgo abierto en desarrollo:** Docker publica los puertos de Supabase en todas las interfaces de red (`0.0.0.0`), así que otros equipos de la misma red podrían alcanzar la BD local con la contraseña por defecto. Mitigación propuesta: una regla del firewall de Windows que bloquee la entrada a los puertos 54321–54324 (pendiente de tu decisión).

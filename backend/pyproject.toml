@@ -7,8 +7,11 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
+    "alembic>=1.20.1",
     "fastapi[standard-no-fastapi-cloud-cli]>=0.162.0",
+    "psycopg[binary]>=3.3.6",
     "pydantic-settings>=2.16.1",
+    "sqlalchemy>=2.1.6",
 ]
 
 [build-system]
@@ -23,6 +26,8 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-m 'not integration'"
+markers = ["integration: necesita la BD de pruebas (npm run db:start)"]
 
 [tool.ruff]
 line-length = 100

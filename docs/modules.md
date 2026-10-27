@@ -79,9 +79,9 @@ backend/
 2. `domain` no importa `fastapi`, `pydantic`, `sqlalchemy`, `httpx` ni SDK externos. `application` solo importa `domain` y sus puertos.
 3. Rutas de negocio bajo `/api/v1/<módulo>`. `/health` queda fuera del prefijo.
 4. Todo error responde `{"error": {"code", "message", "details"}}` (`shared/errors.py`, T-007): `AppError(code, message, status_code, details)` para los errores de negocio; `validation_error` 422 (sin devolver el `input` del cliente); `unauthenticated` 401, `forbidden` 403, `not_found` 404, `method_not_allowed` 405 y `http_error` para el resto de errores HTTP; `internal_error` 500 sin traza (la traza va al log con su `X-Request-ID`).
-5. Una transacción por solicitud (y por tanto por caso de uso), gestionada por la dependencia `get_session` de `shared/db.py`: commit si termina bien, rollback si hay error.
+5. Una transacción por solicitud (y por tanto por caso de uso). Los endpoints piden la sesión **siempre** con `SessionDep` de `shared/db.py` (`Depends(get_session, scope="function")`), que hace commit antes de enviar la respuesta. Un `Depends(get_session)` a secas devolvería 200 aunque el commit fallara (lo demuestra una prueba de T-015).
 6. Inyección de dependencias con `Depends` en `adapters/http.py`; en las pruebas los puertos se sustituyen por fakes en memoria.
-7. Todas las tablas viven en el esquema `app` (D-010) y se versionan con Alembic en `backend/migrations/`.
+7. Todas las tablas viven en el esquema `app` (D-010): los modelos heredan de `valmont.shared.db.Base`. Se versionan con Alembic en `backend/migrations/`. Cada módulo importa su `adapters/persistence` en el bloque de registro de `migrations/env.py`, y las revisiones llevan un id secuencial legible (`--rev-id 0002`).
 8. **Sin "comprobar y después escribir"** ante concurrencia: la unicidad la impone un `UNIQUE` + `INSERT … ON CONFLICT`, y los decrementos, un `UPDATE … WHERE <condición>` que devuelve las filas afectadas (D-017).
 
 ## 5. Convenciones del frontend (Astro)

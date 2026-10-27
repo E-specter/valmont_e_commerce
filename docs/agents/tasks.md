@@ -19,7 +19,7 @@
 | T-012 | Credenciales fuera del proyecto + `git init` + commit base | — | claude-leader + usuario | D-013 | decisions.md D-013 | DONE | Credenciales en `%USERPROFILE%\.claude-valmont`; commit base `f931a54` en `main`; trabajo en la rama `worktree-fase1-backend-db` |
 | T-013 | Documentación al día con D-009…D-017 y correcciones de la auditoría | docs | claude-leader | D-009…D-017 | decisions, requirements, modules, skills | DONE | — |
 | T-014 | Instalar Docker Desktop | arquitectura | claude-leader | D-011 | setup.md §1 | DONE | Docker Desktop 29.9.2 + Compose v5.6.1; `hello-world` OK |
-| T-015 | Capa de datos: SQLAlchemy + Alembic, esquema `app`, BD de pruebas | backend | claude-leader / backend-dev | D-010 | modules.md §4 | BACKLOG | Depende de T-006 |
+| T-015 | Capa de datos: SQLAlchemy + Alembic, esquema `app`, BD de pruebas | backend | backend-dev (revisa claude-leader) | D-010 | modules.md §4 | DONE | Traspaso abajo; 17 pruebas unitarias + 5 de integración |
 | T-016 | Autenticación: verificación del JWT, `app.profiles`, `current_user` / `require_admin` | backend, seguridad | backend-dev + qa-reviewer | RF01.05, RF13.01, RF13.02, D-009 | SPEC de identity | BACKLOG | Depende de T-008 y T-015 |
 | T-017 | Ficha de lanzamiento `docs/deploy.md` (Windows 11 / Linux) | docs, arquitectura | claude-leader | D-011 | docs/deploy.md | IN_PROGRESS | Sección A verificada salvo A-8 (T-015) y A-11 (T-016); B pendiente de un equipo Linux; C en el hito M1 |
 
@@ -52,3 +52,10 @@ Estados válidos: `BACKLOG` · `SPECIFICATION` · `READY` · `IN_PROGRESS` · `B
 4. Pruebas: `uv run ruff format --check .` → 10 files already formatted · `uv run ruff check .` → All checks passed! · `uv run pytest -q` → 15 passed · humo `fastapi dev` + `curl /health` → 200 con `x-request-id` (hecho por backend-dev).
 5. No ejecutadas: integración (sin BD en esta tarea), capas (aún no hay módulos), tipos (sin herramienta).
 6. Riesgos aceptados: el access log de uvicorn duplica la línea de cada solicitud sin el id (en producción se usará `--no-access-log`, hito M1); `LOG_LEVEL` inválido aborta el arranque a propósito.
+
+#### Traspaso T-015 — 2026-10-26 — backend-dev (revisado por claude-leader)
+1. Estado final: DONE (aceptado por claude-leader).
+2. Cambios: `shared/db.py` (`Base` en el esquema `app` con convención de nombres, `get_engine()` perezoso, `get_session()` + alias `SessionDep` con `scope="function"`); Alembic (`alembic.ini`, `migrations/env.py` limitado al esquema `app`, `version_table_schema="app"`, modo `--sql` rechazado); migración `0001` (REVOKE a `anon` y `authenticated`); `tests/conftest.py` (crea `valmont_test`, `upgrade head`, `db_session` con savepoint; exige el sufijo `_test`); marcador `integration`. Dependencias: sqlalchemy 2.1.6, psycopg[binary] 3.3.6, alembic 1.20.1.
+3. Pruebas (reejecutadas por el Leader): `ruff format --check` → 16 files already formatted · `ruff check` → All checks passed! · `pytest -q` → 17 passed, 5 deselected · `pytest -m integration -q` → 5 passed · `alembic current` → 0001 (head) · `alembic check` → No new upgrade operations detected. backend-dev demostró además que sin `scope="function"` un fallo de commit devolvía 200.
+4. Convenciones adoptadas (docs/modules.md §4.5 y §4.7): `SessionDep` obligatorio; `--rev-id` secuencial.
+5. Riesgos: un `GRANT … TO PUBLIC` futuro sobre `app` anularía el REVOKE (la prueba de privilegios lo detectaría); las URLs de BD no son `SecretStr` (no registrar el objeto `Settings`).
