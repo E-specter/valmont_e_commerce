@@ -23,7 +23,14 @@ from valmont.modules.inventory.application import (
 LEAD_TIME_DAYS = 21
 
 
-def add_product(session: Session, order_policy: str = "stock") -> UUID:
+def add_product(
+    session: Session,
+    order_policy: str = "stock",
+    *,
+    sku: str | None = None,
+    name: str = "Reloj de prueba",
+    status: str = "draft",
+) -> UUID:
     """Producto mínimo en app.products (con su categoría)."""
     category_id, product_id, tag = uuid4(), uuid4(), uuid4().hex[:8]
     session.execute(
@@ -33,14 +40,16 @@ def add_product(session: Session, order_policy: str = "stock") -> UUID:
     session.execute(
         text(
             "INSERT INTO app.products (id, sku, slug, name, description, category_id,"
-            " price_cents, order_policy, lead_time_days) VALUES (:id, :sku, :slug,"
-            " 'Reloj de prueba', 'Reloj ficticio.', :category_id, 100000, :policy, :lead)"
+            " price_cents, status, order_policy, lead_time_days) VALUES (:id, :sku, :slug,"
+            " :name, 'Reloj ficticio.', :category_id, 100000, :status, :policy, :lead)"
         ),
         {
             "id": product_id,
-            "sku": f"TST-INV-{tag}",
+            "sku": sku or f"TST-INV-{tag}",
             "slug": f"inventario-{tag}",
+            "name": name,
             "category_id": category_id,
+            "status": status,
             "policy": order_policy,
             "lead": None if order_policy == "stock" else LEAD_TIME_DAYS,
         },

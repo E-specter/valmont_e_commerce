@@ -8,7 +8,7 @@
 | T-040 | SPEC de inventory | claude-leader | D-017, D-023, D-027 | DONE |
 | T-041 | Esquema `0005`, dominio, repositorios, settings y vista `product_availability` | backend-dev | T-026 | DONE (`84d60d8`; verificado por claude-leader: 597 unitarias + 182 integración) |
 | T-042 | Casos de uso internos `ReserveStock`, `ConsumeReservations`, `ReleaseReservations` con pruebas de concurrencia | backend-dev + qa-reviewer | T-041 | DONE (`f641107`, `615189d`, `4e04053`; ronda 3 APROBADA por qa-reviewer con D-028: 624 unitarias + 202 integración, mutantes detectados) |
-| T-043 | API de administración (stock, movimientos, settings) con auditoría | backend-dev + qa-reviewer | T-041 | BACKLOG |
+| T-043 | API de administración (stock, movimientos, settings) con auditoría | backend-dev + qa-reviewer | T-041 | IN_REVIEW (preparado sin commit, D-028; pendiente de que qa-reviewer ejecute las pruebas) |
 
 IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalog) consumirá la vista de T-041.
 
@@ -55,6 +55,101 @@ IDs reservados del módulo: T-040–T-049 (libres: T-044–T-049). T-030 (catalo
 - Escalar si: la vista no puede expresar R2 de forma eficiente o hace falta tocar catalog.
 
 ## Traspasos
+
+#### Traspaso T-043 — 2026-10-27 — backend-dev
+1. Estado final: IN_REVIEW. Preparado sin commit (D-028): qa-reviewer ejecuta las pruebas; acepta claude-leader.
+2. Cambios:
+   - **Router** `adapters/admin_http.py`: `/api/v1/inventory/admin`, con `require_admin` en el router (401, 403 y 503) y las 5 rutas de la §7.
+     - `GET /stock` admite `q` (máx. 100 caracteres, recortado; vacío = sin búsqueda), `status`, `page` (1–1000) y `page_size` (1–48, 24 por defecto).
+     - `GET /stock/{product_id}` devuelve hasta 50 movimientos.
+     - `POST …/movements` responde 201.
+     - `GET` y `PATCH /settings`.
+     - Esquemas con `extra="forbid"`, `StrictInt` y tope `INT4_MAX`. `kind` es un `Literal` de los 4 motivos del admin, así que `venta` da 422 en `kind`.
+     - OpenAPI: `ErrorOut` en todos los errores. El 409 describe `insufficient_stock`/`stock_reserved` y el 422, `no_change`.
+   - **Errores** (`_domain_errors`):
+     - `ProductNotFound` → 404.
+     - `NoChange` → 422 `no_change` con `details: null`.
+     - `InvalidMovement(field)` → 422 `validation_error` con `loc ["body", field]`, como `_invalid` de catalog.
+     - `InsufficientStock` → 409 `insufficient_stock` y `StockReserved` → 409 `stock_reserved`, los dos con `details {on_hand, reserved}` (O1).
+   - **Aplicación:**
+     - `Actor`, puerto `StockReader` (`list_all`, `get`).
+     - `RecordMovement` hace, en este orden:
+       1. `lock()`; producto inexistente → `ProductNotFound`.
+       2. Lee lo reservado **después** del bloqueo: `on_hand − available` de la vista (I-4).
+       3. `admin_movement`.
+       4. `update`, `add` y la auditoría `inventory.stock_adjusted` en la misma transacción.
+     - `ChangeThreshold`: `get(lock=True)`. Con el mismo valor no escribe ni audita.
+   - **Dominio:**
+     - `InvalidMovement` lleva ahora `field` (`kind`, `quantity` o `note`).
+     - `NoChange(InvalidMovement)`, que lanza `StockMovement` con delta 0.
+     - `ProductNotFound`.
+     - `InsufficientStock` y `StockReserved` llevan `on_hand` y `reserved`.
+     - `ON_HAND_MAX`: un `on_hand` resultante mayor → 422 en `quantity`.
+     - `StockView`, `StockQuery`, `StockPage`, `PAGE_SIZE_*` y `has_control_chars`.
+     - **Corrección de T-041:** los caracteres de control de la nota se comprueban **antes** de recortarla. Hasta ahora un `\t` o un `\r` en los extremos desaparecía en silencio, contra la §7.
+   - **Persistencia:**
+     - `_products` declara `sku`, `name` y `status` (excepción 4).
+     - `SqlProductPolicies` selecciona explícitamente sus 3 columnas, así que su consulta no cambia.
+     - `SqlStockReader`: productos ⟕ vista ⟕ `inventory_items` (`on_hand` con `coalesce` 0) y `reserved = on_hand − available`.
+     - `q`: `app.f_unaccent(col) ILIKE app.f_unaccent(:patrón) ESCAPE '/'`, con `/`, `%` y `_` escapados, en el SKU o el nombre.
+     - Orden por `sku`, `count` sobre la misma consulta, `limit`/`offset`.
+3. Archivos modificados:
+   - Código:
+     - `backend/src/valmont/modules/inventory/{domain,application}.py`.
+     - `backend/src/valmont/modules/inventory/adapters/persistence.py`.
+     - `backend/src/valmont/modules/inventory/adapters/admin_http.py` (nuevo).
+     - `backend/src/valmont/main.py`: **archivo compartido**, 2 líneas (import del router e `include_router`), como catalog.
+   - Pruebas:
+     - `backend/tests/inventory/{test_domain,test_application,inventory_helpers}.py`. `add_product` acepta `sku`, `name` y `status` opcionales; los llamantes existentes no cambian.
+     - `backend/tests/inventory/test_admin_http.py` y `test_admin_db.py` (nuevos).
+   - Este STATUS: fila de T-043 y este traspaso.
+4. Decisiones tomadas (interpretaciones; la SPEC no las fija):
+   - Auditoría:
+     - `entity_type` `product` + id del producto para `stock_adjusted`; `inventory_settings` + `"1"` para el umbral.
+     - `before {on_hand}` y `after {on_hand, kind}`: `kind` va solo en `after`, porque no es un campo que cambie (AUDIT-R2).
+   - `q` con caracteres de control → 422 en `["query", "q"]`, como catalog. Un `\x00` daría un 500.
+   - Recuento igual a `on_hand` cuando `on_hand` ya es menor que lo reservado (solo posible con el desfase de I-8): gana `stock_reserved` sobre `no_change`.
+5. Pruebas ejecutadas → resultado observado (solo análisis estático, D-028, desde `backend/`):
+   - `uv run ruff format .` → 2 files reformatted, 88 files left unchanged; tras el último cambio → 90 files left unchanged.
+   - `uv run ruff check .` → All checks passed!
+   - `uv run ruff format --check .` → 90 files already formatted.
+   - Capas: `grep -rnE "^(from|import) (fastapi|pydantic|sqlalchemy|httpx|supabase)" src/valmont/modules/*/domain* src/valmont/modules/*/application*` → sin salida (exit 1).
+6. Pruebas no ejecutadas y motivo: NO EJECUTADO: pruebas (D-028), ni `pytest -q`, ni `pytest -m integration -q`, ni `alembic check`.
+   - Recuento esperado: **+67 unitarias (691)** y **+30 de integración (232)**.
+   - Unitarias:
+     - `test_domain` +11: loc por campo ×6, control en los extremos ×4 e `INT4_MAX`. Se refuerzan 5 existentes: `NoChange` y los `details` de los 409.
+     - `test_application` +8: `RecordMovement` y `ChangeThreshold` con fakes. El fake de la vista falla si lo reservado se lee antes del `lock`.
+     - `test_admin_http` +48, sin BD:
+       - 401 y 403 ×5 rutas.
+       - 422 del cuerpo con `loc` ×12 y del `product_id` ×2.
+       - Parámetros del listado ×8 y umbral ×9.
+       - Traducción de los errores del dominio ×6.
+       - OpenAPI.
+   - Integración (`test_admin_db`, +30, HTTP contra `valmont_test` con SAVEPOINT por solicitud):
+     - CA-INVENTORY-01: los 4 motivos, `\r\n`, movimientos del más reciente al más antiguo y 4 auditorías con actor, rol y `request_id`.
+     - Recuento a 0; nota o cantidad inválidas ×8, sin cambios; `INT4_MAX`; `no_change`.
+     - `insufficient_stock` con prioridad y `details`.
+     - **`merma` frente a una reserva de `ReserveStock` → 409 `stock_reserved`**; hasta lo reservado sí se puede retirar.
+     - **`merma` con la reserva vencida y después `ConsumeReservations` con reloj anterior al vencimiento → `ReservationExpired` por R11**, sin `venta` y con la reserva aún `active`. Sin R11, fallaría con `ValueError` de `StockItem`.
+     - 404 sin crear fila; detalle sin fila de stock.
+     - CA-INVENTORY-05 ×10 por detalle, listado y filtro `status`, con el umbral cambiado por PATCH.
+     - Listado: orden por `sku`, borradores y publicados, paginación y página fuera de rango.
+     - Búsqueda: tildes, mayúsculas, SKU, recorte, `%` y `_` literales.
+     - Umbral auditado una sola vez.
+7. Dependencias pendientes: ejecución por qa-reviewer. Frontend (backoffice) puede consumir la §7.
+8. Riesgos conocidos:
+   - Pruebas sin ejecutar: podrían tener errores que el análisis estático no ve. Lo más expuesto es el SQL de `ILIKE … ESCAPE '/'` con `app.f_unaccent` y los conteos de la búsqueda.
+   - **Discrepancia a registrar:** `q` usa `app.f_unaccent`, función creada por la migración 0004 de catalog. `modules.md` §3, excepción (4), cubre columnas de `app.products`, no funciones. La §7 exige "sin distinguir tildes" y es la misma función que usa catalog — decide claude-leader si la añade a la excepción.
+   - `product_status` sale como `Literal["draft", "published"]`: si catalog añade un estado, la respuesta daría 500 hasta actualizar el contrato.
+   - `InsufficientStock` lleva `on_hand`/`reserved` también en la ruta de reservas, con valor 0. orders no debe leerlos.
+9. Preguntas que requieren decisión: la discrepancia de `app.f_unaccent` (punto 8) y la confirmación de las interpretaciones del punto 4 — decide claude-leader.
+10. Documentación actualizada: este STATUS. La SPEC no se ha tocado.
+11. Siguiente acción recomendada: que qa-reviewer ejecute format, lint, `pytest -q`, `pytest -m integration -q`, capas, `alembic check` y OpenAPI sobre lo preparado. Mutantes sugeridos:
+    - leer lo reservado antes del `lock`;
+    - quitar el escape del `LIKE`;
+    - invertir la prioridad de los 409;
+    - recortar la nota antes de buscar caracteres de control.
+12. Commits: ninguno — preparado (D-028). Rutas: las del punto 3. Mensaje propuesto: `feat(inventory): API de administración del inventario (T-043)`.
 
 #### Revisión del contrato §7 — 2026-10-27 — frontend-lead (anotada por claude-leader)
 - **Veredicto:** CAMBIOS REQUERIDOS, con la §7 corregida lista para pegar. Faltaban:

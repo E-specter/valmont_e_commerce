@@ -6,6 +6,9 @@ from enum import StrEnum
 from uuid import UUID
 
 NOTE_MAX = 500  # INVENTORY-R5
+ON_HAND_MAX = 2**31 - 1  # on_hand es integer (SPEC §6): un valor mayor sería un 500 de la BD
+PAGE_SIZE_DEFAULT = 24  # listado del admin, como el de catalog (SPEC §7)
+PAGE_SIZE_MAX = 48
 
 # order_policy de catalog (D-023). Inventory no importa el dominio de catalog (modules.md §3).
 MADE_TO_ORDER = "made_to_order"
@@ -13,16 +16,33 @@ BACKORDER = "backorder"
 
 
 class InvalidMovement(ValueError):
-    """Movimiento mal formado (422)."""
+    """Movimiento mal formado (422). `field`: el campo de la solicitud que lo causa, si lo hay."""
+
+    def __init__(self, message: str, field: str | None = None) -> None:
+        super().__init__(message)
+        self.field = field
+
+
+class NoChange(InvalidMovement):
+    """El movimiento no cambia on_hand: un recuento igual al stock (422 no_change, R9)."""
+
+
+class ProductNotFound(Exception):
+    """El producto no existe en catalog (404)."""
 
 
 class InsufficientStock(Exception):
     """Sin stock suficiente: un movimiento dejaría on_hand bajo 0 (409 insufficient_stock,
-    INVENTORY-R6) o un pedido no se puede reservar (UC-INVENTORY-04, con sus productos)."""
+    INVENTORY-R6, con on_hand y lo reservado) o un pedido no se puede reservar
+    (UC-INVENTORY-04, con sus productos)."""
 
-    def __init__(self, product_ids: tuple[UUID, ...] = ()) -> None:
+    def __init__(
+        self, product_ids: tuple[UUID, ...] = (), on_hand: int = 0, reserved: int = 0
+    ) -> None:
         super().__init__(product_ids)
         self.product_ids = product_ids
+        self.on_hand = on_hand
+        self.reserved = reserved
 
 
 class ReservationExpired(Exception):
@@ -32,6 +52,11 @@ class ReservationExpired(Exception):
 
 class StockReserved(Exception):
     """El movimiento dejaría on_hand por debajo de lo reservado (409 stock_reserved, R6)."""
+
+    def __init__(self, on_hand: int, reserved: int) -> None:
+        super().__init__(on_hand, reserved)
+        self.on_hand = on_hand
+        self.reserved = reserved
 
 
 class AvailabilityStatus(StrEnum):  # D-023
@@ -84,6 +109,36 @@ class Availability:
 
 
 @dataclass(frozen=True)
+class StockView:
+    """Stock de un producto para el admin (UC-INVENTORY-02). Sin fila de stock, on_hand 0."""
+
+    product_id: UUID
+    sku: str
+    name: str
+    product_status: str  # estado en catalog: draft | published
+    on_hand: int
+    reserved: int  # reservas activas no vencidas (R1)
+    available: int
+    status: AvailabilityStatus
+
+
+@dataclass(frozen=True)
+class StockQuery:
+    """Listado del admin: `q` en el SKU o el nombre, `status` (R2) y la página."""
+
+    q: str | None = None
+    status: AvailabilityStatus | None = None
+    page: int = 1
+    page_size: int = PAGE_SIZE_DEFAULT
+
+
+@dataclass(frozen=True)
+class StockPage:
+    items: list[StockView]
+    total: int
+
+
+@dataclass(frozen=True)
 class InventorySettings:
     low_stock_threshold: int = 2  # INVENTORY-R3 (D-027)
 
@@ -102,16 +157,24 @@ class StockItem:
             raise ValueError("on_hand no puede ser negativo (RN-06).")
 
 
+def has_control_chars(text: str, allowed: str = "") -> bool:
+    # Cc: \x00 rompe un text de PostgreSQL. Cs: un sustituto suelto no se codifica en UTF-8.
+    return any(unicodedata.category(c) in ("Cc", "Cs") and c not in allowed for c in text)
+
+
+def _invalid_note(message: str) -> InvalidMovement:
+    return InvalidMovement(message, "note")
+
+
 def _check_note(kind: MovementKind, note: str | None) -> None:
     if note is None:
         if kind in _NOTE_REQUIRED:
-            raise InvalidMovement("El ajuste de inventario y la merma exigen una nota.")
+            raise _invalid_note("El ajuste de inventario y la merma exigen una nota.")
         return
     if not 1 <= len(note) <= NOTE_MAX:
-        raise InvalidMovement(f"La nota debe tener entre 1 y {NOTE_MAX} caracteres.")
-    # Cc: \x00 rompe un text de PostgreSQL. Cs: un sustituto suelto no se codifica en UTF-8.
-    if any(unicodedata.category(c) in ("Cc", "Cs") and c != "\n" for c in note):
-        raise InvalidMovement("La nota contiene caracteres de control no permitidos.")
+        raise _invalid_note(f"La nota debe tener entre 1 y {NOTE_MAX} caracteres.")
+    if has_control_chars(note, allowed="\n"):
+        raise _invalid_note("La nota contiene caracteres de control no permitidos.")
 
 
 @dataclass(frozen=True)
@@ -130,7 +193,7 @@ class StockMovement:
 
     def __post_init__(self) -> None:
         if self.quantity_delta == 0:
-            raise InvalidMovement("El movimiento no cambia el stock.")
+            raise NoChange("El movimiento no cambia el stock.")
         if self.on_hand_after < 0:
             raise InvalidMovement("on_hand_after no puede ser negativo.")
         _check_note(self.kind, self.note)
@@ -150,21 +213,29 @@ def admin_movement(
     `ajuste_inventario`, `quantity` es la cantidad contada; para el resto, las unidades.
     """
     if kind == MovementKind.VENTA:
-        raise InvalidMovement("La venta la registra el sistema al consumir reservas.")
+        raise InvalidMovement("La venta la registra el sistema al consumir reservas.", "kind")
     counted = kind == MovementKind.AJUSTE_INVENTARIO
     if quantity < 0 or (quantity == 0 and not counted):
-        raise InvalidMovement("La cantidad debe ser positiva (o ≥ 0 si es un recuento).")
+        message = "La cantidad debe ser positiva (o ≥ 0 si es un recuento)."
+        raise InvalidMovement(message, "quantity")
     if note is not None:
-        note = note.replace("\r\n", "\n").strip() or None
+        note = note.replace("\r\n", "\n")
+        # Antes de recortar: un \t o un \r en los extremos no desaparece sin un 422 (SPEC §7).
+        if has_control_chars(note, allowed="\n"):
+            raise _invalid_note("La nota contiene caracteres de control no permitidos.")
+        note = note.strip() or None
     _check_note(kind, note)
     if counted:
         on_hand_after = quantity
     else:
         on_hand_after = stock.on_hand + (-quantity if kind == MovementKind.MERMA else quantity)
+    if on_hand_after > ON_HAND_MAX:
+        raise InvalidMovement(f"El stock no puede superar {ON_HAND_MAX} unidades.", "quantity")
     if on_hand_after < 0:
-        raise InsufficientStock
+        raise InsufficientStock(on_hand=stock.on_hand, reserved=reserved)
     if on_hand_after < reserved:
-        raise StockReserved
+        raise StockReserved(stock.on_hand, reserved)
+    # Un recuento igual a on_hand da delta 0: StockMovement lanza NoChange (R9).
     return StockMovement(
         stock.product_id, kind, on_hand_after - stock.on_hand, on_hand_after, note, actor_id
     )

@@ -1,22 +1,27 @@
 from collections.abc import Collection
 from dataclasses import asdict, replace
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
+    ColumnElement,
     DateTime,
     ForeignKey,
     Identity,
     Index,
     Integer,
+    Row,
+    Select,
     SmallInteger,
     Text,
     Uuid,
     column,
     func,
     insert,
+    or_,
     select,
     table,
     text,
@@ -35,17 +40,23 @@ from valmont.modules.inventory.domain import (
     ReservationStatus,
     StockItem,
     StockMovement,
+    StockPage,
+    StockQuery,
+    StockView,
 )
 from valmont.shared.db import Base
 
 # Tablas de la SPEC inventory §6. Solo las escribe inventory.
 
-# app.products es de catalog: aquí solo se referencia su id (FK) y se leen las tres columnas
-# que también lee la vista.
+# app.products es de catalog: aquí solo se referencia su id (FK) y se leen, sin escribirlas, las
+# columnas que permite modules.md §3, excepción (4).
 _PRODUCT_ID = "app.products.id"
 _products = table(
     "products",
     column("id", Uuid),
+    column("sku", Text),
+    column("name", Text),
+    column("status", Text),
     column("order_policy", Text),
     column("lead_time_days", Integer),
     schema="app",
@@ -292,7 +303,8 @@ class SqlProductPolicies:
         self._session = session
 
     def get(self, product_ids: Collection[UUID]) -> dict[UUID, ProductPolicy]:
-        stmt = select(_products).where(_products.c.id.in_(product_ids))
+        p = _products.c
+        stmt = select(p.id, p.order_policy, p.lead_time_days).where(p.id.in_(product_ids))
         return {
             row.id: ProductPolicy(row.order_policy, row.lead_time_days)
             for row in self._session.execute(stmt)
@@ -311,3 +323,75 @@ class SqlAvailabilityReader:
         return Availability(
             row.product_id, row.available, AvailabilityStatus(row.status), row.lead_time_days
         )
+
+
+_LIKE_ESCAPE = "/"
+
+
+def _matches(column: ColumnElement[Any], value: str) -> ColumnElement[bool]:
+    """Coincidencia parcial sin tildes ni mayúsculas (SPEC §7), con la misma app.f_unaccent que
+    la búsqueda de catalog. %, _ y el escape del texto son literales; viaja como parámetro."""
+    for char in (_LIKE_ESCAPE, "%", "_"):  # el escape, el primero
+        value = value.replace(char, _LIKE_ESCAPE + char)
+    pattern = func.app.f_unaccent(f"%{value}%")
+    return func.app.f_unaccent(column).ilike(pattern, escape=_LIKE_ESCAPE)
+
+
+def _stock_select() -> Select[Any]:
+    # Todos los productos, con o sin fila de stock (SPEC §7); lo reservado y el estado salen de
+    # la vista, con el mismo reloj (now() de la BD) y el mismo umbral que ve catalog.
+    p = _products.c
+    return (
+        select(
+            p.id.label("product_id"),
+            p.sku,
+            p.name,
+            p.status.label("product_status"),
+            func.coalesce(InventoryItemRow.on_hand, 0).label("on_hand"),
+            _availability.c.available,
+            _availability.c.status,
+        )
+        .select_from(_products)
+        .join(_availability, _availability.c.product_id == p.id)
+        .outerjoin(InventoryItemRow, InventoryItemRow.product_id == p.id)
+    )
+
+
+def _stock_view(row: Row[Any]) -> StockView:
+    return StockView(
+        product_id=row.product_id,
+        sku=row.sku,
+        name=row.name,
+        product_status=row.product_status,
+        on_hand=row.on_hand,
+        reserved=row.on_hand - row.available,  # la vista: available = on_hand − reservas (R1)
+        available=row.available,
+        status=AvailabilityStatus(row.status),
+    )
+
+
+class SqlStockReader:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def list_all(self, query: StockQuery) -> StockPage:
+        conditions: list[ColumnElement[bool]] = []
+        if query.status is not None:
+            conditions.append(_availability.c.status == query.status)
+        if query.q is not None:
+            conditions.append(
+                or_(_matches(_products.c.sku, query.q), _matches(_products.c.name, query.q))
+            )
+        rows = _stock_select().where(*conditions)
+        total = self._session.scalar(select(func.count()).select_from(rows.subquery()))
+        page = (
+            rows.order_by(_products.c.sku)  # único: paginación estable
+            .limit(query.page_size)
+            .offset((query.page - 1) * query.page_size)
+        )
+        return StockPage([_stock_view(row) for row in self._session.execute(page)], total or 0)
+
+    def get(self, product_id: UUID) -> StockView | None:
+        stmt = _stock_select().where(_products.c.id == product_id)
+        row = self._session.execute(stmt).one_or_none()
+        return None if row is None else _stock_view(row)

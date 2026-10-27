@@ -5,11 +5,13 @@ import pytest
 
 from valmont.modules.inventory.domain import (
     NOTE_MAX,
+    ON_HAND_MAX,
     AvailabilityStatus,
     InsufficientStock,
     InvalidMovement,
     InventorySettings,
     MovementKind,
+    NoChange,
     OnRequestLine,
     OrderLine,
     ProductPolicy,
@@ -139,24 +141,72 @@ def test_sale_is_only_recorded_by_the_system() -> None:
 
 
 def test_adjustment_to_the_same_count_changes_nothing() -> None:
-    # quantity_delta <> 0 (SPEC §6): un recuento igual a on_hand no es un movimiento.
-    with pytest.raises(InvalidMovement):
+    # quantity_delta <> 0 (SPEC §6): un recuento igual a on_hand no es un movimiento (R9).
+    with pytest.raises(NoChange):
         admin_movement(STOCK, 0, MovementKind.AJUSTE_INVENTARIO, 5, "Recuento")
 
 
 @pytest.mark.parametrize("reserved", [0, 2])
 def test_movement_never_leaves_on_hand_negative(reserved: int) -> None:
     # Bajo 0 gana a "bajo lo reservado": insufficient_stock (INVENTORY-R6).
-    with pytest.raises(InsufficientStock):
+    with pytest.raises(InsufficientStock) as raised:
         admin_movement(STOCK, reserved, MovementKind.MERMA, 6, "Rotura")
+
+    # O1: el 409 dice cuánto hay y cuánto está reservado.
+    assert (raised.value.on_hand, raised.value.reserved) == (5, reserved)
 
 
 @pytest.mark.parametrize(
     ("kind", "quantity"), [(MovementKind.MERMA, 3), (MovementKind.AJUSTE_INVENTARIO, 1)]
 )
 def test_movement_never_leaves_on_hand_below_reserved(kind: MovementKind, quantity: int) -> None:
-    with pytest.raises(StockReserved):
+    with pytest.raises(StockReserved) as raised:
         admin_movement(STOCK, 3, kind, quantity, "Recuento")
+
+    assert (raised.value.on_hand, raised.value.reserved) == (5, 3)
+
+
+@pytest.mark.parametrize(
+    ("kind", "quantity", "note", "field"),
+    [
+        (MovementKind.VENTA, 1, None, "kind"),
+        (MovementKind.ENTRADA, 0, None, "quantity"),
+        (MovementKind.AJUSTE_INVENTARIO, -1, "Recuento", "quantity"),
+        (MovementKind.MERMA, 1, None, "note"),
+        (MovementKind.MERMA, 1, "x" * (NOTE_MAX + 1), "note"),
+        (MovementKind.ENTRADA, 1, "con \x00 nulo", "note"),
+    ],
+)
+def test_invalid_movement_names_the_field_that_causes_it(
+    kind: MovementKind, quantity: int, note: str | None, field: str
+) -> None:
+    # El 422 marca el campo del formulario (SPEC §7, loc ["body", <campo>]).
+    with pytest.raises(InvalidMovement) as raised:
+        admin_movement(STOCK, 0, kind, quantity, note)
+
+    assert raised.value.field == field
+    assert not isinstance(raised.value, NoChange)
+
+
+@pytest.mark.parametrize("note", ["Rotura\t", "\tRotura", "Rotura \x0b", "Rotura\r"])
+def test_control_characters_at_the_edges_of_the_note_are_rejected(note: str) -> None:
+    # SPEC §7: solo \r\n se normaliza; cualquier otro carácter de control es un 422, también
+    # en los extremos, que el recorte habría hecho desaparecer.
+    with pytest.raises(InvalidMovement) as raised:
+        admin_movement(STOCK, 0, MovementKind.MERMA, 1, note)
+
+    assert raised.value.field == "note"
+
+
+def test_resulting_on_hand_cannot_exceed_the_integer_column() -> None:
+    # SPEC §7: on_hand es integer; un valor mayor sería un 500 de la BD.
+    full = StockItem(uuid4(), ON_HAND_MAX - 1)
+
+    assert admin_movement(full, 0, MovementKind.ENTRADA, 1).on_hand_after == ON_HAND_MAX
+    with pytest.raises(InvalidMovement) as raised:
+        admin_movement(full, 0, MovementKind.DEVOLUCION, 2)
+    assert raised.value.field == "quantity"
+    assert not isinstance(raised.value, NoChange)
 
 
 def test_movement_may_leave_on_hand_equal_to_reserved() -> None:

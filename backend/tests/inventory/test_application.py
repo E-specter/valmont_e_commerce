@@ -1,4 +1,4 @@
-"""Casos de uso de reservas con fakes en memoria: qué se escribe y qué no."""
+"""Casos de uso de reservas y de administración con fakes en memoria: qué se escribe y qué no."""
 
 from collections.abc import Collection
 from datetime import UTC, datetime, timedelta
@@ -6,14 +6,28 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from valmont.modules.inventory.application import ConsumeReservations, ReleaseReservations
+from valmont.modules.audit.application import AuditEntry
+from valmont.modules.inventory.application import (
+    Actor,
+    ChangeThreshold,
+    ConsumeReservations,
+    RecordMovement,
+    ReleaseReservations,
+)
 from valmont.modules.inventory.domain import (
+    Availability,
+    AvailabilityStatus,
+    InsufficientStock,
+    InventorySettings,
     MovementKind,
+    NoChange,
+    ProductNotFound,
     Reservation,
     ReservationExpired,
     ReservationStatus,
     StockItem,
     StockMovement,
+    StockReserved,
 )
 
 T0 = datetime(2026, 10, 27, 12, 0, tzinfo=UTC)
@@ -28,6 +42,8 @@ class FakeStock:
 
     def lock(self, product_id: UUID) -> StockItem | None:
         self.locked.append(product_id)
+        if product_id not in self.on_hand:
+            return None  # producto inexistente
         return StockItem(product_id, self.on_hand[product_id])
 
     def update(self, item: StockItem) -> None:
@@ -202,3 +218,143 @@ def test_release_closes_exactly_the_active_ids_once() -> None:
 
     assert reservations.closed == [({r.id for r in mine}, ReservationStatus.RELEASED)]
     assert [r.status for r in reservations.for_order(other)] == [ReservationStatus.ACTIVE]
+
+
+# --- Administración (T-043): RecordMovement y ChangeThreshold ---
+
+ADMIN = Actor(uuid4(), "admin")
+
+
+class FakeAvailability:
+    """Lo reservado vigente de cada producto. Falla si se lee antes de bloquear su stock: lo
+    reservado tiene que ser el de bajo el bloqueo (R6, O1)."""
+
+    def __init__(self, stock: FakeStock, reserved: dict[UUID, int]) -> None:
+        self.stock = stock
+        self.reserved = reserved
+
+    def get(self, product_id: UUID) -> Availability | None:
+        assert product_id in self.stock.locked, "lo reservado se leyó antes del bloqueo"
+        available = self.stock.on_hand[product_id] - self.reserved.get(product_id, 0)
+        return Availability(product_id, available, AvailabilityStatus.IN_STOCK, None)
+
+
+class FakeAudit:
+    def __init__(self) -> None:
+        self.entries: list[AuditEntry] = []
+
+    def record(self, entry: AuditEntry) -> None:
+        self.entries.append(entry)
+
+
+def record_movement(
+    on_hand: dict[UUID, int], reserved: dict[UUID, int]
+) -> tuple[RecordMovement, FakeStock, FakeMovements, FakeAudit]:
+    stock, movements, audit = FakeStock(on_hand), FakeMovements(), FakeAudit()
+    use_case = RecordMovement(stock, FakeAvailability(stock, reserved), movements, audit)
+    return use_case, stock, movements, audit
+
+
+def test_record_movement_updates_stock_and_audits_with_the_actor() -> None:
+    record, stock, movements, audit = record_movement({A: 5}, {A: 2})
+
+    movement = record(A, MovementKind.MERMA, 2, "  Rotura ", ADMIN)
+
+    assert movement == StockMovement(A, MovementKind.MERMA, -2, 3, "Rotura", ADMIN.user_id)
+    assert stock.updates == [StockItem(A, 3)]
+    assert movements.added == [movement]
+    # INVENTORY-R7: before/after de on_hand y el motivo, con el actor del token.
+    assert audit.entries == [
+        AuditEntry(
+            "inventory.stock_adjusted",
+            "product",
+            str(A),
+            ADMIN.user_id,
+            "admin",
+            before={"on_hand": 5},
+            after={"on_hand": 3, "kind": "merma"},
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    ("kind", "quantity", "error", "details"),
+    [
+        (MovementKind.MERMA, 4, StockReserved, (5, 2)),  # 1 < 2 reservadas
+        (MovementKind.AJUSTE_INVENTARIO, 1, StockReserved, (5, 2)),
+        (MovementKind.MERMA, 6, InsufficientStock, (5, 2)),  # bajo 0 gana a bajo lo reservado
+    ],
+)
+def test_record_movement_checks_r6_with_the_reservations_read_under_the_lock(
+    kind: MovementKind, quantity: int, error: type[Exception], details: tuple[int, int]
+) -> None:
+    record, stock, movements, audit = record_movement({A: 5}, {A: 2})
+
+    with pytest.raises(error) as raised:
+        record(A, kind, quantity, "Recuento", ADMIN)
+
+    assert (raised.value.on_hand, raised.value.reserved) == details  # type: ignore[attr-defined]
+    assert stock.locked == [A]
+    assert (stock.updates, movements.added, audit.entries) == ([], [], [])
+
+
+def test_record_movement_with_a_count_equal_to_on_hand_writes_nothing() -> None:
+    record, stock, movements, audit = record_movement({A: 5}, {})
+
+    with pytest.raises(NoChange):
+        record(A, MovementKind.AJUSTE_INVENTARIO, 5, "Recuento", ADMIN)
+
+    assert (stock.updates, movements.added, audit.entries) == ([], [], [])
+
+
+def test_record_movement_on_an_unknown_product_is_not_found() -> None:
+    record, stock, movements, audit = record_movement({}, {})
+
+    with pytest.raises(ProductNotFound):
+        record(A, MovementKind.ENTRADA, 1, None, ADMIN)
+
+    assert (stock.updates, movements.added, audit.entries) == ([], [], [])
+
+
+class FakeSettings:
+    def __init__(self, threshold: int) -> None:
+        self.current = InventorySettings(threshold)
+        self.locked = False
+        self.updates: list[InventorySettings] = []
+
+    def get(self, lock: bool = False) -> InventorySettings:
+        self.locked = self.locked or lock
+        return self.current
+
+    def update(self, settings: InventorySettings) -> None:
+        assert self.locked, "el umbral se escribe sin haber bloqueado la fila"
+        self.updates.append(settings)
+        self.current = settings
+
+
+def test_change_threshold_updates_and_audits_it() -> None:
+    settings, audit = FakeSettings(2), FakeAudit()
+
+    result = ChangeThreshold(settings, audit)(5, ADMIN)
+
+    assert result == InventorySettings(5)
+    assert settings.updates == [InventorySettings(5)]
+    assert audit.entries == [
+        AuditEntry(
+            "inventory.threshold_changed",
+            "inventory_settings",
+            "1",
+            ADMIN.user_id,
+            "admin",
+            before={"low_stock_threshold": 2},
+            after={"low_stock_threshold": 5},
+        )
+    ]
+
+
+def test_same_threshold_is_neither_written_nor_audited() -> None:
+    settings, audit = FakeSettings(3), FakeAudit()
+
+    assert ChangeThreshold(settings, audit)(3, ADMIN) == InventorySettings(3)
+
+    assert (settings.updates, audit.entries) == ([], [])
