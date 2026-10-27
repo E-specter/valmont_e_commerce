@@ -24,8 +24,8 @@ Saber cuántas unidades de cada reloj se pueden vender, sin vender nunca dos vec
 | UC-INVENTORY-01 | Admin | Movimiento `entrada`, `ajuste_inventario` (cantidad contada), `merma` o `devolucion` + nota | Stock actualizado, movimiento y auditoría | 401, 403, 404, 409 `stock_reserved` / `insufficient_stock`, 422 | RF06.04, RF06.06 |
 | UC-INVENTORY-02 | Admin | Listado y detalle de stock | `on_hand`, reservado vigente, disponible, estado y últimos movimientos | 401, 403, 404 | RF06.04 |
 | UC-INVENTORY-03 | Admin | Cambiar `low_stock_threshold` | Umbral nuevo (≥ 1), auditado | 401, 403, 422 | D-027 |
-| UC-INVENTORY-04 | orders | `ReserveStock(order_id, líneas)` | Una reserva por línea con stock, todas o ninguna, que vence a los 30 min; las líneas bajo pedido no reservan | `InsufficientStock(product_ids)` | RF06.05 |
-| UC-INVENTORY-05 | orders | `ConsumeReservations(order_id)` al pagar | Descuenta `on_hand`, movimiento `venta`, reservas `consumed` | `ReservationExpired` si alguna venció | RF06.05 |
+| UC-INVENTORY-04 | orders | `ReserveStock(order_id, líneas, now) → ReservedOrder(reservations, on_request)`; una sola vez por pedido (no es idempotente) | Una reserva por línea con stock, todas o ninguna, que vence a los 30 min; las líneas bajo pedido no reservan | `InsufficientStock(product_ids)` | RF06.05 |
+| UC-INVENTORY-05 | orders | `ConsumeReservations(order_id, now)` al pagar | Descuenta `on_hand`, movimiento `venta`, reservas `consumed` | `ReservationExpired` si alguna venció, fue liberada o ya no está cubierta por el stock (INVENTORY-R11) | RF06.05 |
 | UC-INVENTORY-06 | orders | `ReleaseReservations(order_id)` al cancelar o vencer | Reservas `released` (idempotente) | — | RF06.05 |
 | UC-INVENTORY-07 | catalog | Consulta con la vista de disponibilidad | Estado `in_stock` / `low_stock` / `out_of_stock` / `on_request` + `lead_time_days` | — | RF02.08 |
 
@@ -42,6 +42,8 @@ Saber cuántas unidades de cada reloj se pueden vender, sin vender nunca dos vec
 - **INVENTORY-R8:** consumir una reserva vencida falla (`ReservationExpired`): orders decide (el pedido pasa a `expirado`, RF04.06).
 - **INVENTORY-R9 (decisión del Leader, I-1 de T-041):** un `ajuste_inventario` cuya cantidad contada coincide con `on_hand` responde 422 `no_change` (no hay movimiento que registrar; la BD prohíbe deltas 0).
 - **INVENTORY-R10 (líneas `backorder`, para T-042):** si hay disponible ≥ cantidad, se reserva como una línea de stock; si no, la línea entera va bajo pedido sin reserva (no se parten líneas en el MVP). Las líneas `made_to_order` nunca reservan (RN-16).
+- **INVENTORY-R11 (consumo en el límite del vencimiento, B-1 de QA en T-042):** al consumir, con todo el stock implicado bloqueado (en orden de `product_id`) y antes de escribir, se comprueba que `on_hand` cubre las reservas vigentes (incluidas las propias); si no, otra transacción ya dio por vencida la reserva y el consumo falla con `ReservationExpired` sin cambios. Pierde el pedido que paga en el límite; el que reservó de forma válida queda protegido (RN-06, INVENTORY-R6).
+- **INVENTORY-R12 (orden de bloqueo, I-1 de QA en T-042):** consumir y liberar el mismo pedido bloquean sus reservas en el mismo orden (`product_id`, `id`) antes de escribir, así que no se interbloquean.
 
 ## 5. Modelo de dominio
 
