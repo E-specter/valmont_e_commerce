@@ -31,7 +31,7 @@ La lógica de negocio crítica vive solo en el backend. El frontend presenta y o
 | Gestión Python | uv | 0.12.1 | VERIFICADO |
 | Base de datos | PostgreSQL vía Supabase (local: CLI + Docker Desktop; lanzamiento: autohospedado con Compose) | — | APROBADO (D-011), por instalar |
 | Acceso a datos y migraciones | SQLAlchemy 2 síncrono + psycopg 3 + Alembic, esquema `app` | — | APROBADO (D-010) |
-| Autenticación | Supabase Auth + verificación del JWT en FastAPI (PyJWT) | — | APROBADO (D-009) |
+| Autenticación | Supabase Auth + verificación del JWT en FastAPI (PyJWT, ES256 vía JWKS) | — | APROBADO (D-009, D-018) |
 | Estilos | — | — | PENDIENTE (D-012) |
 | Framework de islas | ninguno por ahora | — | PENDIENTE (D-014) |
 | IA del asistente | — | — | PENDIENTE (Fase 6) |

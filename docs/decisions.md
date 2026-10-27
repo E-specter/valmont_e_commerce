@@ -22,6 +22,7 @@
 | D-015 | 2026-10-26 | Perú: PEN en céntimos, America/Lima, Ley 29733 | APROBADA |
 | D-016 | 2026-10-26 | Cancelación: cliente solo sin pagar; admin pagados con reembolso simulado | APROBADA |
 | D-017 | 2026-10-26 | Reserva de stock de 30 min al crear el pedido | APROBADA |
+| D-018 | 2026-10-27 | Verificación de tokens con el JWKS de Supabase (ES256); reemplaza el mecanismo de D-009 | APROBADA |
 
 ---
 
@@ -65,6 +66,7 @@
 ### D-009 — Supabase Auth + verificación en FastAPI (APROBADA)
 - **Decisión:** Supabase Auth gestiona registro, inicio de sesión, confirmación de correo y recuperación (RF01.01–RF01.04). El frontend inicia sesión con supabase-js y envía el access token a FastAPI. FastAPI lo verifica con PyJWT (HS256, `audience="authenticated"`, `exp` y `sub` obligatorios) usando el secreto JWT del entorno.
 - **Por qué HS256:** la documentación de la CLI local y del autohospedado no ofrece claves asimétricas ni JWKS (verificado el 2026-10-26). Si llegan, el cambio se limita a `shared/auth.py`.
+- **Corregido por D-018 (2026-10-27):** la suposición de HS256 resultó falsa en la prueba de punta a punta: Supabase local (Auth v2.197) firma los tokens de usuario con ES256. El resto de D-009 sigue vigente.
 - **Roles:** en `app.profiles` (`customer` | `admin`), leídos en cada solicitud, por lo que se pueden revocar al instante. El perfil se crea al vuelo en la primera solicitud (`INSERT … ON CONFLICT DO NOTHING`), sin triggers en el esquema de Supabase.
 - **Alternativa descartada:** auth propia en FastAPI (más código y más superficie de seguridad).
 
@@ -98,3 +100,8 @@
 ### D-017 — Reserva de stock al crear el pedido (APROBADA)
 - **Decisión:** al crear el pedido, cada línea reserva stock con una única sentencia condicional (`UPDATE … WHERE disponible >= cantidad`); si no actualiza filas, no hay stock y el pedido no se crea. La reserva vence a los 30 minutos. La disponibilidad solo cuenta las reservas vigentes, así que la caducidad es correcta sin proceso en segundo plano. Al registrarse el pago, la reserva se convierte en descuento de stock; un pedido vencido pasa a `expirado` al consultarse.
 - **Por qué:** evita vender dos veces la misma unidad bajo concurrencia (auditoría #2) y que los checkouts abandonados bloqueen stock para siempre (auditoría #4).
+
+### D-018 — Verificación de tokens con el JWKS de Supabase (APROBADA; reemplaza el mecanismo de D-009)
+- **Contexto:** en la prueba de punta a punta de T-016, un access token real de Supabase local llegó con `alg: ES256`, y la verificación HS256 lo rechazó (401). Supabase recomienda validar contra su JWKS público.
+- **Decisión del usuario:** FastAPI descarga y cachea las claves públicas de `<SUPABASE_URL>/auth/v1/.well-known/jwks.json` y valida firma ES256, `aud=authenticated`, `iss` esperado, `exp` y `sub`. Ajustes: `SUPABASE_URL` (dónde el backend alcanza Auth) y `SUPABASE_JWT_ISSUER` opcional (por defecto `<SUPABASE_URL>/auth/v1`; en producción el `iss` público puede diferir de la URL interna de Docker). El backend ya no guarda ningún secreto compartido. Si Auth no responde → 503 `auth_unavailable`; un token inválido → 401 `unauthenticated`.
+- **Alternativas descartadas:** preguntar a Auth en cada solicitud (una llamada de red por solicitud) y forzar HS256 (no recomendado por Supabase y sin forma documentada).

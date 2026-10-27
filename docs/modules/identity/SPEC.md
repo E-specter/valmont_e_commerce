@@ -97,16 +97,17 @@ app.profiles
 {"full_name": "…", "phone": "…", "preferences": {…}, "marketing_opt_in": true, "accept_privacy_version": "2026-10"}
 ```
 
-Errores con el formato común `{"error": {"code", "message", "details"}}`: `unauthenticated` (401), `forbidden` (403), `validation_error` (422).
+Errores con el formato común `{"error": {"code", "message", "details"}}`, declarados en el OpenAPI: `unauthenticated` (401), `forbidden` (403), `validation_error` (422), `auth_unavailable` (503).
 
 ## 8. Dependencias
 
-- **Consume:** Supabase Auth (emite los tokens; secreto JWT en `SUPABASE_JWT_SECRET`).
+- **Consume:** Supabase Auth (emite los tokens; claves públicas en su JWKS, en `SUPABASE_URL`; D-018).
 - **Expone:** `current_user` y `require_admin` (`modules/identity/adapters/http.py`); el caso de uso `EnsureProfile`.
 
 ## 9. Seguridad
 
-- **Verificación del token:** HS256, `audience="authenticated"`, `exp` y `sub` obligatorios, `sub` debe ser un UUID. El secreto nunca se registra en logs.
+- **Verificación del token (D-018):** firma ES256 con las claves del JWKS de Supabase, `audience="authenticated"`, `iss` igual al emisor esperado, `exp`, `sub` e `iss` obligatorios, `sub` debe ser un UUID. Cualquier otro `alg` (incluidos `none` y HS256) → 401. JWKS inalcanzable → 503 `auth_unavailable`.
+- **Entradas de texto:** se rechazan los caracteres de control y los sustitutos UTF-16 sueltos (422); un NUL llegaba a PostgreSQL y provocaba un 500 (hallazgo de QA).
 - **Identidad:** el `user_id` sale solo del token, nunca del cuerpo ni de la ruta.
 - **401 frente a 403:** 401 = no autenticado; 403 = autenticado sin rol suficiente.
 - **Logs:** no se registran tokens ni cuerpos de solicitud.

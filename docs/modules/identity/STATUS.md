@@ -6,7 +6,7 @@
 | ID | Título | Rol | Depende de | Estado |
 |---|---|---|---|---|
 | T-008 | SPEC de identity | claude-leader | D-009 | IN_REVIEW (falta que el frontend revise el contrato) |
-| T-016 | Verificación del JWT, `app.profiles`, `current_user` / `require_admin`, `GET` y `PATCH /me` | backend-dev + qa-reviewer | T-007, T-015 | IN_PROGRESS |
+| T-016 | Verificación del JWT, `app.profiles`, `current_user` / `require_admin`, `GET` y `PATCH /me` | backend-dev + qa-reviewer | T-007, T-015 | IN_PROGRESS (ronda 2: JWKS + hallazgos de QA) |
 
 ## Paquetes de tarea
 
@@ -33,7 +33,11 @@
 
 ## Traspasos
 
-_(ninguno todavía)_
+#### Revisión T-016 — 2026-10-27 — qa-reviewer + claude-leader
+- **E2E con Supabase real (claude-leader):** registro 200 → login sin confirmar 400 `email_not_confirmed` → correo en Mailpit → enlace 303 → login 200 → token **ES256** → `GET /me` **401**. Causa: la verificación solo aceptaba HS256. Decisión del usuario: D-018 (JWKS).
+- **qa-reviewer: CAMBIOS REQUERIDOS.** BLOQUEANTE-1: un `\x00` en textos de entrada → 500 y nombre y teléfono en el log. IMPORTANTE-1: `create_engine` sin `hide_parameters`. IMPORTANTE-2: el OpenAPI no declara el formato real de los errores. Menores M1–M6 (strip y min_length, bool estricto, invariantes en el dominio, pruebas que faltan). Verificado sin problemas: aislamiento por usuario, `extra="forbid"`, `require_admin`, `ON CONFLICT` concurrente, CHECKs y downgrade de `0002`, ausencia de email y de tokens en los logs.
+- **Ronda 1 (backend-dev):** 64 pruebas unitarias + 11 de integración en verde; migración `0002` aplicada; puertas limpias. Interpretaciones aceptadas por el Leader: 401 vía `HTTPException` (para llevar `WWW-Authenticate`); `null` en `full_name` y `phone` borra el valor y en los demás campos → 422; `Money.currency` por defecto `PEN`.
+- **Ronda 2 (en curso, backend-dev):** JWKS (D-018) + todos los hallazgos de QA + `__init__.py` en `tests/`.
 
 ## Discrepancias y riesgos
 

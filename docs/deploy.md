@@ -13,7 +13,7 @@
 | 3 | Comprobar Docker | Terminal **nueva**: `docker run --rm hello-world` → "Hello from Docker!" | ✅ |
 | 4 | Clonar e instalar la CLI de Supabase | `git clone <repo>` → `cd valmont_e_commerce` → `npm install` (instala la CLI 2.120.0 fijada) | ✅ |
 | 5 | Arrancar la BD local | `npm run db:start` (la 1.ª vez descarga ~3–5 GB) → `npm run db:status` | ✅ |
-| 6 | Configurar el backend | `cd backend` → `Copy-Item .env.example .env` → en `.env`, `SUPABASE_JWT_SECRET` = valor de `JWT_SECRET` que muestra `npx supabase status -o env` (solo en tu equipo) | ✅ |
+| 6 | Configurar el backend | `cd backend` → `Copy-Item .env.example .env` (los valores por defecto apuntan a Supabase local; no hay secretos que copiar: los tokens se verifican con el JWKS público, D-018) | 🕒 T-016 |
 | 7 | Instalar y probar el backend | `uv sync` → `uv run pytest -q` | ✅ |
 | 8 | Crear las tablas | `uv run alembic upgrade head` → `uv run alembic current` muestra `(head)` | ✅ |
 | 9 | Levantar la API | `uv run fastapi dev src/valmont/main.py` → http://127.0.0.1:8000/docs | ✅ |
