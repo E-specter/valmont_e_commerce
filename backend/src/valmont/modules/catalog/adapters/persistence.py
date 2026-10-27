@@ -13,17 +13,21 @@ from sqlalchemy import (
     Executable,
     ForeignKey,
     Index,
+    Integer,
     Numeric,
     Result,
     Select,
     Text,
     UniqueConstraint,
+    Uuid,
     case,
+    column,
     delete,
     exists,
     func,
     insert,
     select,
+    table,
     text,
     true,
     update,
@@ -40,6 +44,8 @@ from valmont.modules.catalog.domain import (
     AdminProductView,
     AttributeKind,
     AttributeValue,
+    Availability,
+    AvailabilityStatus,
     CatalogConflict,
     Category,
     InvalidReference,
@@ -157,6 +163,18 @@ class ProductImageRow(Base):
     created_at: Mapped[datetime] = _now()
 
 
+# Contrato de lectura de inventory (modules.md §3, excepción 3; migración 0005), nunca sus
+# tablas. Fuera de Base.metadata: es una vista. Su columna `available` no se declara: las
+# cantidades no salen de catalog (inventory SPEC §2).
+_AVAILABILITY = table(
+    "product_availability",
+    column("product_id", Uuid),
+    column("status", Text),
+    column("lead_time_days", Integer),
+    schema="app",
+)
+_WITH_AVAILABILITY = _AVAILABILITY.c.product_id == ProductRow.id
+
 # Restricción violada → campo del CatalogConflict. Cualquier otra se relanza tal cual.
 _CONFLICT_FIELDS = {
     "uq_products_sku": "sku",
@@ -232,18 +250,20 @@ def _product(row: ProductRow) -> Product:
 
 
 def _summary(row: Any) -> ProductSummary:
-    product, category, movement, material, image = row
+    product, category, movement, material, image, status, lead_time_days = row
     return ProductSummary(
         product=_product(product),
         category=_category(category),
         movement=_attribute(movement) if movement else None,
         case_material=_attribute(material) if material else None,
         main_image=_image(image) if image else None,
+        availability=Availability(AvailabilityStatus(status), lead_time_days),
     )
 
 
 def _summaries() -> Select[Any]:
-    """Productos publicados con su categoría, sus valores de atributo y su primera imagen."""
+    """Productos publicados con su categoría, sus valores de atributo, su primera imagen y su
+    disponibilidad: todo en la misma consulta, nunca producto a producto (T-030)."""
     first_image = (
         select(ProductImageRow)
         .where(ProductImageRow.product_id == ProductRow.id)
@@ -252,9 +272,11 @@ def _summaries() -> Select[Any]:
         .lateral()
     )
     main_image = aliased(ProductImageRow, first_image)
+    availability = (_AVAILABILITY.c.status, _AVAILABILITY.c.lead_time_days)
     return (
-        select(ProductRow, CategoryRow, MovementTypeRow, CaseMaterialRow, main_image)
+        select(ProductRow, CategoryRow, MovementTypeRow, CaseMaterialRow, main_image, *availability)
         .join(CategoryRow, ProductRow.category_id == CategoryRow.id)
+        .join(_AVAILABILITY, _WITH_AVAILABILITY)  # la vista tiene una fila por producto
         .outerjoin(MovementTypeRow, ProductRow.movement_code == MovementTypeRow.code)
         .outerjoin(CaseMaterialRow, ProductRow.case_material_code == CaseMaterialRow.code)
         .outerjoin(main_image, true())
@@ -283,13 +305,15 @@ def _filters(query: ProductQuery) -> list[ColumnElement[bool]]:
         (ProductRow.water_resistance_m, query.water_resistance_min, None),
         (ProductRow.price_cents, query.price_min, query.price_max),
     )
-    for column, low, high in ranges:
+    for attribute, low, high in ranges:
         if low is not None:
-            conditions.append(column >= low)
+            conditions.append(attribute >= low)
         if high is not None:
-            conditions.append(column <= high)
+            conditions.append(attribute <= high)
     if query.q is not None:
         conditions.append(ProductRow.search.op("@@")(_tsquery(query.q)))
+    if query.available:  # SPEC §7: solo queda fuera out_of_stock; on_request se puede pedir
+        conditions.append(_AVAILABILITY.c.status != AvailabilityStatus.OUT_OF_STOCK.value)
     return conditions
 
 
@@ -417,7 +441,10 @@ class SqlProductRepository:
 
     def list_published(self, query: ProductQuery) -> ProductPage:
         conditions = _filters(query)
-        count = select(func.count()).select_from(ProductRow).where(_IS_PUBLISHED, *conditions)
+        count = select(func.count()).select_from(ProductRow)
+        if query.available:  # el filtro lee la vista; sin él, el total no la necesita
+            count = count.join(_AVAILABILITY, _WITH_AVAILABILITY)
+        count = count.where(_IS_PUBLISHED, *conditions)
         page = (
             _summaries()
             .where(*conditions)

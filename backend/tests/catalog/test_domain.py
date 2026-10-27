@@ -8,6 +8,8 @@ import pytest
 from valmont.modules.catalog.domain import (
     PAGE_SIZE_DEFAULT,
     AttributeValue,
+    Availability,
+    AvailabilityStatus,
     CatalogError,
     Category,
     NotPublishable,
@@ -282,6 +284,37 @@ def test_query_defaults_to_newest_first_page_of_24() -> None:
 
     assert (query.sort, query.page, query.page_size) == (ProductSort.NEWEST, 1, PAGE_SIZE_DEFAULT)
     assert PAGE_SIZE_DEFAULT == 24
+    assert query.available is False  # sin filtro de disponibilidad (T-030)
+
+
+@pytest.mark.parametrize(
+    ("status", "lead_time_days", "expected"),
+    [
+        ("on_request", 21, 21),
+        ("on_request", None, None),
+        ("in_stock", 21, None),  # la vista da el plazo del producto aunque no aplique
+        ("low_stock", 14, None),
+        ("out_of_stock", 30, None),
+    ],
+)
+def test_availability_keeps_lead_time_only_when_on_request(
+    status: str, lead_time_days: int | None, expected: int | None
+) -> None:
+    availability = Availability(status, lead_time_days)  # type: ignore[arg-type]
+
+    assert availability.status == AvailabilityStatus(status)
+    assert availability.lead_time_days == expected
+
+
+def test_availability_has_the_four_states_of_d023_and_rejects_others() -> None:
+    assert [s.value for s in AvailabilityStatus] == [
+        "in_stock",
+        "low_stock",
+        "out_of_stock",
+        "on_request",
+    ]
+    with pytest.raises(ValueError):
+        Availability("agotado", None)  # type: ignore[arg-type]
 
 
 def test_query_with_text_defaults_to_relevance_and_blank_text_is_no_text() -> None:

@@ -8,8 +8,10 @@ from fastapi.testclient import TestClient
 from tests.catalog.catalog_helpers import (
     AUTOMATIC,
     GOLD,
+    QUANTITIES,
     QUARTZ,
     STEEL,
+    all_keys,
     make_category,
     make_image,
     make_product,
@@ -19,6 +21,8 @@ from valmont.modules.catalog.adapters import http
 from valmont.modules.catalog.domain import (
     AttributeKind,
     AttributeValue,
+    Availability,
+    AvailabilityStatus,
     Category,
     Product,
     ProductImage,
@@ -44,14 +48,22 @@ SUMMARY_KEYS = {
     "case_diameter_mm",
     "water_resistance_m",
     "main_image",
+    "availability",
 }
 DETAIL_KEYS = SUMMARY_KEYS | {"description", "specs", "images", "related"}
 NOT_FOUND = {"error": {"code": "not_found", "message": "Producto no encontrado.", "details": None}}
+IN_STOCK = Availability(AvailabilityStatus.IN_STOCK)
 
 CATEGORY = make_category("Clásicos de prueba", description="Relojes ficticios.")
 
 
-def summary(product: Product, *, images: int = 1, attributes: bool = True) -> ProductSummary:
+def summary(
+    product: Product,
+    *,
+    images: int = 1,
+    attributes: bool = True,
+    availability: Availability = IN_STOCK,
+) -> ProductSummary:
     main = make_image(product, 0) if images else None
     return ProductSummary(
         product,
@@ -59,6 +71,7 @@ def summary(product: Product, *, images: int = 1, attributes: bool = True) -> Pr
         AUTOMATIC if attributes else None,
         STEEL if attributes else None,
         main,
+        availability,
     )
 
 
@@ -159,6 +172,7 @@ def test_listing_returns_the_contract_page_and_summary_shape(
             "url": f"{CDN}/storage/v1/object/public/products/{main.storage_path}",
             "alt": main.alt,
         },
+        "availability": {"status": "in_stock", "lead_time_days": None},
     }
     # CATALOG-R5: los atributos que faltan aparecen con null.
     assert [second[key] for key in ("movement", "case_material")] == [None, None]
@@ -178,6 +192,7 @@ def test_listing_passes_every_filter_to_the_query(
         "water_resistance_m_min": "100",
         "price_min": "100000",
         "price_max": "250000",
+        "available": "true",
         "sort": "price_desc",
         "page": "3",
         "page_size": "48",
@@ -196,6 +211,7 @@ def test_listing_passes_every_filter_to_the_query(
             water_resistance_min=100,
             price_min=100000,
             price_max=250000,
+            available=True,
             sort=ProductSort.PRICE_DESC,
             page=3,
             page_size=48,
@@ -222,6 +238,17 @@ def test_listing_defaults(
     assert (query.sort, query.page, query.page_size) == (sort, 1, 24)
     assert (body["page"], body["page_size"]) == (1, 24)
     assert query.q in (None, "aurora")
+    assert query.available is False  # sin el parámetro, también los agotados
+
+
+@pytest.mark.parametrize(("value", "expected"), [("true", True), ("1", True), ("false", False)])
+def test_available_parameter_is_a_boolean(
+    client: TestClient, products: FakeProducts, value: str, expected: bool
+) -> None:
+    assert client.get(f"{BASE}/products", params={"available": value}).status_code == 200
+
+    [query] = products.queries
+    assert query.available is expected
 
 
 @pytest.mark.parametrize(
@@ -246,6 +273,7 @@ def test_listing_defaults(
         pytest.param({"water_resistance_m_min": "mucho"}, id="resistencia-texto"),
         pytest.param({"category": "clasicos\x00"}, id="categoria-nul"),
         pytest.param({"q": "reloj\x1f"}, id="q-control"),
+        pytest.param({"available": "quizas"}, id="available-no-booleano"),
     ],
 )
 def test_listing_rejects_invalid_parameters_with_422(
@@ -280,10 +308,12 @@ def test_detail_returns_images_specs_and_related_in_order(
         specs=(SpecEntry("Calibre", "TST-01"), SpecEntry("Cristal", "Zafiro")),
     )
     other = make_product(CATEGORY, "Otro de prueba")
-    products.summaries[product.slug] = summary(product)
+    low = Availability(AvailabilityStatus.LOW_STOCK)
+    on_request = Availability(AvailabilityStatus.ON_REQUEST, 21)
+    products.summaries[product.slug] = summary(product, availability=low)
     images = [make_image(product, 0), make_image(product, 1)]
     products.images[product.id] = images
-    products.related_items = [summary(other)]
+    products.related_items = [summary(other, availability=on_request)]
 
     response = client.get(f"{BASE}/products/{product.slug}")
 
@@ -300,6 +330,8 @@ def test_detail_returns_images_specs_and_related_in_order(
     [related] = body["related"]
     assert set(related) == SUMMARY_KEYS
     assert related["slug"] == other.slug
+    assert body["availability"] == {"status": "low_stock", "lead_time_days": None}
+    assert related["availability"] == {"status": "on_request", "lead_time_days": 21}
 
 
 @pytest.mark.parametrize("slug", ["no-existe", "Mayusculas", "con%00nul", "a" * 61])
@@ -405,10 +437,15 @@ def test_openapi_declares_the_public_routes_and_common_errors() -> None:
         "water_resistance_m_min",
         "price_min",
         "price_max",
+        "available",
         "sort",
         "page",
         "page_size",
     ]
+    [available] = [
+        p for p in paths[f"{BASE}/products"]["get"]["parameters"] if p["name"] == "available"
+    ]
+    assert available["schema"]["type"] == "boolean"
     assert "HTTPValidationError" not in json.dumps(document)
 
 
@@ -422,3 +459,35 @@ def test_openapi_money_currency_is_required_in_responses_only() -> None:
     assert set(summary_schema["required"]) == SUMMARY_KEYS  # siempre presentes, aunque null
     assert set(schemas["ProductDetailOut"]["required"]) == DETAIL_KEYS
     assert set(schemas["ProductImageOut"]["properties"]) == {"id", "url", "alt"}
+
+
+def test_openapi_availability_is_required_with_four_states_and_no_quantities() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+
+    ref = {"$ref": "#/components/schemas/AvailabilityOut"}
+    assert schemas["ProductSummaryOut"]["properties"]["availability"] == ref
+    assert schemas["ProductDetailOut"]["properties"]["availability"] == ref
+    availability = schemas["AvailabilityOut"]
+    fields = {"status", "lead_time_days"}
+    assert set(availability["properties"]) == set(availability["required"]) == fields
+    status = availability["properties"]["status"]
+    assert (status["type"], status["enum"]) == ("string", [s.value for s in AvailabilityStatus])
+    assert availability["properties"]["lead_time_days"]["anyOf"] == [
+        {"type": "integer"},
+        {"type": "null"},
+    ]
+    # Inventory publica su AvailabilityStatus: si otra clase compartiera el nombre, pydantic les
+    # pondría la ruta del módulo (valmont__modules__…__AvailabilityStatus).
+    assert not any(name.endswith("__AvailabilityStatus") for name in schemas)
+
+
+def test_responses_never_carry_quantities(client: TestClient, products: FakeProducts) -> None:
+    product = make_product(CATEGORY, "Heritage de prueba")
+    products.summaries[product.slug] = summary(product)
+    products.related_items = [summary(make_product(CATEGORY, "Otro de prueba"))]
+
+    listing = client.get(f"{BASE}/products").json()
+    detail = client.get(f"{BASE}/products/{product.slug}").json()
+
+    for body in (listing, detail):
+        assert not QUANTITIES & all_keys(body)

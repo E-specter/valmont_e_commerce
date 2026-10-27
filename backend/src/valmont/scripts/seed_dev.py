@@ -3,9 +3,11 @@
     uv run python -m valmont.scripts.seed_dev
 
 Crea 4 categorías, 2 movimientos, 4 materiales y 12 relojes publicados, cada uno con una imagen
-de marcador. Es idempotente: lo que ya existe (por sku, slug o code) no se vuelve a crear ni a
-subir. Se niega a correr con ENVIRONMENT=prod. Nada de lo que crea es un producto ni un activo
-real de Valmont: los SKU empiezan por DEMO- y los nombres llevan "Demo".
+de marcador, y el stock de demostración con el que aparecen los cuatro estados de disponibilidad
+(T-030). Es idempotente: lo que ya existe (por sku, slug o code) no se vuelve a crear ni a
+subir, y el stock solo se fija en los productos sin fila de stock. Se niega a correr con
+ENVIRONMENT=prod. Nada de lo que crea es un producto ni un activo real de Valmont: los SKU
+empiezan por DEMO- y los nombres llevan "Demo".
 """
 
 import colorsys
@@ -43,11 +45,22 @@ from valmont.modules.catalog.domain import (
     ProductStatus,
     SpecEntry,
 )
+from valmont.modules.inventory.adapters.persistence import (
+    InventoryItemRow,
+    SqlAvailabilityReader,
+    SqlMovementRepository,
+    SqlStockRepository,
+)
+from valmont.modules.inventory.application import Actor as InventoryActor
+from valmont.modules.inventory.application import RecordMovement
+from valmont.modules.inventory.domain import MovementKind
 from valmont.shared.config import get_settings
 from valmont.shared.db import get_engine
 
 SYSTEM = Actor(None, None)  # AUDIT-R5: actor nulo = sistema
+INVENTORY_SYSTEM = InventoryActor(None, None)  # el mismo, para los casos de uso de inventory
 ALT = "Imagen de marcador (demo)"
+STOCK_NOTE = "Semilla de demostración"
 
 CATEGORIES: list[dict[str, Any]] = [
     {
@@ -124,6 +137,19 @@ PRODUCTS: list[dict[str, Any]] = [
     )
 ]
 
+# Unidades en stock de demostración (T-030); los demás, sin fila de stock (on_hand 0). Con el
+# umbral por defecto (2, D-027) salen los cuatro estados de D-023: in_stock (Alba, Faro, Gaviota
+# y Jade; Faro es backorder con stock), low_stock (Brisa y Halcón), out_of_stock (Eco y Lira) y
+# on_request (Cirro e Isla por encargo; Delta y Kilo, backorder agotados).
+DEMO_STOCK = {
+    "DEMO-001": 5,
+    "DEMO-002": 2,
+    "DEMO-006": 4,
+    "DEMO-007": 8,
+    "DEMO-008": 1,
+    "DEMO-010": 3,
+}
+
 
 def placeholder_png(rgb: tuple[int, int, int], size: int = 400) -> bytes:
     """PNG cuadrado de un color liso, generado aquí: ninguna foto real."""
@@ -159,7 +185,20 @@ def seed(session: Session, storage: ImageStorage) -> dict[str, int]:
     """Crea lo que falte y confirma por producto: si algo falla, lo ya hecho se queda."""
     categories, attributes = SqlCategoryRepository(session), SqlAttributeRepository(session)
     products, audit = SqlProductRepository(session), SqlAuditRecorder(session)
-    created = {"categorías": 0, "valores": 0, "productos": 0, "imágenes": 0, "publicados": 0}
+    record_movement = RecordMovement(  # caso de uso público de inventory (UC-INVENTORY-01)
+        SqlStockRepository(session),
+        SqlAvailabilityReader(session),
+        SqlMovementRepository(session),
+        audit,
+    )
+    created = {
+        "categorías": 0,
+        "valores": 0,
+        "productos": 0,
+        "imágenes": 0,
+        "publicados": 0,
+        "ajustes de stock": 0,
+    }
 
     by_slug = {category.slug: category for category in categories.list_all()}
     for fields in CATEGORIES:
@@ -187,6 +226,13 @@ def seed(session: Session, storage: ImageStorage) -> dict[str, int]:
         if view.product.status is not ProductStatus.PUBLISHED:
             PublishProduct(products, categories, audit)(view.product.id, SYSTEM)  # CATALOG-R2
             created["publicados"] += 1
+        # Solo sin fila de stock: no pisa lo que haya cambiado el admin ni repite movimientos.
+        # Con 0 unidades no hay nada que registrar (sin fila, on_hand ya es 0).
+        units = DEMO_STOCK.get(fields["sku"], 0)
+        if units and session.get(InventoryItemRow, view.product.id) is None:
+            adjust = MovementKind.AJUSTE_INVENTARIO
+            record_movement(view.product.id, adjust, units, STOCK_NOTE, INVENTORY_SYSTEM)
+            created["ajustes de stock"] += 1
         session.commit()
     return created
 

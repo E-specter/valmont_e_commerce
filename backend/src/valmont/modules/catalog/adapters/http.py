@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Annotated, Self
+from typing import Annotated, Literal, Self
 from urllib.parse import quote
 from uuid import UUID
 
@@ -21,6 +21,7 @@ from valmont.modules.catalog.domain import (
     PAGE_SIZE_MAX,
     AttributeKind,
     AttributeValue,
+    Availability,
     CatalogError,
     ProductImage,
     ProductQuery,
@@ -84,6 +85,7 @@ class ProductListIn(BaseModel):
     water_resistance_m_min: int | None = None
     price_min: int | None = Field(None, ge=0)  # céntimos
     price_max: int | None = Field(None, ge=0)
+    available: bool = False  # true: sin los agotados; on_request cuenta (T-030)
     sort: ProductSort | None = None
     page: int = Field(1, ge=1, le=1000)
     page_size: int = Field(PAGE_SIZE_DEFAULT, ge=1, le=PAGE_SIZE_MAX)
@@ -111,6 +113,7 @@ class ProductListIn(BaseModel):
             water_resistance_min=self.water_resistance_m_min,
             price_min=self.price_min,
             price_max=self.price_max,
+            available=self.available,
             sort=self.sort,
             page=self.page,
             page_size=self.page_size,
@@ -148,6 +151,18 @@ class ProductImageOut(BaseModel):
         return cls(id=image.id, url=_image_url(image.storage_path), alt=image.alt)
 
 
+class AvailabilityOut(BaseModel):
+    # Estado y plazo, nunca cantidades (inventory SPEC §2). Literal y no el enum del dominio:
+    # inventory ya publica un AvailabilityStatus en el OpenAPI, y dos clases con el mismo nombre
+    # se renombrarían con la ruta de su módulo.
+    status: Literal["in_stock", "low_stock", "out_of_stock", "on_request"]
+    lead_time_days: int | None  # solo con on_request; si no, null (SPEC §7)
+
+    @classmethod
+    def from_domain(cls, availability: Availability) -> Self:
+        return cls(status=availability.status.value, lead_time_days=availability.lead_time_days)
+
+
 class ProductSummaryOut(BaseModel):
     # Los atributos opcionales siempre aparecen, con null si no aplican (CATALOG-R5).
     id: UUID
@@ -161,6 +176,7 @@ class ProductSummaryOut(BaseModel):
     case_diameter_mm: float | None
     water_resistance_m: int | None
     main_image: ProductImageOut  # nunca null en publicados (CATALOG-R2 y R11)
+    availability: AvailabilityOut  # obligatorio desde T-030
 
     @classmethod
     def from_domain(cls, summary: ProductSummary) -> Self:
@@ -178,6 +194,7 @@ class ProductSummaryOut(BaseModel):
             case_diameter_mm=None if diameter is None else float(diameter),
             water_resistance_m=product.water_resistance_m,
             main_image=ProductImageOut.from_domain(summary.main_image),
+            availability=AvailabilityOut.from_domain(summary.availability),
         )
 
 

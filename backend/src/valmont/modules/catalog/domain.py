@@ -108,6 +108,30 @@ class OrderPolicy(StrEnum):
     BACKORDER = "backorder"  # con stock y, agotado, bajo pedido
 
 
+class AvailabilityStatus(StrEnum):
+    """Disponibilidad pública (D-023). La calcula inventory (INVENTORY-R2) en la vista
+    app.product_availability, que catalog lee en sus consultas (T-030)."""
+
+    IN_STOCK = "in_stock"
+    LOW_STOCK = "low_stock"  # "Últimas unidades"
+    OUT_OF_STOCK = "out_of_stock"
+    ON_REQUEST = "on_request"
+
+
+@dataclass(frozen=True)
+class Availability:
+    """Lo que ve el visitante: estado y plazo, nunca cantidades (inventory SPEC §2)."""
+
+    status: AvailabilityStatus
+    lead_time_days: int | None = None
+
+    def __post_init__(self) -> None:
+        _set(self, "status", AvailabilityStatus(self.status))
+        # El plazo solo acompaña a on_request (SPEC §7); la vista da siempre el del producto.
+        if self.status is not AvailabilityStatus.ON_REQUEST:
+            _set(self, "lead_time_days", None)
+
+
 class ProductSort(StrEnum):  # CATALOG-R8
     NEWEST = "newest"
     PRICE_ASC = "price_asc"
@@ -328,6 +352,7 @@ class ProductSummary:
     movement: AttributeValue | None
     case_material: AttributeValue | None
     main_image: ProductImage | None  # la de menor posición
+    availability: Availability  # de la vista de inventory, en la misma consulta (T-030)
 
 
 @dataclass(frozen=True)
@@ -388,6 +413,7 @@ class ProductQuery:
     water_resistance_min: int | None = None
     price_min: int | None = None  # céntimos
     price_max: int | None = None
+    available: bool = False  # True: fuera out_of_stock; on_request cuenta (SPEC §7, T-030)
     sort: ProductSort | None = None  # None: relevance con q (UC-CATALOG-02); si no, newest
     page: int = 1
     page_size: int = PAGE_SIZE_DEFAULT

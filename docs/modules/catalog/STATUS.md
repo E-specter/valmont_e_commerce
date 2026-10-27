@@ -10,7 +10,7 @@
 | T-027 | API pública: listado con filtros, búsqueda, orden y paginación; ficha con relacionados; categorías y atributos (incluye T-019) | backend-dev | T-026 | DONE (verificado por claude-leader: 355 unitarias + 94 integración) |
 | T-028 | API de administración: productos, publicación, categorías y listas de valores, con auditoría | backend-dev + qa-reviewer | T-026, T-021 | DONE (`6d66054`; qa-reviewer APROBADO en la re-verificación) |
 | T-029 | Activar Supabase Storage (puerta Docker) e imágenes: subida, orden y retirada | claude-leader + backend-dev | T-028 | DONE (`b86a17a`; verificado por claude-leader: 545 unitarias + 140 integración, Storage real) |
-| T-030 | Disponibilidad real en la API pública desde la vista de inventory, filtro `available` y stock de demostración en las semillas | backend-dev + qa-reviewer | inventory (T-041) | READY |
+| T-030 | Disponibilidad real en la API pública desde la vista de inventory, filtro `available` y stock de demostración en las semillas | backend-dev + qa-reviewer | inventory (T-041) | IN_REVIEW (preparado sin commit; pruebas pendientes de qa-reviewer, D-028) |
 | T-031 | Semillas de demostración para `dev` (aprobadas por el usuario, P-CATALOG-1) | backend-dev | T-029 | DONE (`3eff7f9`; `Actor` nulo para el sistema corregido por claude-leader) |
 
 IDs reservados del módulo: T-025–T-039 (libres: T-032–T-039).
@@ -108,6 +108,85 @@ IDs reservados del módulo: T-025–T-039 (libres: T-032–T-039).
 - Escalar si: la SPEC no cubre un caso, hace falta una dependencia, o hay que tocar `shared/` u otro módulo.
 
 ## Traspasos
+
+#### Traspaso T-030 — 2026-10-27 — backend-dev
+1. Estado final: IN_REVIEW. Está preparado sin commit; verifica qa-reviewer y acepta claude-leader.
+2. Cambios:
+   - **Dominio** (`domain.py`):
+     - `AvailabilityStatus` con los 4 estados de D-023.
+     - `Availability(status, lead_time_days)`, que anula `lead_time_days` salvo con `on_request`, porque la vista lo devuelve siempre.
+     - `ProductSummary.availability` (obligatorio) y `ProductQuery.available: bool = False`.
+   - **Persistencia** (`adapters/persistence.py`):
+     - La vista se declara como `table("product_availability", product_id, status, lead_time_days)`, fuera de `Base.metadata`. La columna `available` no se declara, así que no se puede seleccionar.
+     - `_summaries()` la une con `JOIN` en el mismo SQL, de modo que el listado, el detalle y los `related` llevan la disponibilidad sin consultas por producto.
+     - `available=true` añade `status <> 'out_of_stock'` a los filtros. El recuento une la vista solo cuando hay filtro, así que el `total` sale de la misma condición.
+     - La variable del bucle de rangos pasa de `column` a `attribute` (F402: chocaba con `sqlalchemy.column`).
+   - **HTTP** (`adapters/http.py`):
+     - `AvailabilityOut {status: Literal[4 valores], lead_time_days: int | None}` es obligatorio en `ProductSummaryOut`, y con él en `ProductDetailOut` y los `related`.
+     - Nuevo parámetro `available: bool = False` en `GET /products`, después de `price_max`, como en la SPEC.
+   - **Semillas** (`scripts/seed_dev.py`):
+     - `DEMO_STOCK` = DEMO-001: 5, 002: 2, 006: 4, 007: 8, 008: 1 y 010: 3. El resto no tiene fila de stock.
+     - Con el umbral 2 salen los cuatro estados:
+       - `in_stock`: 001, 006 (backorder con stock), 007 y 010.
+       - `low_stock`: 002 y 008.
+       - `out_of_stock`: 005 y 012.
+       - `on_request`: 003 y 009 (por encargo), y 004 y 011 (backorder agotados).
+     - Se fija con `RecordMovement` (`ajuste_inventario`, nota "Semilla de demostración", `INVENTORY_SYSTEM` = `inventory.application.Actor(None, None)`) solo si `session.get(InventoryItemRow, id)` es `None`. Sin `type: ignore`.
+   - **Inventory** (`application.py`, ampliación aprobada por el Leader): `Actor` pasa a `user_id: UUID | None` y `role: str | None`, el actor nulo del sistema (AUDIT-R5), igual que en catalog (`527ec37`). Comprobado con grep que en inventory nada da por hecho que el actor no es nulo:
+     - `admin_movement` y `StockMovement.actor_id` ya eran `UUID | None`.
+     - `AuditEntry` admite `None` en `actor_id` y `actor_role`.
+     - `stock_movements.actor_id` admite nulos.
+     - `admin_http.current_actor` siempre lo construye desde el token.
+3. Archivos modificados:
+   - `backend/src/valmont/modules/inventory/application.py` (solo `Actor`)
+   - `backend/src/valmont/modules/catalog/domain.py`
+   - `backend/src/valmont/modules/catalog/adapters/persistence.py`
+   - `backend/src/valmont/modules/catalog/adapters/http.py`
+   - `backend/src/valmont/scripts/seed_dev.py`
+   - `backend/tests/catalog/catalog_helpers.py` (`QUANTITIES`, `all_keys`)
+   - `backend/tests/catalog/test_domain.py`, `test_http.py`, `test_seed_dev.py`
+   - `backend/tests/catalog/test_availability_db.py` (nuevo)
+   - este STATUS
+4. Decisiones tomadas (supuestos a revisar):
+   - `available=false`, o sin el parámetro, equivale a no filtrar; un valor no booleano → 422. Lo confirmó el Leader (punto 9).
+   - En el OpenAPI, `status` es un `Literal` en línea y no el enum del dominio: inventory ya publica un `AvailabilityStatus`, y dos clases con ese nombre pasarían a llamarse `valmont__modules__…__AvailabilityStatus`. Hay una prueba que lo vigila.
+   - Inner `JOIN` con la vista: tiene una fila por producto, porque `inventory_settings` siempre tiene su fila única (migración 0005).
+   - Las semillas solo crean movimientos para unidades > 0. A un producto que debe quedar a 0 le basta con no tener fila de stock (un recuento de 0 sobre 0 daría `no_change`).
+   - La prueba de catalog inserta el stock y las reservas por SQL (`app.inventory_items`, `app.stock_reservations`), igual que inventory inserta productos: no importa código de inventory.
+5. Pruebas ejecutadas → resultado observado (desde `backend/`; solo análisis estático, D-028):
+   - `uv run ruff format .` → "1 file reformatted, 90 files left unchanged"; `uv run ruff format --check .` → "91 files already formatted".
+   - `uv run ruff check .` → "All checks passed!". Antes dio F402, que corregí con el cambio de nombre del punto 2.
+   - Capas: `grep -rnE "^(from|import) (fastapi|pydantic|sqlalchemy|httpx|supabase)" src/valmont/modules/*/domain* src/valmont/modules/*/application*` → vacío.
+   - `grep -rnE "^(from|import) valmont\.modules\.inventory" src/valmont/modules/catalog` → vacío. catalog no importa inventory; solo lo hace `scripts/seed_dev.py`, que es la raíz de composición.
+   - Tras el ajuste del actor: `grep -rn "type: ignore" src/valmont/scripts/seed_dev.py` → vacío. Formato, lint y capas, de nuevo en verde (ver la respuesta al coordinador).
+   - Esquema de un `Literal` en pydantic 2.14.1, comprobado leyendo `json_schema.py`: es `{"enum": [...], "type": "string"}`, lo que espera la prueba del OpenAPI.
+6. Pruebas no ejecutadas y motivo: NO EJECUTADO: pruebas (D-028). qa-reviewer ejecuta `pytest -q`, `pytest -m integration -q`, `alembic check` y el OpenAPI. Recuento esperado sobre la línea base:
+   - **+13 unitarias:**
+     - `test_domain.py`: +6 (5 casos de `lead_time_days` y los 4 estados).
+     - `test_http.py`: +6 (`available` como booleano ×3, el 422 de `available=quizas`, el OpenAPI de `availability` y sin cantidades).
+     - `test_seed_dev.py`: +1 (`DEMO_STOCK`).
+   - **+20 de integración** en `test_availability_db.py`:
+     - 17 casos de CA-CATALOG-09 (listado y ficha).
+     - El filtro con paginación, `total`, combinación con `price_min` y `false`.
+     - La ficha y los `related`.
+     - Dos sentencias por listado, con la vista y sin `available`.
+   - **Pruebas existentes ajustadas sin debilitarlas:**
+     - `SUMMARY_KEYS` incluye `availability` y el orden de parámetros, `available`.
+     - Las semillas esperan 30 entradas de auditoría (24 + 6 ajustes), 6 movimientos y 6 filas de stock en las dos ejecuciones.
+     - Las semillas también comprueban los movimientos (`ajuste_inventario`, nota, actor nulo, `inventory.stock_adjusted`), que un cambio del admin entre ejecuciones (DEMO-007 → 9) no se pisa, y el estado y el plazo de los 12 por la API.
+   - E2E y tipos: no configurados.
+7. Dependencias pendientes:
+   - El frontend puede empezar a pintar `availability` y a usar `available=true`. El contrato ya estaba APROBADO en la SPEC §7, así que no hay cambio de contrato.
+   - En `dev`, el stock de demostración aparece al volver a ejecutar `uv run python -m valmont.scripts.seed_dev`. Solo toca los productos sin fila de stock.
+8. Riesgos conocidos:
+   - Rendimiento: la vista suma las reservas por producto en un `LATERAL`. Con una página de 24 a 48 debería bastar con el índice `(product_id, status, expires_at)`. El `EXPLAIN` lo debería ver qa-reviewer con `test_search_uses_the_gin_index`, que ahora incluye la vista en la consulta de la página.
+   - Las semillas comprueban "sin fila de stock" y después ejecutan `RecordMovement`. Si un admin creara la fila justo en medio, el ajuste lo pisaría. Lo acepto porque solo afecta al script de `dev`.
+9. Preguntas que requieren decisión: ninguna abierta. Las dos que planteé ya las ha decidido el Leader (2026-10-27):
+   - **Actor nulo del sistema en inventory: aprobado.** Se incluye en este mismo cambio, con "Puede modificar" ampliado solo a `inventory/application.py`. Las semillas pasan el `Actor(None, None)` de inventory y ya no llevan `type: ignore`.
+   - **`available=false` o ausente equivale a "sin filtro": confirmado.** El Leader lo anotará en la SPEC después del commit.
+10. Documentación actualizada: este STATUS (fila T-030 y este traspaso). `docs/agents/tasks.md` no está en "Puede modificar".
+11. Siguiente acción recomendada: qa-reviewer ejecuta las puertas de D-028 sobre este árbol preparado, sobre todo `pytest -m integration -q` (`test_availability_db.py`, `test_seed_dev.py` y `test_persistence.py::test_search_uses_the_gin_index`).
+12. Commits: ninguno — preparado (`git add` de las rutas del punto 3, incluida la de inventory). Mensaje propuesto: `feat(catalog): disponibilidad desde inventory y filtro available (T-030)`.
 
 #### Traspaso T-031 — 2026-10-27 — backend-dev
 1. Estado final: IN_REVIEW (revisa claude-leader).

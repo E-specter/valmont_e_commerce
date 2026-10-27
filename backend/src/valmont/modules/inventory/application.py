@@ -226,10 +226,11 @@ class ReleaseReservations:
 
 @dataclass(frozen=True)
 class Actor:
-    """Quién hace la operación: sale del token, nunca del cuerpo (SPEC §9)."""
+    """Quién hace la operación: sale del token, nunca del cuerpo (SPEC §9). Nulo = sistema
+    (AUDIT-R5), p. ej. las semillas de desarrollo."""
 
-    user_id: UUID
-    role: str
+    user_id: UUID | None
+    role: str | None
 
 
 class RecordMovement:

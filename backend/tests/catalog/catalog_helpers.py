@@ -106,6 +106,19 @@ def names(page: ProductPage) -> list[str]:
     return [item.product.name for item in page.items]
 
 
+# Claves de cantidades de inventory: nunca en la API pública (inventory SPEC §2, T-030).
+QUANTITIES = {"available", "on_hand", "reserved", "quantity"}
+
+
+def all_keys(value: object) -> set[str]:
+    """Todas las claves de un JSON, a cualquier profundidad."""
+    if isinstance(value, dict):
+        return set(value) | {key for item in value.values() for key in all_keys(item)}
+    if isinstance(value, list):
+        return {key for item in value for key in all_keys(item)}
+    return set()
+
+
 def seed_catalog(session: Session) -> Catalog:
     """Dos categorías, cuatro valores de atributo, cuatro publicados y un borrador; sin imágenes."""
     a, b = make_category("Pruebas A"), make_category("Pruebas B")
