@@ -9,7 +9,7 @@
 | T-026 | Esquema `0004`, dominio y repositorios de catalog | backend-dev | T-021 | DONE (2 rondas; verificado por claude-leader: 319 unitarias + 71 integración) |
 | T-027 | API pública: listado con filtros, búsqueda, orden y paginación; ficha con relacionados; categorías y atributos (incluye T-019) | backend-dev | T-026 | DONE (verificado por claude-leader: 355 unitarias + 94 integración) |
 | T-028 | API de administración: productos, publicación, categorías y listas de valores, con auditoría | backend-dev + qa-reviewer | T-026, T-021 | BACKLOG |
-| T-029 | Activar Supabase Storage (puerta Docker) e imágenes: subida, orden y retirada | claude-leader + backend-dev | T-028 | BACKLOG |
+| T-029 | Activar Supabase Storage (puerta Docker) e imágenes: subida, orden y retirada | claude-leader + backend-dev | T-028 | IN_PROGRESS (Storage activado y verificado por claude-leader el 2026-10-27; faltan los endpoints de imágenes) |
 | T-030 | Conectar la disponibilidad con inventory (`AvailabilityReader`) | backend-dev | módulo inventory | BACKLOG |
 | T-031 | Semillas de demostración para `dev` (aprobadas por el usuario, P-CATALOG-1) | backend-dev | T-026 | BACKLOG |
 

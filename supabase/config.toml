@@ -115,10 +115,16 @@ port = 54324
 # sender_name = "Admin"
 
 [storage]
-# Valmont: apagado hasta decidir el almacenamiento de imágenes del catálogo (Fase 2).
-enabled = false
+# Valmont: imágenes de producto (D-019). Las sube solo el backend con la clave de servicio.
+enabled = true
 # The maximum file size allowed (e.g. "5MB", "500KB").
-file_size_limit = "50MiB"
+file_size_limit = "5MiB"
+
+# Valmont: bucket público de imágenes de producto (lectura pública; escritura solo desde el backend).
+[storage.buckets.products]
+public = true
+file_size_limit = "5MiB"
+allowed_mime_types = ["image/jpeg", "image/png", "image/webp"]
 
 # Uncomment to configure local storage buckets
 # [storage.buckets.images]

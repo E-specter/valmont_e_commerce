@@ -43,13 +43,13 @@ valmont_e_commerce/
 
 | Acción | Comando |
 |---|---|
-| Arrancar Supabase (la 1.ª vez descarga ~3–5 GB) | `npm run db:start` |
+| Arrancar Supabase (la 1.ª vez descarga ~3–5 GB; crea también el bucket `products`) | `npm run db:start` |
 | Estado y URLs | `npm run db:status` (las claves, con `npx supabase status -o env`; nunca pegarlas en chats ni en docs) |
 | Detener (conserva los datos) | `npm run db:stop` |
 | Consola SQL | `docker exec -it supabase_db_valmont psql -U postgres` |
 | Studio · Mailpit (correos de Auth) | http://127.0.0.1:54323 · http://127.0.0.1:54324 |
 
-Servicios activos: Postgres 17, Auth (GoTrue), Kong, PostgREST, Studio, pg-meta y Mailpit. Apagados en `supabase/config.toml`: realtime, storage, edge runtime y analytics. `backend/.env` se crea a partir de `backend/.env.example`.
+Servicios activos: Postgres 17, Auth (GoTrue), Kong, PostgREST, Storage (bucket público `products`, 5 MiB, JPEG/PNG/WebP; D-019), Studio, pg-meta y Mailpit. Apagados en `supabase/config.toml`: realtime, edge runtime y analytics. `backend/.env` se crea a partir de `backend/.env.example`.
 
 ### Backend (`cd backend`)
 
