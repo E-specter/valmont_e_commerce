@@ -1,7 +1,7 @@
 ---
 name: backend-dev
 description: Desarrollador backend de Valmont (nivel 4). Úsalo para implementar UN paquete de tarea backend ya especificado (dominio, caso de uso, endpoint, repositorio, migración autorizada) con sus pruebas, dentro de los archivos autorizados en el paquete. Requiere un paquete de tarea completo; no planifica ni delega.
-model: inherit
+model: sonnet
 color: cyan
 disallowedTools: Agent
 skills:

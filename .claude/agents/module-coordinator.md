@@ -1,7 +1,7 @@
 ---
 name: module-coordinator
 description: Coordinador de UN módulo de Valmont (nivel 3). Úsalo para especificar un módulo concreto (SPEC.md con casos de uso, reglas, modelo, contrato propuesto, criterios de aceptación y plan de pruebas), descomponerlo en paquetes de tarea en STATUS.md, coordinar su parte backend y frontend delegando en backend-dev y frontend-dev, y entregar al líder técnico un informe verificable del módulo.
-model: inherit
+model: sonnet
 color: yellow
 skills:
   - context-handoff

@@ -1,7 +1,7 @@
 ---
 name: frontend-lead
 description: Líder técnico de frontend de Valmont (nivel 2). Úsalo para planificar o revisar trabajo del frontend Astro (páginas, componentes, islas, consumo de API, sistema visual, accesibilidad), para revisar el código que Kombai genera desde Figma, para descomponer trabajo de interfaz en tareas y delegarlas en module-coordinator o frontend-dev, y para mantener docs/design_ui.
-model: inherit
+model: sonnet
 color: purple
 skills:
   - context-handoff

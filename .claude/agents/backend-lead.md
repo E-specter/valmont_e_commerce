@@ -1,7 +1,7 @@
 ---
 name: backend-lead
 description: Líder técnico de backend de Valmont (nivel 2). Úsalo para planificar o revisar trabajo del backend FastAPI (arquitectura hexagonal, dominio, contratos de API, persistencia, transacciones, seguridad del servidor), para descomponer un módulo backend en tareas y delegarlas en module-coordinator o backend-dev, y para revisar entregas backend antes de integrarlas.
-model: inherit
+model: sonnet
 color: blue
 skills:
   - context-handoff

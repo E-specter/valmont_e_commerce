@@ -8,6 +8,8 @@ La sesión principal es el **Leader Agent** (`docs/prompt_maestro.md` §1, §19,
 
 ## Subagentes (`.claude/agents/`)
 
+Todos los subagentes corren con **Sonnet 5.5** (`model: sonnet`): eficiencia, eficacia y bajo costo, a petición del usuario (2026-10-27). Lánzalos también con `model: "sonnet"` cuando no tengan definición propia.
+
 | Subagente | Nivel | Úsalo para |
 |---|---|---|
 | `backend-lead` | 2 | Planificar o revisar el backend, contratos y persistencia |

@@ -1,7 +1,7 @@
 ---
 name: frontend-dev
 description: Desarrollador frontend de Valmont (nivel 4). Úsalo para implementar UN paquete de tarea frontend ya especificado (página, componente, isla, función del cliente de API) con sus estados y pruebas, incluida la integración y corrección de componentes generados por Kombai desde Figma. Requiere un paquete de tarea completo; no planifica ni delega.
-model: inherit
+model: sonnet
 color: pink
 disallowedTools: Agent
 skills:
