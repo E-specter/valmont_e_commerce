@@ -28,7 +28,7 @@
 | T-101 | Rol de BD `valmont_app` con privilegios mínimos (migración 0006) | backend, seguridad | backend-dev + qa-reviewer | D-029, RNF02 | paquete abajo | DONE | `b8eb2f9`; APROBADA por qa-reviewer con D-028 (704 + 267, 3 mutantes detectados). Los dos MENOR: uno en la skill de migraciones y otro en T-100 |
 | T-102 | Imagen del frontend: `@astrojs/node` 11.1.9 (D-024), `output: 'static'` con adaptador standalone y `frontend/Dockerfile` | frontend, arquitectura | frontend-dev + qa-reviewer | D-024, D-029 | paquete abajo | DONE | `c8c8ace`; APROBADA por qa-reviewer con D-028. `output: 'static'` confirmado por el Leader (D-024). Sus dos MENOR (`init: true` y `**/.env*`) pasan a T-100 |
 | T-100 | Imagen del backend y stack de despliegue `deploy/`: compose, Caddyfile, Supabase autohospedado fijado, `.env.example` y alta de la contraseña de `valmont_app` | backend, arquitectura | backend-dev + qa-reviewer | D-011, D-018, D-029 | paquete abajo | DONE | `6bc12b2`; APROBADA por qa-reviewer en la ronda 2 (D-028) y probada en ejecución en T-104. `roles.sql` recortado (BLOQUEANTE-1), Caddy solo con h1/h2 y LF en los archivos de Docker. Supabase fijado en el tag `self-hosted/v0.8.3`. ES256 resuelto con `GOTRUE_JWT_KEYS` (Auth v2.197.0); evidencia en el traspaso. Gateway Kong (override oficial, en desuso a favor de Envoy). `CONNECT` no se revoca (decisión en `deploy/scripts/migrate.sh`). Hechos los MENOR de T-101 y T-102 |
-| T-103 | Copias de seguridad: `pg_dump` diario y restauración probada (RNF12) | arquitectura | backend-dev + qa-reviewer | D-029, RNF12 | — | BACKLOG | — |
+| T-103 | Copias de seguridad: `pg_dump` diario y restauración probada (RNF12) | arquitectura | backend-dev + qa-reviewer | D-029, RNF12 | paquete abajo | READY | Archivos dentro de la ficha de M1 ya confirmada; la prueba real de copia y restauración lleva su propia ficha Docker |
 | T-104 | Prueba de lanzamiento en este Windows 11 (`https://localhost`) y sección C de la ficha verificada | arquitectura | claude-leader + qa-reviewer | D-029 | docs/deploy.md §C | DONE | Ficha confirmada por el usuario (con puertos poco comunes). Puertos configurables en `b7bd71f`. Prueba de humo APROBADA por qa-reviewer: 8 servicios en healthy, ES256 de punta a punta, `valmont_app`, subidas por Caddy, búsqueda y auditoría. §C de la ficha al día. Stack detenido con los volúmenes conservados; quedan datos de prueba (usuario `qa-t104@example.test`, producto `QA-T104-001`) y 3 filas de auditoría imborrables en el volumen local |
 | T-019 | Ajustes de contrato de identity tras la revisión de frontend-lead: `validation_error.details` sin `url` (solo `loc`, `type`, `msg`) y `Money.currency` obligatorio en el OpenAPI | backend | backend-dev | RF01.06 | docs/modules/identity/SPEC.md §7 | DONE | Hecho con T-027: `Money-Output` exige `amount` y `currency`; `details` = `loc`, `type`, `msg` |
 | T-018 | Endurecimiento antes del lanzamiento: limpieza periódica de archivos huérfanos en Storage (T-029); JWKS no-JSON → 503 con aviso; no registrar el `DETAIL` de PostgreSQL (solo `sqlstate` y restricción); rechazar controles bidireccionales y nombres invisibles; límites de longitud documentados en el OpenAPI. Despliegue (MENOR de T-104): cabeceras de seguridad en Caddy (`X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors`; HSTS con dominio real) sin exponer `Server`/`X-Kong-*`; error 502 de `/api/*` con el formato común; access log duplicado y healthchecks en los logs del backend; comentarios desfasados en `deploy/compose.yml:99` y `generate-env.sh`; `--forwarded-allow-ips` limitado a Caddy si se usa la IP del cliente | backend, seguridad | backend-dev + qa-reviewer | RNF02, RNF10 | docs/modules/identity/STATUS.md | BACKLOG | Hallazgos menores de qa-reviewer en T-016 y T-104; antes de abrir al público |
@@ -45,6 +45,36 @@
 Estados válidos: `BACKLOG` · `SPECIFICATION` · `READY` · `IN_PROGRESS` · `BLOCKED` · `IN_REVIEW` · `INTEGRATION` · `DONE` · `CANCELLED`.
 
 ## Paquetes de tareas transversales
+
+### T-103 — Copias de seguridad y restauración probada
+- **Objetivo:** una copia diaria del stack desplegado (BD y archivos de Storage) que se puede restaurar en un stack nuevo, siguiendo los pasos de la ficha (RNF12, `docs/deploy.md` C-10).
+- **Responsable:** backend-dev (verifica qa-reviewer, acepta claude-leader) · Decisiones: D-011, D-028, D-029 · **Entrega:** preparada sin commit, con el mensaje propuesto (PROTOCOL §11.2).
+- **Leer:**
+  - `docs/deploy.md` §C;
+  - `deploy/compose.yml` (servicios `db` y `storage` y los volúmenes `db-data` y `storage-data`);
+  - `deploy/scripts/migrate.sh` (estilo y forma de no imprimir secretos);
+  - la guía oficial de Supabase autohospedado sobre copias y restauración, en la misma versión fijada `self-hosted/v0.8.3`.
+- **Puede modificar:**
+  - `deploy/scripts/backup.sh` y `deploy/scripts/restore.sh` (nuevos, con LF);
+  - `.gitignore`, solo para ignorar la carpeta de copias;
+  - tu traspaso debajo de este paquete y la fila de T-103.
+  - `docs/deploy.md` lo actualiza el Leader.
+- **Resultado esperado:**
+  1. **`backup.sh`:**
+     - Hace un `pg_dump` de la BD `postgres` en formato custom, con lo necesario para restaurar usuarios (`auth`), metadatos de Storage (`storage`) y la app (`app`). Investiga qué recomienda Supabase para el autohospedado: roles del clúster, esquemas gestionados y orden.
+     - Archiva los objetos del volumen de Storage.
+     - Escribe en `${BACKUP_DIR:-deploy/backups}` con marca de fecha UTC, suma SHA-256 y retención configurable (`BACKUP_KEEP_DAYS`, 14 por defecto).
+     - No imprime secretos y sale con un código distinto de 0 si algo falla.
+  2. **`restore.sh`:**
+     - Restaura en un stack **nuevo o vacío**, comprobando antes la suma.
+     - Es destructivo, así que exige un indicador explícito (por ejemplo `--confirmo-restaurar`) y se niega si la BD de destino ya tiene datos de la app, salvo que se fuerce a propósito.
+     - Al terminar, deja `valmont_app` y el bucket como `migrate.sh`.
+  3. **Programación:** instrucciones para `cron` en Linux y el Programador de tareas en Windows (Git Bash o WSL) en tu traspaso, para que el Leader las pase a la ficha.
+- **Criterios:**
+  - Revisión estática (`sh -n`, LF, sin secretos, carpeta de copias ignorada).
+  - La prueba real la hace el Leader con su ficha Docker y la verifica QA: copia → stack de prueba nuevo con otro nombre de proyecto → restauración. Se comprueba que el usuario de prueba de T-104 inicia sesión, que el producto `QA-T104-001` se lista con su imagen y que `audit_log` conserva sus filas.
+- **D-028:** backend-dev solo hace análisis estático y `sh -n`; no ejecuta Docker ni pruebas.
+- **Estado inicial:** READY · IDs reservados: ninguno.
 
 ### T-100 — Imagen del backend y stack de despliegue `deploy/`
 - **Objetivo:** con `docker compose -f deploy/compose.yml up -d` arranca Valmont completo en Windows 11 o Linux: Caddy, frontend, backend y un Supabase autohospedado mínimo. Solo Caddy publica puertos. El usuario confirmó la ficha de archivos de M1 el 2026-10-27; construir y arrancar es T-104, con otra ficha.
