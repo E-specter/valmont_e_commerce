@@ -9,6 +9,9 @@
 .env.*
 !.env.example
 
+# Copias de seguridad del stack (T-103): llevan datos personales y hashes de contraseñas
+deploy/backups/
+
 # Python
 .venv/
 __pycache__/

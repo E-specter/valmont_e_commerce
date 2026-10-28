@@ -28,7 +28,7 @@
 | T-101 | Rol de BD `valmont_app` con privilegios mínimos (migración 0006) | backend, seguridad | backend-dev + qa-reviewer | D-029, RNF02 | paquete abajo | DONE | `b8eb2f9`; APROBADA por qa-reviewer con D-028 (704 + 267, 3 mutantes detectados). Los dos MENOR: uno en la skill de migraciones y otro en T-100 |
 | T-102 | Imagen del frontend: `@astrojs/node` 11.1.9 (D-024), `output: 'static'` con adaptador standalone y `frontend/Dockerfile` | frontend, arquitectura | frontend-dev + qa-reviewer | D-024, D-029 | paquete abajo | DONE | `c8c8ace`; APROBADA por qa-reviewer con D-028. `output: 'static'` confirmado por el Leader (D-024). Sus dos MENOR (`init: true` y `**/.env*`) pasan a T-100 |
 | T-100 | Imagen del backend y stack de despliegue `deploy/`: compose, Caddyfile, Supabase autohospedado fijado, `.env.example` y alta de la contraseña de `valmont_app` | backend, arquitectura | backend-dev + qa-reviewer | D-011, D-018, D-029 | paquete abajo | DONE | `6bc12b2`; APROBADA por qa-reviewer en la ronda 2 (D-028) y probada en ejecución en T-104. `roles.sql` recortado (BLOQUEANTE-1), Caddy solo con h1/h2 y LF en los archivos de Docker. Supabase fijado en el tag `self-hosted/v0.8.3`. ES256 resuelto con `GOTRUE_JWT_KEYS` (Auth v2.197.0); evidencia en el traspaso. Gateway Kong (override oficial, en desuso a favor de Envoy). `CONNECT` no se revoca (decisión en `deploy/scripts/migrate.sh`). Hechos los MENOR de T-101 y T-102 |
-| T-103 | Copias de seguridad: `pg_dump` diario y restauración probada (RNF12) | arquitectura | backend-dev + qa-reviewer | D-029, RNF12 | paquete abajo | READY | Archivos dentro de la ficha de M1 ya confirmada; la prueba real de copia y restauración lleva su propia ficha Docker |
+| T-103 | Copias de seguridad: `pg_dump` diario y restauración probada (RNF12) | arquitectura | backend-dev + qa-reviewer | D-029, RNF12 | paquete abajo | IN_REVIEW | `backup.sh` y `restore.sh` preparados sin commit, ronda 2 aplicada (D-030 cifrado GPG y hallazgos de QA); solo `sh -n`, sin ejecutar nada, D-028 y D-011. Falta la prueba real de copia y restauración: ficha Docker del Leader y verificación de qa-reviewer. Supuestos a confirmar en esa prueba: traspaso, puntos 8 y 11, y "ronda 2" punto 7 |
 | T-104 | Prueba de lanzamiento en este Windows 11 (`https://localhost`) y sección C de la ficha verificada | arquitectura | claude-leader + qa-reviewer | D-029 | docs/deploy.md §C | DONE | Ficha confirmada por el usuario (con puertos poco comunes). Puertos configurables en `b7bd71f`. Prueba de humo APROBADA por qa-reviewer: 8 servicios en healthy, ES256 de punta a punta, `valmont_app`, subidas por Caddy, búsqueda y auditoría. §C de la ficha al día. Stack detenido con los volúmenes conservados; quedan datos de prueba (usuario `qa-t104@example.test`, producto `QA-T104-001`) y 3 filas de auditoría imborrables en el volumen local |
 | T-019 | Ajustes de contrato de identity tras la revisión de frontend-lead: `validation_error.details` sin `url` (solo `loc`, `type`, `msg`) y `Money.currency` obligatorio en el OpenAPI | backend | backend-dev | RF01.06 | docs/modules/identity/SPEC.md §7 | DONE | Hecho con T-027: `Money-Output` exige `amount` y `currency`; `details` = `loc`, `type`, `msg` |
 | T-018 | Endurecimiento antes del lanzamiento: limpieza periódica de archivos huérfanos en Storage (T-029); JWKS no-JSON → 503 con aviso; no registrar el `DETAIL` de PostgreSQL (solo `sqlstate` y restricción); rechazar controles bidireccionales y nombres invisibles; límites de longitud documentados en el OpenAPI. Despliegue (MENOR de T-104): cabeceras de seguridad en Caddy (`X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors`; HSTS con dominio real) sin exponer `Server`/`X-Kong-*`; error 502 de `/api/*` con el formato común; access log duplicado y healthchecks en los logs del backend; comentarios desfasados en `deploy/compose.yml:99` y `generate-env.sh`; `--forwarded-allow-ips` limitado a Caddy si se usa la IP del cliente | backend, seguridad | backend-dev + qa-reviewer | RNF02, RNF10 | docs/modules/identity/STATUS.md | BACKLOG | Hallazgos menores de qa-reviewer en T-016 y T-104; antes de abrir al público |
@@ -75,6 +75,119 @@ Estados válidos: `BACKLOG` · `SPECIFICATION` · `READY` · `IN_PROGRESS` · `B
   - La prueba real la hace el Leader con su ficha Docker y la verifica QA: copia → stack de prueba nuevo con otro nombre de proyecto → restauración. Se comprueba que el usuario de prueba de T-104 inicia sesión, que el producto `QA-T104-001` se lista con su imagen y que `audit_log` conserva sus filas.
 - **D-028:** backend-dev solo hace análisis estático y `sh -n`; no ejecuta Docker ni pruebas.
 - **Estado inicial:** READY · IDs reservados: ninguno.
+
+#### Traspaso T-103 — 2026-10-27 — backend-dev
+1. **Estado final:** IN_REVIEW. Scripts escritos y revisados de forma estática; ninguno se ha ejecutado.
+2. **Cambios:**
+   - `deploy/scripts/backup.sh` (formato de la ronda 2, D-030): crea en `${BACKUP_DIR:-deploy/backups}` el archivo cifrado `valmont-<AAAAMMDDTHHMMSSZ>.tar.gpg` y `valmont-<marca>.tar.gpg.sha256`. Dentro del tar cifrado van:
+     - `db-app.dump`: `pg_dump -Fc -n app -e unaccent` (esquema `app` completo y la extensión que crea la migración 0004);
+     - `db-supabase-data.dump`: `pg_dump -Fc --data-only -n auth -n storage`, sin `auth.schema_migrations` ni `storage.migrations`;
+     - `storage-objects.tar.gz`: el volumen `storage-data` con GNU tar y atributos extendidos;
+     - `MANIFEST` (fecha, commit, versión de Postgres, revisión de Alembic) y `SHA256SUMS`.
+   - Lo cifrado se escribe en archivos ocultos `.valmont-*.partial` y se renombra al terminar. Valida con `pg_restore -l` y `gzip -t`. Retención con `find -mindepth 1 -mtime +BACKUP_KEEP_DAYS` (14 por defecto) sobre los `.tar.gpg`, sus `.sha256` y los `.partial`, solo tras una copia correcta. Admite `-p proyecto`. `set -eu`, sin pipelines que enmascaren fallos y sin leer ni imprimir secretos (usa el `PGPASSWORD` que ya tiene el contenedor `db`).
+   - `deploy/scripts/restore.sh <valmont-MARCA.tar.gpg>`: exige `--confirmo-restaurar`, comprueba el `.sha256` del archivo cifrado, descifra a un temporal 700, comprueba el `SHA256SUMS` interno y se niega si el destino tiene el esquema `app`, usuarios, buckets u objetos, salvo `--sobrescribir`. Después crea `valmont_app` (NOLOGIN, como la migración 0006), restaura `app`, carga los datos de `auth` y `storage` con `SET session_replication_role = replica` en una sola transacción, vuelca los archivos al volumen y ejecuta `migrate.sh` (migraciones pendientes, `LOGIN` y contraseña de `valmont_app`, bucket `products`). Admite `-p proyecto`, que `migrate.sh` hereda por `COMPOSE_PROJECT_NAME`.
+   - `.gitignore`: `deploy/backups/`.
+   - **Qué incluye la copia y por qué** (fuentes en el punto 4 del apéndice de abajo):
+     - `app` completo, porque lo crean las migraciones de Valmont y sus permisos a `valmont_app` forman parte del esquema.
+     - `auth` y `storage` solo datos: sus tablas las crean Auth y Storage al arrancar, con sus propietarios. Es lo que hace `supabase db dump`, y la guía de restauración carga los datos con `session_replication_role = replica`.
+     - Sin roles: los reservados los crea la imagen y `valmont_app` sale de la migración 0006 más `migrate.sh`. La guía de Supabase advierte de que un `pg_dump` en bruto arrastra internos y da errores de permisos al restaurar.
+     - Archivos de Storage aparte: el volcado SQL no los lleva (lo dice la misma guía) y Storage guarda `content-type` y `cache-control` en atributos extendidos `user.supabase.*` (storage-api v1.81.0, `src/storage/backend/file.ts`). Sin ellos sirve todo como `application/octet-stream`. Solo GNU tar los conserva, así que se usa un contenedor Debian de apoyo (`node:26.12.1-trixie-slim`, el tag de `frontend/Dockerfile` y `generate-env.sh`, ya presente tras construir el stack) con `--network none`.
+     - Fuera, a propósito: `deploy/.env` (secretos; guardarlo aparte), `caddy-data` (el certificado se vuelve a emitir) y `db-config` (clave raíz de pgsodium; Valmont no usa Vault ni pgsodium, comprobado en las migraciones).
+3. **Archivos modificados:** `deploy/scripts/backup.sh` (nuevo), `deploy/scripts/restore.sh` (nuevo; los dos se invocan con `sh`, y en el índice llevan modo 644 como los demás de `deploy/scripts`), `.gitignore`, `docs/agents/tasks.md` (este traspaso y la fila de T-103).
+4. **Decisiones tomadas:** ninguna nueva en `docs/decisions.md`. Elecciones de diseño de arriba que el Leader puede elevar a D-nnn: dos volcados en lugar de uno, sin roles, GNU tar en un contenedor de apoyo.
+5. **Pruebas ejecutadas → resultado observado (solo análisis estático):**
+   - `sh -n deploy/scripts/backup.sh` → sin salida (sintaxis válida)
+   - `sh -n deploy/scripts/restore.sh` → sin salida (sintaxis válida)
+   - búsqueda de `\r` en los dos scripts → 0 coincidencias (LF)
+   - búsqueda de secretos literales entre comillas en los dos scripts → vacía; los scripts no leen valores de `deploy/.env`, solo comprueban que exista
+   - `command -v shellcheck` → no instalado
+6. **Pruebas no ejecutadas y motivo:** `NO EJECUTADO: scripts, Docker y pruebas (D-028, D-011)`. Ni un solo comando de `docker` ni de los scripts; el stack sigue detenido.
+7. **Dependencias pendientes:** la prueba real con su ficha D-011 y su verificación por qa-reviewer. Imagen `node:26.12.1-trixie-slim` presente en el equipo (la usa el build del frontend); si no, `docker run` la descarga.
+8. **Riesgos conocidos** (supuestos no comprobados por no poder ejecutar nada):
+   - **`postgres` y `session_replication_role`.** La guía oficial lo usa con `postgres`, y `migrate.sh` ya demuestra que `postgres` escribe en `storage.buckets`. Si el `SET` falla con "permission denied", la alternativa es `-U supabase_admin` (superusuario de la imagen, contraseña `POSTGRES_PASSWORD`) en ese único `psql`.
+   - **`pg_dump -n app -e unaccent`.** Se apoya en que `-e` y `-n` se suman (la documentación de PostgreSQL no lo dice expresamente). Comprueba con `pg_restore -l db-app.dump`: debe aparecer `EXTENSION - unaccent`. Si falta, `restore.sh` fallaría al crear `app.f_unaccent`.
+   - **Acoplamiento a `unaccent`.** Es la única extensión que crean las migraciones (0004). Si una migración futura crea otra, hay que añadir su `-e` en `backup.sh` (hay un comentario `shortcut:` en el código). Detección: la restauración falla en alto.
+   - **Destino "vacío".** Se supone que Auth y Storage no insertan filas propias en `auth.*` ni `storage.*` al arrancar (aparte de sus tablas de migraciones, que se excluyen). Si lo hicieran, la carga fallaría por clave duplicada y se revertiría entera.
+   - **tar con xattrs.** Ni la imagen de `db` ni la de `storage` garantizan GNU tar (no lo comprobé en ninguna), de ahí el contenedor Debian. Si el sistema de archivos del volumen no admite atributos `user.*`, `tar` falla y el script sale con error. Prueba clave: `Content-Type: image/…` de una imagen restaurada.
+   - **`--sobrescribir`** borra `app` con `DROP SCHEMA … CASCADE` (incluida `audit_log`) y hace `TRUNCATE` de `auth` y `storage`; si `postgres` no tiene `TRUNCATE` sobre alguna tabla, falla antes de cargar. Los archivos que ya hubiera en el volumen no se borran.
+   - **Consistencia.** Los dos volcados no comparten instantánea. `app.profiles` no tiene clave foránea a `auth.users` (migración 0002), así que un registro entre ambos volcados solo deja un perfil por crear (se crea en el primer `GET /identity/me`).
+   - **`tar` de Storage:** si un archivo cambia mientras se lee (código 1 de GNU tar), reintenta una vez y, si vuelve a fallar, aborta; se prefiere repetir la copia antes que aceptar un archivo a medias.
+9. **Preguntas que requieren decisión:** ninguna abierta. El destino en otro disco, la copia semanal fuera del equipo y el cifrado quedaron decididos en D-030; los scripts solo escriben en una ruta local, y la copia semanal fuera del equipo la hace el operador con el `.tar.gpg`.
+10. **Documentación actualizada:** solo este archivo. `docs/deploy.md` C-10 lo actualiza el Leader con las instrucciones de programación de abajo.
+11. **Siguiente acción recomendada:** el Leader prepara la ficha Docker de la prueba y la ejecuta. Propuesta:
+    0. Antes de nada, un llavero temporal para la prueba (la clave privada no debe quedar en el equipo): `export GNUPGHOME=$(mktemp -d)`, `gpg --batch --pinentry-mode loopback --passphrase '' --quick-gen-key valmont-prueba default default never` e `export BACKUP_GPG_RECIPIENT=valmont-prueba`. Los dos scripts respetan `GNUPGHOME`.
+    1. Con el stack original arrancado: `sh deploy/scripts/backup.sh`. Comprobar `valmont-<marca>.tar.gpg` y su `.sha256` (`sha256sum -c`, sin la clave); que no hay texto en claro en `BACKUP_DIR`; y, tras descifrar a mano, `EXTENSION - unaccent` en `pg_restore -l db-app.dump`.
+    2. Stack nuevo en paralelo, sin tocar el original, con las mismas variables exportadas para **todos** los comandos siguientes (también `restore.sh`): `HTTP_PORT`, `HTTPS_PORT`, `MAILPIT_PORT` distintos y `PUBLIC_URL=https://localhost:<HTTPS_PORT nuevo>` (el emisor de los tokens usa `PUBLIC_URL`). Luego `docker compose -p valmont-restore -f deploy/compose.yml --profile local up -d --build --wait`. **No** ejecutar `migrate.sh`.
+    3. `sh deploy/scripts/restore.sh -p valmont-restore --confirmo-restaurar deploy/backups/valmont-<marca>.tar.gpg`.
+    4. Criterios de la tarea: el usuario `qa-t104@example.test` inicia sesión; `QA-T104-001` aparece en el catálogo con su imagen y `Content-Type` correcto; `app.audit_log` conserva sus 3 filas; `valmont_app` con `LOGIN`. Negativos: sin `--confirmo-restaurar` no hace nada; repetir el comando sobre el destino ya restaurado se niega; un byte alterado del `.tar.gpg` lo detiene en la suma, antes de tocar el destino; con otro `GNUPGHOME` sin la clave privada falla al descifrar y no deja nada escrito; sin `BACKUP_GPG_RECIPIENT` o con una clave inexistente, `backup.sh` falla sin llamar a Docker.
+    5. Retirar el stack de prueba: `docker compose -p valmont-restore … down -v` (puerta D-011).
+12. **Commits:** ninguno — preparado. Rutas preparadas: `deploy/scripts/backup.sh`, `deploy/scripts/restore.sh`, `.gitignore`, `docs/agents/tasks.md`. Mensaje propuesto: `feat(deploy): copias de seguridad y restauración del stack (T-103)`.
+
+#### Traspaso T-103, ronda 2 — 2026-10-27 — backend-dev
+Parte de lo preparado en la ronda 1 y de la revisión estática de qa-reviewer (APROBADO con 2 IMPORTANTES). Prevalece sobre los puntos 2, 9 y 11 de arriba en lo que cambia el formato; el resto sigue valiendo.
+1. **Estado final:** IN_REVIEW. Nada se ha ejecutado.
+2. **D-030 (cifrado GPG obligatorio):**
+   - `backup.sh`:
+     - Exige `BACKUP_GPG_RECIPIENT`. Comprueba `gpg` y hace un cifrado de prueba con `--trust-model always` (clave pública presente y utilizable) **antes de tocar Docker**. `--trust-model always` se justifica en la cabecera: el operador importa la clave a propósito y compara su huella.
+     - Produce un único `valmont-<marca>.tar.gpg` y `valmont-<marca>.tar.gpg.sha256` (suma del cifrado). El texto en claro vive solo en `mktemp -d` (700, en `TMPDIR`), borrado por `trap` en EXIT y en HUP/INT/TERM. En `BACKUP_DIR` solo hay texto cifrado.
+     - Retención sobre `valmont-*.tar.gpg`, sus `.sha256` y los `.partial`, con `-mindepth 1` (MENOR-1).
+   - `restore.sh`: recibe el `.tar.gpg`; comprueba el `.sha256` primero, descifra con `gpg --decrypt` a un temporal 700 (sin `--batch`, para que gpg pueda pedir la frase de paso), extrae solo los cinco nombres esperados, comprueba el `SHA256SUMS` interno y sigue como antes.
+3. **IMPORTANTE-1 (pre-vuelo completo):** en `restore.sh`, todo lo que puede fallar va antes de la primera escritura (el `DROP`/`TRUNCATE` de `--sobrescribir` o, si no, el `CREATE ROLE`):
+   - contenedor `db` y volumen de Storage del destino;
+   - imagen de apoyo (`docker image inspect … || docker pull -q`);
+   - sonda `SET session_replication_role = replica` sin efectos;
+   - `show server_version` del destino frente a `postgres=` del MANIFEST;
+   - destino vacío;
+   - añadido por mí: que `deploy/.env` tenga `POSTGRES_PASSWORD` y `VALMONT_APP_DB_PASSWORD`, porque `migrate.sh` las necesita al final.
+4. **IMPORTANTE-2(a):** el `TRUNCATE` de `--sobrescribir` ya no lleva `CASCADE` (queda `RESTART IDENTITY`). El `DROP SCHEMA app CASCADE` se mantiene: es lo que borra `app`.
+5. **MENOR aplicados:**
+   - **2:** comentario de `backup.sh` corregido (la subida nueva deja archivos huérfanos; un borrado o reemplazo concurrente puede dejar una fila sin archivo).
+   - **3:** guarda la salida de `pg_restore -l db-app.dump` y exige `EXTENSION - unaccent` con un `case`, sin tuberías.
+   - **4:** un único reintento del tar de Storage si sale con código 1.
+   - **7:** `touched=1` antes de la primera escritura; el `trap` de EXIT avisa por stderr "RESTAURACIÓN INCOMPLETA: recrea el stack vacío o repite con --sobrescribir" si la salida es distinta de 0.
+   - **8:** los dos scripts comparan la etiqueta `com.docker.compose.project` del contenedor `db` con el proyecto pedido (`-p` o `COMPOSE_PROJECT_NAME`, en minúsculas como lo guarda Compose), abortan si difiere y siempre imprimen el proyecto.
+   - **9 (comentario de `restore.sh`):** la copia lleva refresh tokens vigentes y secretos MFA que siguen sirviendo tras restaurar.
+   - **5 (`flock`):** no se hace, como indicaste.
+6. **Evidencia (solo estático):**
+   - `sh -n deploy/scripts/backup.sh` → sin salida
+   - `sh -n deploy/scripts/restore.sh` → sin salida
+   - búsqueda de `\r` en los dos scripts → 0 coincidencias
+   - búsqueda de secretos literales entre comillas en los dos scripts → vacía
+   - `CASCADE` en los scripts → solo `DROP SCHEMA app CASCADE` y el comentario que explica su ausencia en el `TRUNCATE`
+   - `NO EJECUTADO: scripts, Docker, gpg contra un llavero real y pruebas (D-028, D-011)`
+7. **Riesgos nuevos o que cambian:**
+   - La prueba real debe usar un llavero temporal (`GNUPGHOME`): propuesta en el punto 11 de arriba, con casos negativos de cifrado.
+   - El cifrado de prueba de `backup.sh` falla si la clave no tiene subclave de cifrado utilizable; el mensaje lo dice.
+   - `gpg --decrypt` sin `--batch` necesita `gpg-agent` y `pinentry` en una restauración manual con frase de paso. Está pensado para una persona; en el llavero temporal sin frase no pregunta.
+   - `kill -9` no ejecuta ningún `trap` y dejaría el temporal en claro en `TMPDIR`. Se documenta en la cabecera de `backup.sh`. La copia en `TMPDIR` necesita sitio para toda la copia sin cifrar.
+   - `umask 077` y los permisos 700 no existen en NTFS: en Windows la protección del temporal y de `BACKUP_DIR` depende de las ACL de la carpeta (lo documenta el Leader, MENOR-9).
+   - La comprobación del proyecto (MENOR-8) solo puede comparar cuando hay `-p` o `COMPOSE_PROJECT_NAME`; sin ellos imprime el proyecto y no compara.
+   - La comparación de versión de Postgres es de igualdad exacta de `show server_version`: un destino con una imagen más nueva se rechaza a propósito.
+   - El `docker pull` del pre-vuelo necesita red si la imagen de apoyo no está.
+   - El cifrado no firma: quien escriba en el destino de copias y tenga la clave pública podría fabricar una copia. Las sumas detectan corrupción, no autoría. Si importa, añadir `--sign` en una tarea futura.
+8. **Commits:** ninguno — preparado. Mismas rutas y mismo mensaje propuesto: `feat(deploy): copias de seguridad y restauración del stack (T-103)`.
+
+**Apéndice del traspaso de T-103**
+
+1. **Programación en Linux (`cron`).** Como usuario del grupo `docker`, con `crontab -e` (crea antes la carpeta de destino, en un disco distinto del de Docker):
+   ```
+   # copia diaria a las 03:00; si falla, el aviso sale por stderr y cron lo envía por correo (MAILTO)
+   0 3 * * * cd /opt/valmont && BACKUP_GPG_RECIPIENT=copias@ejemplo.pe BACKUP_DIR=/mnt/copias/valmont BACKUP_KEEP_DAYS=14 sh deploy/scripts/backup.sh >> /mnt/copias/valmont/backup.log 2>&1 || echo "La copia de Valmont falló: revisa backup.log" >&2
+   ```
+   `BACKUP_GPG_RECIPIENT` es obligatorio (D-030) y su clave **pública** debe estar en el llavero del usuario de `cron` (`gpg --import clave-publica.asc`; compara la huella con `gpg --fingerprint`). La privada no debe estar en el servidor. En `crontab` el carácter `%` hay que escribirlo como `\%`; aquí no se usa.
+2. **Programación en Windows 11 (Programador de tareas, con Git Bash).** Crea antes la carpeta de destino (por ejemplo `D:\copias-valmont`). Desde un `cmd` o PowerShell, sustituyendo las rutas:
+   ```
+   schtasks /Create /TN "Valmont copia diaria" /SC DAILY /ST 03:00 /TR "\"C:\Program Files\Git\bin\bash.exe\" -lc \"cd /c/valmont && BACKUP_GPG_RECIPIENT=copias@ejemplo.pe BACKUP_DIR=/d/copias-valmont sh deploy/scripts/backup.sh >> /d/copias-valmont/backup.log 2>&1\""
+   ```
+   - Importa antes la clave pública con el mismo usuario de Windows, en Git Bash: `gpg --import clave-publica.asc`.
+   - Docker Desktop necesita una sesión de usuario iniciada (`docs/deploy.md` §D), así que la tarea debe ser "Ejecutar solo cuando el usuario haya iniciado sesión" (lo habitual con `schtasks` sin `/RU`). Comprueba el último resultado en el Programador (0 = correcto).
+   - Con WSL: el programa es `wsl.exe` y los argumentos `-d Ubuntu -- sh -lc "cd /mnt/c/valmont && BACKUP_GPG_RECIPIENT=copias@ejemplo.pe BACKUP_DIR=/mnt/d/copias-valmont sh deploy/scripts/backup.sh >> /mnt/d/copias-valmont/backup.log 2>&1"`, con la integración de WSL de Docker Desktop activada.
+3. **Restaurar (resumen para `docs/deploy.md` C-10).** Stack nuevo sin `migrate.sh` → `sh deploy/scripts/restore.sh [-p proyecto] --confirmo-restaurar <valmont-MARCA.tar.gpg>`, con la clave privada en el llavero (puede pedir su frase de paso) y el `.sha256` junto a la copia. Es destructivo y se niega sobre un destino con datos. Guarda aparte `deploy/.env`: no va en la copia. La suma del `.tar.gpg` se comprueba con `sha256sum -c valmont-MARCA.tar.gpg.sha256` desde su carpeta, sin la clave; es lo que conviene hacer también con la copia semanal que sale del equipo. Una restauración probada antes de abrir al público es lo que cierra RNF12.
+4. **Fuentes consultadas.**
+   - Supabase, "Restore a Platform Project to Self-Hosted" (`supabase.com/docs/guides/self-hosting/restore-from-platform`) y "Restore to a new project" (`…/platform/migrating-within-supabase/backup-restore`): órdenes `supabase db dump` (roles, esquema y datos con `--use-copy --data-only`), restauración con `psql --single-transaction --variable ON_ERROR_STOP=1` y `SET session_replication_role = replica` antes de los datos, el volcado no incluye objetos de Storage ni contraseñas de roles propios, y un `pg_dump` en bruto arrastra internos de Supabase.
+   - No existe una guía oficial de copias para el autohospedado en `self-hosted/v0.8.3`: la página `self-hosting/docker` solo cita los directorios de datos al desinstalar, y `docker/README.md` del tag no dice cómo copiarlos. Lo de arriba es una adaptación para un stack nuevo de la misma versión.
+   - PostgreSQL 17, `pg_dump`: `-e`, `-n`, `-T`, `--data-only` (incluye valores de secuencias) y `-Fc`.
+   - `supabase/storage` v1.81.0, `src/storage/backend/file.ts`: atributos `user.supabase.content-type` y `user.supabase.cache-control`, y valores por defecto `application/octet-stream` y `no-cache` cuando faltan.
 
 ### T-100 — Imagen del backend y stack de despliegue `deploy/`
 - **Objetivo:** con `docker compose -f deploy/compose.yml up -d` arranca Valmont completo en Windows 11 o Linux: Caddy, frontend, backend y un Supabase autohospedado mínimo. Solo Caddy publica puertos. El usuario confirmó la ficha de archivos de M1 el 2026-10-27; construir y arrancar es T-104, con otra ficha.
