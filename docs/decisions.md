@@ -34,6 +34,7 @@
 | D-027 | 2026-10-27 | Inventory: umbral de "Últimas unidades" 2 (configurable), un solo almacén y motivos cerrados con nota | APROBADA |
 | D-028 | 2026-10-27 | Las pruebas las ejecuta solo qa-reviewer; el Leader hace el commit tras su APROBADO | APROBADA |
 | D-029 | 2026-10-27 | Lanzamiento portable (M1): Caddy, frontend en contenedor desde ya y primera prueba en https://localhost | APROBADA |
+| D-030 | 2026-10-27 | Copias de seguridad: disco distinto más copia semanal fuera del equipo, cifradas con GPG | APROBADA |
 
 ---
 
@@ -188,3 +189,16 @@
 - **Puertos configurables (refinamiento de T-104, a petición del usuario):** Caddy publica `HTTP_PORT` y `HTTPS_PORT`, y Mailpit (solo con el perfil `local`) `MAILPIT_PORT`. Por defecto son 80/443/8025, como pide D-029. La primera prueba corrió en `127.0.0.1:18080/18443/18025`, con `PUBLIC_URL=https://localhost:18443`.
 - **Riesgo principal (T-100):** el backend solo acepta tokens ES256 verificados por JWKS (D-018). El Auth autohospedado debe firmar con una clave asimétrica; si la versión oficial no lo permite, se escala antes de tocar D-018.
 - **Tareas:** T-100–T-104 (`docs/agents/tasks.md`).
+
+### D-030 — Copias de seguridad cifradas y fuera del equipo (APROBADA)
+- **Decisiones del usuario (2026-10-27, RNF12 y Ley 29733):**
+  - La copia diaria va a un **disco distinto** del sistema.
+  - **Una vez por semana**, una copia sale del equipo: a otro disco guardado en otro sitio o a una carpeta en la nube que sincroniza el usuario.
+  - Cada copia va **cifrada con GPG** a la clave pública del responsable. La clave privada se guarda **fuera del servidor** y solo hace falta para restaurar.
+- **Refinamiento técnico del Leader:**
+  - El cifrado es obligatorio: `backup.sh` falla si no hay destinatario GPG.
+  - El texto en claro solo vive en un temporal con permisos 700, que se borra también si el proceso se interrumpe.
+  - Cada copia es un único archivo `.gpg`, con su suma SHA-256 del cifrado, para comprobar la integridad sin la clave.
+  - GnuPG ya viene con Git para Windows y con Linux, así que no añade dependencias.
+  - La subida automática a la nube queda para después del lanzamiento.
+- **Tareas:** T-103.
