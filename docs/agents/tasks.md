@@ -28,7 +28,7 @@
 | T-101 | Rol de BD `valmont_app` con privilegios mínimos (migración 0006) | backend, seguridad | backend-dev + qa-reviewer | D-029, RNF02 | paquete abajo | DONE | `b8eb2f9`; APROBADA por qa-reviewer con D-028 (704 + 267, 3 mutantes detectados). Los dos MENOR: uno en la skill de migraciones y otro en T-100 |
 | T-102 | Imagen del frontend: `@astrojs/node` 11.1.9 (D-024), `output: 'static'` con adaptador standalone y `frontend/Dockerfile` | frontend, arquitectura | frontend-dev + qa-reviewer | D-024, D-029 | paquete abajo | DONE | `c8c8ace`; APROBADA por qa-reviewer con D-028. `output: 'static'` confirmado por el Leader (D-024). Sus dos MENOR (`init: true` y `**/.env*`) pasan a T-100 |
 | T-100 | Imagen del backend y stack de despliegue `deploy/`: compose, Caddyfile, Supabase autohospedado fijado, `.env.example` y alta de la contraseña de `valmont_app` | backend, arquitectura | backend-dev + qa-reviewer | D-011, D-018, D-029 | paquete abajo | DONE | `6bc12b2`; APROBADA por qa-reviewer en la ronda 2 (D-028) y probada en ejecución en T-104. `roles.sql` recortado (BLOQUEANTE-1), Caddy solo con h1/h2 y LF en los archivos de Docker. Supabase fijado en el tag `self-hosted/v0.8.3`. ES256 resuelto con `GOTRUE_JWT_KEYS` (Auth v2.197.0); evidencia en el traspaso. Gateway Kong (override oficial, en desuso a favor de Envoy). `CONNECT` no se revoca (decisión en `deploy/scripts/migrate.sh`). Hechos los MENOR de T-101 y T-102 |
-| T-103 | Copias de seguridad: `pg_dump` diario y restauración probada (RNF12) | arquitectura | backend-dev + qa-reviewer | D-029, RNF12 | paquete abajo | IN_REVIEW | `backup.sh` y `restore.sh` preparados sin commit, ronda 2 aplicada (D-030 cifrado GPG y hallazgos de QA); solo `sh -n`, sin ejecutar nada, D-028 y D-011. Falta la prueba real de copia y restauración: ficha Docker del Leader y verificación de qa-reviewer. Supuestos a confirmar en esa prueba: traspaso, puntos 8 y 11, y "ronda 2" punto 7 |
+| T-103 | Copias de seguridad: `pg_dump` diario y restauración probada (RNF12) | arquitectura | backend-dev + qa-reviewer | D-029, RNF12 | paquete abajo | IN_REVIEW | Ronda 3 preparada sin commit: correcciones de la prueba real de qa-reviewer (3 BLOQUEANTES, 1 IMPORTANTE y MENOR). Solo `sh -n`, sin ejecutar nada, D-028 y D-011. Falta que qa-reviewer repita la copia y la restauración con ellas y que el Leader haga el commit. Ver "ronda 3" en el traspaso |
 | T-104 | Prueba de lanzamiento en este Windows 11 (`https://localhost`) y sección C de la ficha verificada | arquitectura | claude-leader + qa-reviewer | D-029 | docs/deploy.md §C | DONE | Ficha confirmada por el usuario (con puertos poco comunes). Puertos configurables en `b7bd71f`. Prueba de humo APROBADA por qa-reviewer: 8 servicios en healthy, ES256 de punta a punta, `valmont_app`, subidas por Caddy, búsqueda y auditoría. §C de la ficha al día. Stack detenido con los volúmenes conservados; quedan datos de prueba (usuario `qa-t104@example.test`, producto `QA-T104-001`) y 3 filas de auditoría imborrables en el volumen local |
 | T-019 | Ajustes de contrato de identity tras la revisión de frontend-lead: `validation_error.details` sin `url` (solo `loc`, `type`, `msg`) y `Money.currency` obligatorio en el OpenAPI | backend | backend-dev | RF01.06 | docs/modules/identity/SPEC.md §7 | DONE | Hecho con T-027: `Money-Output` exige `amount` y `currency`; `details` = `loc`, `type`, `msg` |
 | T-018 | Endurecimiento antes del lanzamiento: limpieza periódica de archivos huérfanos en Storage (T-029); JWKS no-JSON → 503 con aviso; no registrar el `DETAIL` de PostgreSQL (solo `sqlstate` y restricción); rechazar controles bidireccionales y nombres invisibles; límites de longitud documentados en el OpenAPI. Despliegue (MENOR de T-104): cabeceras de seguridad en Caddy (`X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors`; HSTS con dominio real) sin exponer `Server`/`X-Kong-*`; error 502 de `/api/*` con el formato común; access log duplicado y healthchecks en los logs del backend; comentarios desfasados en `deploy/compose.yml:99` y `generate-env.sh`; `--forwarded-allow-ips` limitado a Caddy si se usa la IP del cliente | backend, seguridad | backend-dev + qa-reviewer | RNF02, RNF10 | docs/modules/identity/STATUS.md | BACKLOG | Hallazgos menores de qa-reviewer en T-016 y T-104; antes de abrir al público |
@@ -81,7 +81,7 @@ Estados válidos: `BACKLOG` · `SPECIFICATION` · `READY` · `IN_PROGRESS` · `B
 2. **Cambios:**
    - `deploy/scripts/backup.sh` (formato de la ronda 2, D-030): crea en `${BACKUP_DIR:-deploy/backups}` el archivo cifrado `valmont-<AAAAMMDDTHHMMSSZ>.tar.gpg` y `valmont-<marca>.tar.gpg.sha256`. Dentro del tar cifrado van:
      - `db-app.dump`: `pg_dump -Fc -n app -e unaccent` (esquema `app` completo y la extensión que crea la migración 0004);
-     - `db-supabase-data.dump`: `pg_dump -Fc --data-only -n auth -n storage`, sin `auth.schema_migrations` ni `storage.migrations`;
+     - `db-supabase-data.dump`: `pg_dump -Fc --data-only -t 'auth.*' -t storage.buckets -t storage.objects -T auth.schema_migrations` (lista blanca desde la ronda 3);
      - `storage-objects.tar.gz`: el volumen `storage-data` con GNU tar y atributos extendidos;
      - `MANIFEST` (fecha, commit, versión de Postgres, revisión de Alembic) y `SHA256SUMS`.
    - Lo cifrado se escribe en archivos ocultos `.valmont-*.partial` y se renombra al terminar. Valida con `pg_restore -l` y `gzip -t`. Retención con `find -mindepth 1 -mtime +BACKUP_KEEP_DAYS` (14 por defecto) sobre los `.tar.gpg`, sus `.sha256` y los `.partial`, solo tras una copia correcta. Admite `-p proyecto`. `set -eu`, sin pipelines que enmascaren fallos y sin leer ni imprimir secretos (usa el `PGPASSWORD` que ya tiene el contenedor `db`).
@@ -109,7 +109,7 @@ Estados válidos: `BACKLOG` · `SPECIFICATION` · `READY` · `IN_PROGRESS` · `B
    - **Acoplamiento a `unaccent`.** Es la única extensión que crean las migraciones (0004). Si una migración futura crea otra, hay que añadir su `-e` en `backup.sh` (hay un comentario `shortcut:` en el código). Detección: la restauración falla en alto.
    - **Destino "vacío".** Se supone que Auth y Storage no insertan filas propias en `auth.*` ni `storage.*` al arrancar (aparte de sus tablas de migraciones, que se excluyen). Si lo hicieran, la carga fallaría por clave duplicada y se revertiría entera.
    - **tar con xattrs.** Ni la imagen de `db` ni la de `storage` garantizan GNU tar (no lo comprobé en ninguna), de ahí el contenedor Debian. Si el sistema de archivos del volumen no admite atributos `user.*`, `tar` falla y el script sale con error. Prueba clave: `Content-Type: image/…` de una imagen restaurada.
-   - **`--sobrescribir`** borra `app` con `DROP SCHEMA … CASCADE` (incluida `audit_log`) y hace `TRUNCATE` de `auth` y `storage`; si `postgres` no tiene `TRUNCATE` sobre alguna tabla, falla antes de cargar. Los archivos que ya hubiera en el volumen no se borran.
+   - **`--sobrescribir`** borra `app` con `DROP SCHEMA … CASCADE` (incluida `audit_log`) y hace `TRUNCATE` de `auth` y `storage` (desde la ronda 3, solo de las tablas donde `postgres` tiene ese privilegio, sin `RESTART IDENTITY`). Los archivos que ya hubiera en el volumen no se borran.
    - **Consistencia.** Los dos volcados no comparten instantánea. `app.profiles` no tiene clave foránea a `auth.users` (migración 0002), así que un registro entre ambos volcados solo deja un perfil por crear (se crea en el primer `GET /identity/me`).
    - **`tar` de Storage:** si un archivo cambia mientras se lee (código 1 de GNU tar), reintenta una vez y, si vuelve a fallar, aborta; se prefiere repetir la copia antes que aceptar un archivo a medias.
 9. **Preguntas que requieren decisión:** ninguna abierta. El destino en otro disco, la copia semanal fuera del equipo y el cifrado quedaron decididos en D-030; los scripts solo escriben en una ruta local, y la copia semanal fuera del equipo la hace el operador con el `.tar.gpg`.
@@ -166,6 +166,39 @@ Parte de lo preparado en la ronda 1 y de la revisión estática de qa-reviewer (
    - El `docker pull` del pre-vuelo necesita red si la imagen de apoyo no está.
    - El cifrado no firma: quien escriba en el destino de copias y tenga la clave pública podría fabricar una copia. Las sumas detectan corrupción, no autoría. Si importa, añadir `--sign` en una tarea futura.
 8. **Commits:** ninguno — preparado. Mismas rutas y mismo mensaje propuesto: `feat(deploy): copias de seguridad y restauración del stack (T-103)`.
+
+#### Traspaso T-103, ronda 3 — 2026-10-27 — backend-dev
+Parte de `5d0095f` (árbol limpio). Aplica tal cual los 3 BLOQUEANTES, el IMPORTANTE y los MENOR que qa-reviewer encontró al ejecutar con Docker. Prevalece sobre las rondas 1 y 2 en lo que las contradice.
+1. **Estado final:** IN_REVIEW. Nada se ha ejecutado: ni Docker, ni los scripts, ni `gpg`.
+2. **BLOQUEANTE-1** (`restore.sh`): el `pg_restore` de `app` falla por las ACL de `unaccent` (`grant options cannot be granted back to your own grantor`). Ahora vuelca la lista con `pg_restore -l > app.all`, quita las líneas ` ACL extensions ` con `grep -v > app.list` y restaura con `-L app.list`. Tres comandos, sin tuberías. La ACL de `app.f_unaccent` se conserva.
+3. **BLOQUEANTE-2** (`backup.sh`): lista blanca `pg_dump -Fc --data-only -t 'auth.*' -t storage.buckets -t storage.objects -T auth.schema_migrations`, con el comentario de por qué (Valmont solo usa `buckets` y `objects`; si eso cambia, ampliar la lista). La comprobación del contenido exige `TABLE DATA auth users`, `storage buckets` y `storage objects`, con un `case`.
+4. **BLOQUEANTE-3** (`restore.sh`, `--sobrescribir`):
+   - Sin `RESTART IDENTITY`: las secuencias las fija el `setval` de la copia.
+   - El `WHERE` del `TRUNCATE` añade `has_table_privilege(format('%I.%I', schemaname, tablename), 'TRUNCATE')`.
+   - Siguen en la lista `s3_multipart_*` e `iceberg_*`, por su FK a `buckets`.
+5. **IMPORTANTE-1** (`backup.sh`): `git rev-parse --short HEAD` sin `-C` (con `MSYS_NO_PATHCONV=1` fallaba y el `MANIFEST` decía siempre `commit=desconocido`).
+6. **MENOR de la ronda 3:**
+   - **1:** si falla el propio borrado de `--sobrescribir`, el aviso dice que se revirtió y que el destino no cambió, sin recomendar `--sobrescribir`. Variable `phase=borrado`.
+   - **2:** la carga de datos usa `psql -q -o /dev/null`; los errores siguen por stderr.
+   - **3:** `backup.sh` guarda en el `MANIFEST` una línea `imagen=` por cada imagen de `docker compose config --images` (solo nombres) y aborta si la lista sale vacía. `restore.sh` compara con las del destino y, si difieren, imprime un aviso con las dos listas y sigue.
+7. **MENOR de la ronda 2:**
+   - **A:** `backup.sh` escribe primero la suma, con el nombre final dentro, y renombra el `.tar.gpg` el último. Todo `valmont-*.tar.gpg` visible ya tiene su `.sha256`.
+   - **B:** tras el `tar -xf`, `restore.sh` exige que los cinco miembros sean archivos regulares y no enlaces simbólicos.
+   - **D:** `restore.sh` solo continúa si `used` es `f`; cualquier otro valor cuenta como destino con datos. Se aplica en el rechazo y en la rama del borrado.
+   - **E:** `backup.sh` aborta si el temporal cae dentro de `BACKUP_DIR`. Añadí lo mismo en `restore.sh` respecto a la carpeta de la copia, por el mismo motivo.
+8. **Evidencia (solo estático):**
+   - `sh -n deploy/scripts/backup.sh` → sin salida
+   - `sh -n deploy/scripts/restore.sh` → sin salida
+   - búsqueda de `\r` en los dos scripts → 0 coincidencias
+   - búsqueda de secretos literales entre comillas → vacía
+   - `RESTART IDENTITY`, `git -C`, `-n storage` y `= t` → solo en comentarios y en la comprobación `ready` (correcta)
+   - `NO EJECUTADO: scripts, Docker, gpg y pruebas (D-028, D-011)`
+9. **Riesgos:**
+   - La lista blanca deja fuera de la copia cualquier tabla de `storage` que no sea `buckets` u `objects`. Hoy es correcto para `STORAGE_BACKEND=file` sin S3.
+   - `has_table_privilege` evita el `permission denied`, pero deja sin vaciar las tablas de vectores. Si algún día tuvieran datos, `--sobrescribir` no los borraría.
+   - La comparación de imágenes es textual y usa `docker compose config --images` sin `--profile`: no incluye Mailpit en ninguno de los dos lados.
+   - El filtro ` ACL extensions ` depende del formato de `pg_restore -l`. QA lo comprobó con la versión de la imagen de `db`.
+10. **Commits:** ninguno — preparado. Mismas rutas y mismo mensaje propuesto que en la ronda 1, o uno de seguimiento si el Leader prefiere un commit aparte: `fix(deploy): corrige la restauración tras la prueba real (T-103)`.
 
 **Apéndice del traspaso de T-103**
 

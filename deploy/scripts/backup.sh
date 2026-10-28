@@ -25,8 +25,10 @@
 # `supabase db dump`; storage-api v1.81.0, src/storage/backend/file.ts):
 #   - app: esquema completo (tablas, datos y permisos de valmont_app); lo crean las migraciones de Valmont.
 #   - auth y storage: solo los datos. Sus tablas las crean Auth y Storage al arrancar, con sus propietarios
-#     y permisos, y `supabase db dump` hace igual. Se excluyen auth.schema_migrations y storage.migrations
-#     (cada servicio las rellena al arrancar).
+#     y permisos, y `supabase db dump` hace igual. De auth, todas las tablas salvo schema_migrations; de
+#     storage, solo buckets y objects (no migrations, que el servicio rellena al arrancar, ni las tablas que
+#     Valmont no usa y donde postgres no puede escribir).
+#   - Las ACL de la extensión unaccent (de supabase_admin) vienen en db-app.dump pero restore.sh las omite.
 #   - Sin roles: los reservados los crea la imagen (con POSTGRES_PASSWORD) y valmont_app, la migración 0006
 #     más scripts/migrate.sh. Volcar roles arrastraría hashes y roles internos que fallan al restaurar.
 #   - Archivos de Storage: el volcado SQL no los lleva. Storage guarda content-type y cache-control como
@@ -109,6 +111,10 @@ trap cleanup EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
+# El texto en claro nunca debe quedar junto a las copias: si TMPDIR apunta dentro de BACKUP_DIR, aborta.
+case $work/ in
+  "${out_root%/}"/*) echo "El temporal en claro ($work) cae dentro de BACKUP_DIR: cambia TMPDIR." >&2; exit 1 ;;
+esac
 p=$work/payload
 mkdir "$p"
 
@@ -123,10 +129,19 @@ case $toc in
 esac
 
 echo "2/5 Usuarios (auth) y metadatos de Storage (storage)..."
-db pg_dump -h localhost -U postgres -d postgres -Fc --data-only -n auth -n storage \
-  -T auth.schema_migrations -T storage.migrations >"$p/db-supabase-data.dump"
-# Comprueba que el archivo es legible (lista su contenido sin restaurar nada).
-compose exec -T db pg_restore -l <"$p/db-supabase-data.dump" >/dev/null
+# Lista blanca, no -n storage: postgres no puede escribir en storage.buckets_vectors ni en
+# storage.vector_indexes, y la carga fallaría. Valmont solo usa buckets y objects (STORAGE_BACKEND=file, sin S3,
+# sin transformaciones y sin vectores). shortcut: si eso cambia, amplía esta lista (y la de la comprobación).
+db pg_dump -h localhost -U postgres -d postgres -Fc --data-only \
+  -t 'auth.*' -t storage.buckets -t storage.objects -T auth.schema_migrations >"$p/db-supabase-data.dump"
+# Comprueba que el archivo es legible y que lleva lo esencial (lista su contenido sin restaurar nada).
+toc=$(compose exec -T db pg_restore -l <"$p/db-supabase-data.dump")
+for t in "TABLE DATA auth users" "TABLE DATA storage buckets" "TABLE DATA storage objects"; do
+  case $toc in
+    *"$t"*) ;;
+    *) echo "db-supabase-data.dump no incluye '$t': revisa la lista de tablas de backup.sh." >&2; exit 1 ;;
+  esac
+done
 
 echo "3/5 Archivos de Storage..."
 tar_storage() {
@@ -147,12 +162,17 @@ gzip -t "$p/storage-objects.tar.gz"
 echo "4/5 MANIFEST y sumas internas..."
 pg_version=$(db psql -h localhost -U postgres -d postgres -qAt -c 'show server_version')
 alembic_rev=$(db psql -h localhost -U postgres -d postgres -qAt -c 'select version_num from app.alembic_version')
-commit=$(git -C "$here" rev-parse --short HEAD 2>/dev/null || echo desconocido)
+# Sin -C: con MSYS_NO_PATHCONV=1 git -C "$here" falla en Git Bash, y ya estamos dentro de deploy/.
+commit=$(git rev-parse --short HEAD 2>/dev/null || echo desconocido)
+# Solo nombres de imagen (nada de secretos): restore.sh avisa si el destino usa otras.
+images=$(compose config --images)
+[ -n "$images" ] || { echo "No pude listar las imágenes del stack (docker compose config --images)." >&2; exit 1; }
 {
   echo "fecha_utc=$stamp"
   echo "commit=$commit"
   echo "postgres=$pg_version"
   echo "alembic=$alembic_rev"
+  printf 'imagen=%s\n' $images
 } >"$p/MANIFEST"
 (cd "$p" && sha256sum db-app.dump db-supabase-data.dump storage-objects.tar.gz MANIFEST >SHA256SUMS)
 tar -cf "$work/valmont.tar" -C "$p" db-app.dump db-supabase-data.dump storage-objects.tar.gz MANIFEST SHA256SUMS
@@ -161,9 +181,12 @@ rm -rf "$p"
 echo "5/5 Cifrado, suma del archivo cifrado y retención..."
 gpg --batch --yes --trust-model always --encrypt --recipient "$recipient" --output "$part_gpg" "$work/valmont.tar"
 [ -s "$part_gpg" ] || { echo "gpg no produjo el archivo cifrado." >&2; exit 1; }
-mv "$part_gpg" "$final"
-(cd "$out_root" && sha256sum "$name.tar.gpg" >"$part_sum")
+# Primero la suma, con el nombre final dentro, y el .tar.gpg el último: todo valmont-*.tar.gpg visible tiene ya
+# su .sha256, y una interrupción solo puede dejar una suma huérfana (la retención la limpia).
+sum=$(sha256sum <"$part_gpg")
+printf '%s  %s\n' "${sum%% *}" "$name.tar.gpg" >"$part_sum"
 mv "$part_sum" "$final.sha256"
+mv "$part_gpg" "$final"
 
 # Solo tras una copia correcta, para que una racha de fallos no vaya borrando las copias buenas.
 find "$out_root" -mindepth 1 -maxdepth 1 -type f \
