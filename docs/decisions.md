@@ -201,4 +201,8 @@
   - Cada copia es un único archivo `.gpg`, con su suma SHA-256 del cifrado, para comprobar la integridad sin la clave.
   - GnuPG ya viene con Git para Windows y con Linux, así que no añade dependencias.
   - La subida automática a la nube queda para después del lanzamiento.
+- **Refinamientos de la prueba real (T-103, 2026-10-28):**
+  - Los datos de Supabase se copian con **lista blanca**: todo `auth` (salvo `schema_migrations`), más `storage.buckets` y `storage.objects`. El rol `postgres` no puede escribir en las tablas vectoriales de Storage, y Valmont no las usa. Si se activan S3, transformaciones o vectores, hay que ampliar la lista.
+  - Al restaurar se omiten las ACL de las funciones de `unaccent` en el esquema `extensions`, que son de `supabase_admin`. La ACL de `app.f_unaccent` se conserva.
+  - La copia solo se restaura sobre las mismas imágenes de Supabase. El `MANIFEST` las registra y `restore.sh` avisa si difieren.
 - **Tareas:** T-103.

@@ -55,7 +55,7 @@ navegador ──HTTPS──► Caddy (D-029; el único que publica puertos)
 | 7 | Rol de BD de la app | El backend se conecta como `valmont_app` (T-101): sin poder de esquema, y solo `SELECT, INSERT` en `audit_log` y `stock_movements`. Para comprobarlo: `docker compose -f deploy/compose.yml exec -T db psql -U postgres -d postgres -c "select usename, count(*) from pg_stat_activity group by 1;"`. | ✅ |
 | 8 | Primer administrador | El usuario se registra en la app y llama una vez a `GET /api/v1/identity/me`. Después, como no hay Studio: `docker compose -f deploy/compose.yml exec -T db psql -U postgres -d postgres -c "update app.profiles set role = 'admin' where user_id = '<uuid>';"` | ✅ |
 | 9 | Comprobar | 1. `docker compose -f deploy/compose.yml ps` → todos en `healthy`.<br>2. `https://<sitio>/` → 200.<br>3. `/api/v1/catalog/products` → 200.<br>4. `/auth/v1/.well-known/jwks.json` → una clave EC.<br>5. Registro → correo (Mailpit en `http://127.0.0.1:<MAILPIT_PORT>`) → login → `/api/v1/identity/me` → 200.<br>Caddy no expone `/health`, a propósito. | ✅ |
-| 10 | Copias de seguridad | `pg_dump` diario a un disco distinto (Linux: `cron`; Windows: Programador de tareas) y una restauración probada antes de abrir al público (RNF12). | 🕒 T-103 |
+| 10 | Copias de seguridad | Copia diaria cifrada con GPG en un disco distinto, más una copia semanal fuera del equipo (D-030), y restauración probada. Ver «Copias de seguridad y restauración», abajo. | ✅ 2026-10-28 |
 | 11 | Actualizar | `git pull` → `docker compose -f deploy/compose.yml up -d --build --wait` → `sh deploy/scripts/migrate.sh`. | 🧭 |
 | 12 | Proxy y subida de imágenes | Caddy conserva `Content-Length` (el backend rechaza con 413 los cuerpos sin ella, T-029). Verificado: HTTP/1.1 y HTTP/2 con la cabecera → 201; `chunked` → 413; exactamente 5 MiB → 201; 5 MiB + 1 → 413. | ✅ |
 | 13 | Rotar o revocar claves de firma de Auth | Tras revocar una clave, reinicia el backend: cachea las claves públicas por `kid` sin caducidad (D-018). | 🧭 |
@@ -65,6 +65,71 @@ navegador ──HTTPS──► Caddy (D-029; el único que publica puertos)
 - El certificado de `localhost` lo emite la CA interna de Caddy. El navegador avisa: acepta el aviso o importa la raíz desde el volumen `valmont_caddy-data`.
 - Con puertos no estándar, entra directamente por `https://localhost:<HTTPS_PORT>`. La redirección desde HTTP apunta al 443 sin el puerto; en producción, con 80/443, es correcta.
 - Las filas de `app.audit_log` no se pueden borrar ni siquiera en pruebas (triggers de solo inserción). Un stack de prueba limpio exige recrear el volumen `valmont_db-data` (puerta D-011).
+
+### Copias de seguridad y restauración (D-030, T-103)
+
+**Probado el 2026-10-28** en este Windows 11:
+- copia cifrada del stack principal;
+- restauración en un stack nuevo y vacío, idéntica al origen: conteos, permisos, usuarios, imagen byte a byte y `audit_log`;
+- negativa a repetir la restauración;
+- fallo forzado, seguido de `--sobrescribir`.
+
+**Una vez, en el servidor:**
+1. Genera tu par de claves GPG **en tu equipo**, no en el servidor, y guarda la privada fuera del servidor.
+2. Importa en el servidor **solo la clave pública**: `gpg --import publica.asc`.
+3. Anota su **huella completa de 40 caracteres** con `gpg --fingerprint`. Es el valor de `BACKUP_GPG_RECIPIENT`; un nombre o un correo podría coincidir con otra clave.
+4. Crea la carpeta de copias **en un disco distinto del sistema**. En Windows, restringe sus permisos, porque en NTFS los de Unix no protegen nada:
+   ```
+   icacls D:\copias-valmont /inheritance:r /grant:r "%USERNAME%:(OI)(CI)F"
+   ```
+
+**Copia diaria:**
+```
+BACKUP_GPG_RECIPIENT=<huella de 40 hex> BACKUP_DIR=/d/copias-valmont BACKUP_KEEP_DAYS=14 sh deploy/scripts/backup.sh
+```
+- Cada copia son dos archivos: `valmont-<fecha>.tar.gpg` (cifrado) y `valmont-<fecha>.tar.gpg.sha256`.
+- Se comprueban **sin la clave** con `sha256sum -c valmont-<fecha>.tar.gpg.sha256`.
+- Dentro van el esquema `app`, los datos de `auth`, los de `storage.buckets` y `storage.objects`, y los archivos de Storage.
+- **`deploy/.env` no va en la copia:** guárdalo aparte y cifrado.
+
+Para programarla:
+- **Linux (`crontab -e`):**
+  ```
+  0 3 * * * cd /opt/valmont && BACKUP_GPG_RECIPIENT=<huella> BACKUP_DIR=/mnt/copias/valmont sh deploy/scripts/backup.sh >> /mnt/copias/valmont/backup.log 2>&1
+  ```
+- **Windows (Programador de tareas, con Git Bash):**
+  ```
+  schtasks /Create /TN "Valmont copia diaria" /SC DAILY /ST 03:00 /TR "\"C:\Program Files\Git\bin\bash.exe\" -lc \"cd /c/valmont && BACKUP_GPG_RECIPIENT=<huella> BACKUP_DIR=/d/copias-valmont sh deploy/scripts/backup.sh >> /d/copias-valmont/backup.log 2>&1\""
+  ```
+  Docker Desktop necesita la sesión iniciada (§D).
+
+**Copia semanal fuera del equipo (D-030):** copia el último `.tar.gpg` **y** su `.sha256` a un disco que se guarda en otro sitio, o a tu carpeta sincronizada en la nube. Después comprueba la suma en el destino. Como el archivo va cifrado, puede salir del equipo.
+
+**Restaurar:**
+1. Levanta un stack **nuevo y vacío** con las **mismas imágenes** que la copia (el `MANIFEST` las registra) y **sin** `migrate.sh`. Exporta `HTTP_PORT`, `HTTPS_PORT`, `MAILPIT_PORT` y `PUBLIC_URL` iguales a los del `up`, en **todos** los comandos, también en `restore.sh`.
+2. Con la clave **privada** en el llavero y el `.sha256` junto a la copia:
+   ```
+   sh deploy/scripts/restore.sh -p <proyecto> --confirmo-restaurar /ruta/valmont-<fecha>.tar.gpg
+   ```
+   - Sin `--confirmo-restaurar` no hace nada.
+   - Se niega si el destino ya tiene datos.
+   - Antes de escribir comprueba las sumas, la clave, los permisos, la versión de Postgres y que los archivos sean regulares.
+3. Comprueba que:
+   - se puede iniciar sesión (si no conoces la contraseña, por recuperación);
+   - un producto muestra su imagen `image/*`;
+   - `app.audit_log` conserva sus filas;
+   - el backend se conecta como `valmont_app`;
+   - la búsqueda con tildes funciona.
+
+**Si algo falla:**
+- **"RESTAURACIÓN INCOMPLETA":** el destino quedó a medias. Recrea el stack vacío (puerta D-011) o repite con `--sobrescribir`. Ten en cuenta que `--sobrescribir` borra `app`, incluido `audit_log`, y los datos de `auth` y `storage`.
+- **"FALLÓ EL BORRADO":** se revirtió y el destino no cambió. Corrige lo que indica el error, por ejemplo una tabla propia con una clave foránea a `auth.users`.
+- **Aviso de imágenes:** el destino usa otras imágenes. No es un fallo si solo difieren las `valmont-*` (pasa siempre con otro nombre de proyecto). Si difieren las de Supabase, restaura sobre las mismas versiones.
+
+**Advertencias:**
+- La copia va cifrada pero **no firmada**.
+- Contiene hashes de contraseñas, secretos MFA y refresh tokens vigentes, que siguen sirviendo después de restaurar.
+- Si cambian las imágenes de Supabase, repite la prueba de restauración.
 
 ## D. Windows 11 frente a Linux para el lanzamiento
 
@@ -80,6 +145,5 @@ navegador ──HTTPS──► Caddy (D-029; el único que publica puertos)
 - **Funciona hoy:** sección A completa y sección C verificada de punta a punta en Windows 11 (T-104, 2026-10-27): stack con Caddy, frontend, backend con `valmont_app` y Supabase autohospedado; tokens ES256; subida de imágenes; disponibilidad y búsqueda.
 - **Pendiente:**
   - sección B (verificar en un equipo Linux);
-  - C-10, las copias de seguridad (T-103);
   - el endurecimiento antes de abrir al público (T-018): cabeceras de seguridad y error 502 con el formato común, entre otros.
 - **Puertos de Supabase en desarrollo:** Docker los publica en todas las interfaces (`0.0.0.0`). En Windows 11 se bloquean desde la red con `New-NetFirewallRule -DisplayName 'Valmont Supabase dev' -Direction Inbound -Protocol TCP -LocalPort 54321-54324 -Action Block` (como administrador; aplicada en el equipo de desarrollo el 2026-10-27). En Linux, el equivalente con `ufw` o `nftables`.

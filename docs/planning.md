@@ -6,7 +6,10 @@
 
 ## Estado actual (2026-10-26)
 
-- **Fase actual:** Fase 1 (backend y base de datos) completada e integrada en `main` el 2026-10-27 (`a381dee`). En curso: Fase 2 en la rama `worktree-fase2-audit-catalog`. audit y catalog están hechos; los dos están en `main` (`527ec37`) salvo T-030, que está hecha (`cf22744`) pero aún no integrada. inventory está hecho (T-040–T-044, último commit `08cefce`) y espera la autorización para integrarse.
+- **Fase actual:** Fase 1 (backend y base de datos) completada e integrada en `main` el 2026-10-27 (`a381dee`). En curso: Fase 2 en la rama `worktree-fase2-audit-catalog`.
+  - **En `main` (`5135935`):** audit, catalog salvo T-030, e inventory (T-040–T-044).
+  - **Hechos en la rama, sin integrar:** T-030 (disponibilidad en catalog) y el **hito M1, completo**: rol `valmont_app` (T-101), imágenes y stack de despliegue con Caddy y Supabase autohospedado (T-100, T-102), lanzamiento verificado en Windows 11 (T-104) y copias cifradas con restauración probada (T-103, D-030).
+  - **Siguiente:** promotions, y T-018 (endurecimiento) antes de abrir al público.
 - **Implementado y probado:** backend con configuración por entorno, errores comunes, `X-Request-ID`, capa de datos (SQLAlchemy + Alembic, esquema `app`, migraciones 0001–0002) y autenticación (Supabase Auth + JWKS ES256) con el perfil de identity: 133 pruebas unitarias + 12 de integración + E2E con Supabase real. Supabase local en Docker Desktop. Frontend: esqueleto (`astro check` y build).
 - **Fase 2 (al 2026-10-27):**
   - audit: registro de solo inserción.
