@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, pool, text
 # Punto único de registro de modelos: importa aquí el adapters/persistence de cada módulo
 # para que autogenerate vea sus tablas, p. ej.:
 import valmont.modules.audit.adapters.persistence  # noqa: F401
+import valmont.modules.cart.adapters.persistence  # noqa: F401
 import valmont.modules.catalog.adapters.persistence  # noqa: F401
 import valmont.modules.identity.adapters.persistence  # noqa: F401
 import valmont.modules.inventory.adapters.persistence  # noqa: F401

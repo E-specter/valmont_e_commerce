@@ -155,6 +155,12 @@ Rutas disjuntas (D-033): quien implementa escribe solo `backend/src/**` y las mi
 
 ## Traspasos
 
+#### Traspaso T-056 — 2026-11-26 — backend-dev
+1. Estado final: IN_REVIEW. Migración 0008, dominio, puerto y `SqlCartRepository` implementados según las firmas del paquete.
+2. Archivos: `migrations/versions/0008_cart.py`, `migrations/env.py` (1 línea), `modules/cart/{__init__,domain,application}.py`, `modules/cart/adapters/{__init__,persistence}.py`.
+3. NO EJECUTADO: pruebas, `alembic upgrade/check/downgrade` (D-028, D-033). Estático: `ruff format --check` y `ruff check` limpios.
+4. Para QA: `backend/tests/test_app_role.py` debe incluir `carts` y `cart_items` con CRUD (la migración concede SELECT, INSERT, UPDATE, DELETE a `valmont_app`). `save` hace upsert (`ON CONFLICT (cart_id, product_id)`), borra los ausentes y toca `carts.updated_at`; `InvalidReference("product_id")` si salta `fk_cart_items_product_id_products`. `Cart.add` con cantidad < 1 lanza `QuantityLimit`; un artículo nuevo con cantidad > 5 también.
+
 #### Traspaso T-055 — 2026-11-26 — module-coordinator
 1. Estado final: IN_REVIEW. SPEC y STATUS de cart escritos; sin código ni pruebas.
 2. Cambios: `SPEC.md` (alcance, 7 casos de uso, reglas R1–R15, modelo, migración 0008, contrato API de 4 rutas, puerto para orders, 16 criterios, plan de pruebas, 7 preguntas) y este `STATUS.md` (T-056…T-060 con firmas, pruebas y revisión manual).

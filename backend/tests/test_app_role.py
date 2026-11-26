@@ -15,6 +15,8 @@ CRUD = {"SELECT", "INSERT", "UPDATE", "DELETE"}
 EXPECTED_TABLES = {
     "alembic_version": set(),  # solo el rol de migraciones
     "audit_log": {"SELECT", "INSERT"},  # solo inserción (RF14.02)
+    "cart_items": CRUD,
+    "carts": CRUD,
     "case_materials": CRUD,
     "categories": CRUD,
     "inventory_items": CRUD,
@@ -208,6 +210,33 @@ def test_app_role_manages_promotions_and_reads_their_effective_price(app_session
     )
     app_session.execute(text("DELETE FROM app.promotions WHERE id = :promotion"), params)
     assert app_session.scalar(price, params) == 100
+
+
+def test_app_role_manages_carts_and_their_items(app_session: Session) -> None:
+    # T-056: CRUD sobre carts y cart_items; los topes de R3 son del dominio, no de los permisos.
+    product = insert_product(app_session)
+    params = {"product": product, "user": uuid4(), "cart": uuid4()}
+    for statement in (
+        "INSERT INTO app.profiles (user_id) VALUES (:user)",
+        "INSERT INTO app.carts (id, user_id) VALUES (:cart, :user)",
+        "INSERT INTO app.cart_items (id, cart_id, product_id, quantity)"
+        " VALUES (gen_random_uuid(), :cart, :product, 2)",
+        "UPDATE app.cart_items SET quantity = 3, selected = false WHERE cart_id = :cart",
+        "UPDATE app.carts SET updated_at = now() WHERE id = :cart",
+    ):
+        app_session.execute(text(statement), params)
+    quantity = text("SELECT quantity FROM app.cart_items WHERE cart_id = :cart")
+
+    assert app_session.scalar(quantity, params) == 3
+    app_session.execute(text("DELETE FROM app.cart_items WHERE cart_id = :cart"), params)
+    app_session.execute(text("DELETE FROM app.carts WHERE id = :cart"), params)
+    assert app_session.scalar(quantity, params) is None
+
+
+@pytest.mark.parametrize("statement", ["TRUNCATE app.carts", "TRUNCATE app.cart_items"])
+def test_app_role_cannot_truncate_the_cart_tables(app_session: Session, statement: str) -> None:
+    with pytest.raises(DBAPIError, match="permission denied"), app_session.begin_nested():
+        app_session.execute(text(statement))
 
 
 @pytest.mark.parametrize(
