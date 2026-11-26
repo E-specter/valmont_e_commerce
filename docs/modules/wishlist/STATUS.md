@@ -7,8 +7,8 @@
 |---|---|---|---|---|
 | T-065 | SPEC de wishlist | module-coordinator | RF10, RN-03, D-037, D-038 | IN_REVIEW (SPEC propuesta; falta aprobación) |
 | T-066 | Lector compartido de productos (extraído de cart), migración `0009`, dominio y repositorio de la lista | backend-dev + qa-reviewer | T-065 aprobada; lector compartido registrado en `modules.md` §3; T-016, T-026, T-057 integradas | DONE (QA APROBADO en la ronda 2: 1001 + 774) |
-| T-067 | Lectura de la lista (`GetWishlist`, lector de producto) y `GET /wishlist` | backend-dev + qa-reviewer | T-066, T-044 (inventory), T-051 (promotions) | READY |
-| T-068 | Agregar y retirar (`POST` y `DELETE`) | backend-dev + qa-reviewer | T-067 | BACKLOG |
+| T-067 | Lectura de la lista (`GetWishlist`, lector de producto) y `GET /wishlist` | backend-dev + qa-reviewer | T-066, T-044 (inventory), T-051 (promotions) | DONE (QA APROBADO: 1081 + 856) |
+| T-068 | Agregar y retirar (`POST` y `DELETE`) | backend-dev + qa-reviewer | T-067 | DONE (con T-067, misma entrega) |
 | T-069 | Pantalla de deseos (account) y cliente de API | frontend-dev + qa-reviewer | T-067, T-068, T-111 (VIEWS.md y Figma) | BACKLOG (no READY: sin diseño) |
 
 IDs reservados del módulo: T-065–T-069; todos en uso (si hace falta un `fix`, se pide rango al Leader). Orden: T-066 → T-067 → T-068 → T-069. T-067 y T-068 tocan los mismos archivos (`application.py`, `adapters/http.py`): van **en serie**.

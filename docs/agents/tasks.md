@@ -53,7 +53,7 @@ Despliegue (MENOR de T-104): cabeceras de seguridad en Caddy (`X-Content-Type-Op
 | T-055 | SPEC de cart | requisitos, backend | module-coordinator (revisa claude-leader) | RF03, D-038 | docs/modules/cart/SPEC.md | DONE | Preguntas resueltas en D-038; excepción (6); T-056 READY |
 | T-056…T-060 | Implementación de cart (esquema, lectura, operaciones, puerto para orders, pantalla) | backend, frontend | backend-dev + qa-reviewer; frontend-dev en T-060 | ver STATUS de cart | docs/modules/cart/STATUS.md | IN_PROGRESS | Backend completo (T-056…T-059 DONE). T-060 espera a T-111 (Figma) |
 | T-065 | SPEC de wishlist | requisitos, backend | module-coordinator (revisa claude-leader) | RF10, D-039 | docs/modules/wishlist/SPEC.md | DONE | SPEC aprobada (D-039); T-066 READY |
-| T-066…T-069 | Implementación de wishlist (esquema y lectura compartida, GET, POST/DELETE, pantalla) | backend, frontend | backend-dev + qa-reviewer; frontend-dev en T-069 | ver STATUS de wishlist | docs/modules/wishlist/STATUS.md | IN_PROGRESS | T-069 espera a T-111 (Figma) |
+| T-066…T-069 | Implementación de wishlist (esquema y lectura compartida, GET, POST/DELETE, pantalla) | backend, frontend | backend-dev + qa-reviewer; frontend-dev en T-069 | ver STATUS de wishlist | docs/modules/wishlist/STATUS.md | IN_PROGRESS | Backend completo (T-066…T-068 DONE). T-069 espera a T-111 (Figma) |
 
 **Rangos reservados para la Fase 2** (PROTOCOL §6): audit T-020–T-024 · catalog T-025–T-039 · inventory T-040–T-049 · promotions T-050–T-054 · cart T-055–T-064 · wishlist T-065–T-069 · orders T-070–T-089 · payments T-090–T-099 · hito M1 de lanzamiento T-100–T-104.
 
