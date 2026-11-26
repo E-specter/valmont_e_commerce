@@ -43,6 +43,7 @@
 | D-034 | 2026-11-26 | Integración en `main` tras el APROBADO de QA y proyecto levantado desde `main` para la revisión manual | APROBADA |
 | D-035 | 2026-11-26 | Plugins, skills y MCP oficiales del proyecto declarados en `.claude/` | APROBADA |
 | D-036 | 2026-11-26 | Commits y PR sin firma de IA: autoría solo del usuario | APROBADA |
+| D-037 | 2026-11-26 | Promociones: porcentaje o monto fijo; alcance producto, categoría o catálogo; gana el menor precio final; vigencia obligatoria | APROBADA |
 
 ---
 
@@ -372,3 +373,23 @@
 - **Alcance:** los commits desde el 2026-11-26.
 - **Fuera de alcance:** la historia ya existente no se reescribe. Hacerlo cambiaría todos los hashes y es una operación destructiva que el usuario no ha pedido.
 - **Limitación:** la trazabilidad de qué agente hizo qué se mantiene en los traspasos de `docs/` (STATUS y `tasks.md`), no en git.
+
+### D-037 — Reglas de negocio de promociones (APROBADA)
+- **Contexto:** SPEC de promotions (T-050, `docs/modules/promotions/SPEC.md`). El usuario respondió P-PROMO-1, 2, 3 y 6 el 2026-11-26. P-PROMO-4 y P-PROMO-5 las adopta el Leader con la recomendación de la SPEC.
+- **Decisión:**
+  1. **Tipo:** `percent` (entero de 1 a 90) o `fixed_amount` (céntimos de PEN, mayor que 0). El precio final nunca baja de 1 céntimo.
+  2. **Alcance:** `products` (de 1 a 100 elegidos), `category` (una categoría, incluidos los productos que se añadan después) o `catalog` (todo).
+  3. **Solapes:** no se acumulan. Gana la que deja el **menor precio final**; si empatan, la de menor `id`.
+  4. **Redondeo:** el porcentaje se redondea al céntimo más cercano, con la mitad hacia arriba, y se calcula en enteros.
+  5. **Tienda:** precio vigente más el precio original tachado (CATALOG-R13), con una forma pública válida para los dos tipos de descuento.
+  6. **Vigencia:** inicio y fin obligatorios.
+- **Alcance:** RF09.01 y RF09.02. El precio vigente lo calcula el servidor y lo consumen catalog (vista `app.product_effective_price`), cart y orders (puerto `GetEffectivePrices`).
+- **Fuera de alcance:** cupones y códigos, descuentos por cantidad o por cliente, promociones por pedido completo y combinar descuentos.
+- **Limitaciones y riesgos:**
+  - Con alcance `category` o `catalog`, un producto que se crea más tarde entra en la promoción sin que nadie lo revise. La auditoría (RF14) registra la promoción, no cada producto afectado.
+  - Comparar promociones por precio final hace que la ganadora pueda variar de un producto a otro dentro de una misma categoría.
+- **Requisitos afectados:** RF09.01, RF09.02, RF14, RN-04 (instantánea de precio en el pedido), D-015, D-022.
+- **Casos de uso:** UC-PROMOTIONS-01…06 de la SPEC.
+- **Alternativas descartadas:** solo porcentaje o solo lista de productos (las recomendaba la SPEC; el usuario eligió la opción completa); acumular descuentos; prohibir solapes; vigencia sin fin.
+- **Consecuencias:** excepción (5) en `docs/modules.md` §3; migración 0007; T-051…T-054.
+- **Reversión:** añadir una decisión que restrinja tipos o alcances. El modelo con columna de tipo y de alcance lo admite sin migrar datos.

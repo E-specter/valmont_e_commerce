@@ -48,6 +48,8 @@ Despliegue (MENOR de T-104): cabeceras de seguridad en Caddy (`X-Content-Type-Op
 | T-026…T-031 | Implementación de catalog | backend | backend-dev (+ qa-reviewer en T-028) | ver STATUS de catalog | docs/modules/catalog/STATUS.md | DONE | T-026…T-031 DONE (T-030: `58fc964`, verificada por qa-reviewer con D-028); queda un MENOR de pruebas para la próxima tarea de catalog |
 | T-040 | SPEC de inventory | requisitos, backend | claude-leader | RF06.04–06, D-017, D-023, D-027 | docs/modules/inventory/SPEC.md | DONE | Decisiones del usuario D-027 |
 | T-041…T-044 | Implementación de inventory | backend | backend-dev + qa-reviewer | ver STATUS de inventory | docs/modules/inventory/STATUS.md | DONE | T-041…T-044 DONE (última: `08cefce`); verificadas por qa-reviewer con D-028 desde T-042 |
+| T-050 | SPEC de promotions | requisitos, backend | module-coordinator (revisa claude-leader) | RF09.01, RF09.02, D-037 | docs/modules/promotions/SPEC.md | DONE | Contrato §7 e hipótesis H-1…H-7 aprobadas por el Leader; T-051 READY |
+| T-051…T-054 | Implementación de promotions (esquema y puerto, API de administración, precio vigente en catalog, interfaz) | backend, frontend | backend-dev + qa-reviewer; frontend-dev en T-054 | ver STATUS de promotions | docs/modules/promotions/STATUS.md | BACKLOG | T-054 espera a T-110 y T-111 (Figma) |
 
 **Rangos reservados para la Fase 2** (PROTOCOL §6): audit T-020–T-024 · catalog T-025–T-039 · inventory T-040–T-049 · promotions T-050–T-054 · cart T-055–T-064 · wishlist T-065–T-069 · orders T-070–T-089 · payments T-090–T-099 · hito M1 de lanzamiento T-100–T-104.
 
