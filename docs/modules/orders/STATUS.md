@@ -9,7 +9,7 @@
 | T-071 | Costuras entre módulos (`wiring.py` de cart e inventory, `InsufficientStock` reexportada) y configuración de la boutique en `Settings` | backend-dev + qa-reviewer | excepción (7) (E-1, D-040) registrada en `modules.md` §3 | DONE (09cda5f) |
 | T-072 | Dominio puro de orders: estados, transiciones, entrega, pedido y funciones | backend-dev + qa-reviewer | T-070 aprobada | DONE (09cda5f) |
 | T-073 | Migración `0010`, filas y repositorio SQL (incluido el reloj de la BD y la caducidad) | backend-dev + qa-reviewer | T-072; E-2 registrada; T-016, T-026 integradas | DONE (3194a85) |
-| T-074 | Crear pedido (`CreateOrder`) y `POST /orders` | backend-dev + qa-reviewer | T-071, T-073; cart (T-059), inventory (T-042), promotions (T-051) integradas | READY |
+| T-074 | Crear pedido (`CreateOrder`) y `POST /orders` | backend-dev + qa-reviewer | T-071, T-073; cart (T-059), inventory (T-042), promotions (T-051) integradas | IN_REVIEW |
 | T-075 | Lectura propia y caducidad (`ExpireOverdueOrders`, `ListMyOrders`, `GetMyOrder`) y 2 `GET` | backend-dev + qa-reviewer | T-074 | BACKLOG |
 | T-076 | Cancelar el pedido propio (`CancelMyOrder`) y `POST /orders/{id}/cancel` | backend-dev + qa-reviewer | T-075 | BACKLOG |
 | T-077 | Puerto para payments: `GetPayableOrder` y `ConfirmOrderPayment` | backend-dev + qa-reviewer | T-075 | BACKLOG |
@@ -367,6 +367,15 @@ Y la fila de `docs/agents/_registry.md`: `docs/modules/orders/ · Carpeta · SPE
 - Escalar si: el panel necesita datos del cliente (correo, nombre de perfil) que orders no tiene (RF13.04, identity).
 
 ## Traspasos
+
+#### Traspaso T-074 — 2026-11-26 — backend-dev
+1. Estado: IN_REVIEW. Sin pruebas ejecutadas por mí (D-033).
+2. Hecho: `application.py` (`PickupStore`, `PickupStoreProvider`, `CreatedOrder`, `CreateOrder`), `adapters/pickup.py` (`SettingsPickupStore`; nombre, dirección u horario vacíos o en blanco = `None`), `adapters/http.py` (router, `CreateOrderIn`/`ShippingIn`/`PickupIn` por unión discriminada, `OrderDetailOut` y anidados, proveedores `get_orders`, `get_clock`, `get_pickup_store`, `get_create_order`, `get_product_snapshots`), `main.py` (una línea: registro del router).
+3. Interpretaciones: (a) la firma dice `delivery: DeliveryAddress`, que no existe; se usa `DeliveryDetails` del dominio. (b) Orden en `CreateOrder`: `now` → `find_by_key` → `pickup_unavailable` → `PrepareCheckout` → tope → `ReserveStock`; una repetición de clave devuelve el original aunque la boutique ya no esté. (c) `lead_time_days` de una línea `made_to_order` sale de `OnRequestLine` (y, si es `None`, de `CheckoutLine`); en `stock` es `None`. (d) Errores de la entrega que lanza el dominio (`DeliveryInvalid`) → 422 con `loc ["body","delivery","<modalidad>","<campo>"]`, igual que los de Pydantic; el cuerpo se limita a tipos, la validación de longitudes la hace el dominio. (e) Cabecera con alias `idempotency-key` (`loc ["header","idempotency-key"]`), 16-64 `[A-Za-z0-9_-]`. (f) Auditoría `orders.created` con actor `customer`, solo `status`, `number`, `total_amount`, `line_count`. (g) `OrderDetailOut.build(order, now, store, products)` es reutilizable por T-075; `expires_at` y `expires_in_seconds` solo en `pendiente_pago`; `now` de `SqlClock` (misma transacción).
+4. Discrepancia para T-075/T-079: `Order` no trae `carrier`, `tracking_code` ni `shipped_at`; `DeliveryOut` los emite `null` (correcto para pedidos nuevos). Al leer pedidos enviados hará falta que el dominio/repositorio (protegidos) los carguen: decide backend-lead.
+5. Estático: `uv run ruff format .` → 2 files reformatted (míos); `uv run ruff check .` → All checks passed; capas (grep) → vacío; `uv run python -c "import valmont.main"` → ok; OpenAPI de `POST /api/v1/orders` declara 201, 200, 401, 409, 422, 503 y la cabecera.
+6. NO EJECUTADO: pruebas (D-028, D-033).
+7. Entrega: preparado, sin commit. Mensaje propuesto: `feat(orders): crear pedido con reserva de stock e idempotencia (T-074)`.
 
 #### Traspaso T-073 — 2026-11-26 — backend-dev
 0. Corrección tras QA modo A: `apply` fija `shipped_at` siempre que `to_status = enviado` (carrier y tracking solo si llegan); la 0010 ya no concede permisos de secuencia (mínimo privilegio; anula la interpretación (a) y (c) en parte). Reaplicada: downgrade -1, upgrade head, alembic check limpio.
