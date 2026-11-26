@@ -9,8 +9,8 @@
 | T-071 | Costuras entre módulos (`wiring.py` de cart e inventory, `InsufficientStock` reexportada) y configuración de la boutique en `Settings` | backend-dev + qa-reviewer | excepción (7) (E-1, D-040) registrada en `modules.md` §3 | DONE (09cda5f) |
 | T-072 | Dominio puro de orders: estados, transiciones, entrega, pedido y funciones | backend-dev + qa-reviewer | T-070 aprobada | DONE (09cda5f) |
 | T-073 | Migración `0010`, filas y repositorio SQL (incluido el reloj de la BD y la caducidad) | backend-dev + qa-reviewer | T-072; E-2 registrada; T-016, T-026 integradas | DONE (3194a85) |
-| T-074 | Crear pedido (`CreateOrder`) y `POST /orders` | backend-dev + qa-reviewer | T-071, T-073; cart (T-059), inventory (T-042), promotions (T-051) integradas | IN_REVIEW |
-| T-075 | Lectura propia y caducidad (`ExpireOverdueOrders`, `ListMyOrders`, `GetMyOrder`) y 2 `GET` | backend-dev + qa-reviewer | T-074 | BACKLOG |
+| T-074 | Crear pedido (`CreateOrder`) y `POST /orders` | backend-dev + qa-reviewer | T-071, T-073; cart (T-059), inventory (T-042), promotions (T-051) integradas | DONE (d9682c6) |
+| T-075 | Lectura propia y caducidad (`ExpireOverdueOrders`, `ListMyOrders`, `GetMyOrder`) y 2 `GET` | backend-dev + qa-reviewer | T-074 | READY |
 | T-076 | Cancelar el pedido propio (`CancelMyOrder`) y `POST /orders/{id}/cancel` | backend-dev + qa-reviewer | T-075 | BACKLOG |
 | T-077 | Puerto para payments: `GetPayableOrder` y `ConfirmOrderPayment` | backend-dev + qa-reviewer | T-075 | BACKLOG |
 | T-078 | Administración: listado y detalle (`ListAdminOrders`, `GetAdminOrder`) y 2 `GET` | backend-dev + qa-reviewer | T-075 | BACKLOG |
@@ -436,3 +436,4 @@ Y la fila de `docs/agents/_registry.md`: `docs/modules/orders/ · Carpeta · SPE
 - **R-8 (recojo en tienda, H-1…H-6):** una sola boutique en `Settings`; el cambio de horario o dirección requiere reiniciar el backend (`get_settings` en caché) y el detalle muestra siempre los datos vigentes; con más de una boutique habría que pasar a una tabla (cambio de modelo no trivial). La coherencia método-estado (`enviado` solo en `shipping`, `listo_para_recojo` solo en `pickup`) la impone el dominio, no la BD.
 - **R-9 (QA de T-073, menor):** `SqlClock.now()` devuelve la hora en la zona de la sesión de la BD; la local está en UTC. T-074 lo normaliza con `.astimezone(UTC)` si toca `SqlClock`, o lo deja anotado para el despliegue.
 - **R-10 (QA de T-073, menor):** `apply` lanza `InvalidTransition(..., frozenset())`; el 409 de §7 (`details.allowed`) lo calcula el caso de uso con `admin_targets` (T-079).
+- **R-11 (QA de T-074, a resolver en T-075):** el dominio `Order` y `SqlOrderRepository.get` no cargan `carrier`, `tracking_code` ni `shipped_at` (están en `app.deliveries`), y `DeliveryOut` los emite como `null`. Es correcto para pedidos nuevos; para leer pedidos enviados, T-075 debe añadirlos a `DeliveryDetails` u `Order` (o a un objeto `Delivery`, SPEC §5) y al repositorio, y T-079 los escribe al enviar. Requiere ampliar el "Puede modificar" de T-075 con `domain.py` y `adapters/persistence.py` para ese único cambio.
