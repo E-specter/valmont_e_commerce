@@ -35,7 +35,7 @@ SPEC/paquete → pruebas (QA) ∥ código (dev) → [code-simplifier si el diff 
 ## Herramientas (D-035, catálogo por rol en `docs/skills/README.md`)
 
 - **Plugins** (`.claude/settings.json`): superpowers, ponytail, claude-mem, frontend-design, playwright, code-simplifier, context7 y figma. Los ajenos al proyecto están desactivados para ahorrar tokens.
-- **Skills de terceros** (`skills-lock.json`): find-skills y modern-web-guidance. Se restauran con `npx skills experimental_install`.
+- **Skills de terceros** (`skills-lock.json`): find-skills y modern-web-guidance. Se restauran con `npm run skills:install`.
 - **MCP:** `.mcp.json` declara `astro-docs` y `supabase-local` (solo lectura y diagnóstico). Figma, Playwright y context7 llegan por plugin. Figma y context7 exigen `/mcp` → autenticar.
 - **Memoria y tareas:** claude-mem (`mem-search` antes de explorar; `work_state_write` para las listas de trabajo).
 

@@ -5,7 +5,8 @@
   "scripts": {
     "db:start": "supabase start && supabase seed buckets --local",
     "db:stop": "supabase stop",
-    "db:status": "supabase status"
+    "db:status": "supabase status",
+    "skills:install": "npx -y skills add vercel-labs/skills -s find-skills -a claude-code -y && npx -y skills add GoogleChrome/modern-web-guidance -s modern-web-guidance -a claude-code -y"
   },
   "devDependencies": {
     "supabase": "2.120.0"

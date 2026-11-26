@@ -336,7 +336,7 @@
     - `extraKnownMarketplaces` con ponytail y thedotmack (claude-mem).
     - Activados en `enabledPlugins`: superpowers, ponytail, claude-mem, frontend-design, playwright, code-simplifier, context7 y figma.
     - Desactivados **solo en este proyecto**: product-management, cowork-plugin-management, design, engineering, code-review, claude-code-setup, skill-creator y github.
-  - **Skills de terceros**, instaladas en el proyecto con la CLI oficial `skills`: find-skills (vercel-labs/skills) y modern-web-guidance (GoogleChrome). Se versiona `skills-lock.json`; las carpetas se ignoran en git y se restauran con `npx skills experimental_install`.
+  - **Skills de terceros**, instaladas en el proyecto con la CLI oficial `skills`: find-skills (vercel-labs/skills) y modern-web-guidance (GoogleChrome). Se versiona `skills-lock.json`; las carpetas se ignoran en git y se restauran con `npm run skills:install` (solo para Claude Code; `experimental_install` instala para todos los agentes y llena la raíz de carpetas).
   - **`.mcp.json` (versionado):**
     - `astro-docs` (`https://mcp.docs.astro.build/mcp`): solo lectura de la documentación.
     - `supabase-local` (`http://127.0.0.1:54321/mcp`): solo en desarrollo.

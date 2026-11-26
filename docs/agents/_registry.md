@@ -16,7 +16,7 @@
 | docs/design_ui/VIEWS.md | Doc | pendiente (T-110/T-111): inventario frame → ruta → componentes → datos/RF → estados | — | frontend-lead | 2026-11-26 |
 | .claude/settings.json | Config | Plugins del proyecto (D-035) | — | claude-leader (T-108) | 2026-11-26 |
 | .mcp.json | Config | MCP astro-docs y supabase-local (D-035) | — | claude-leader (T-108) | 2026-11-26 |
-| skills-lock.json | Config | Lock de skills de terceros (`npx skills experimental_install`) | — | claude-leader (T-108) | 2026-11-26 |
+| skills-lock.json | Config | Lock de skills de terceros (`npm run skills:install`) | — | claude-leader (T-108) | 2026-11-26 |
 | scripts/review-up.sh | Script | Levanta el stack local para la revisión manual (D-034) | — | claude-leader (T-108) | 2026-11-26 |
 | docs/skills/ | Carpeta | Catálogo de skills del proyecto | — | claude-leader | 2026-10-26 |
 | docs/skills/README.md | Doc | Catálogo de skills (las skills viven en `.claude/skills/`) | — | claude-leader | 2026-10-26 |

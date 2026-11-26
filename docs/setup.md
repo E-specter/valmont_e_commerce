@@ -94,7 +94,7 @@ Tras el APROBADO de QA, el Leader integra en `main` con fast-forward y ejecuta, 
 
 ### Herramientas de agentes
 
-Los plugins viven en `.claude/settings.json`. Las skills de terceros (`find-skills`, `modern-web-guidance`) se instalan con la CLI `skills`; su lock es `skills-lock.json` y sus carpetas están ignoradas por git. Para restaurarlas: `npx skills experimental_install`.
+Los plugins viven en `.claude/settings.json`. Las skills de terceros (`find-skills`, `modern-web-guidance`) se instalan con la CLI `skills`; su lock es `skills-lock.json` y sus carpetas están ignoradas por git. Para restaurarlas: `npm run skills:install`.
 
 Las puertas de calidad completas están en la skill `testing-and-quality-gates`.
 
@@ -129,4 +129,4 @@ Cada componente tendrá un `.env.example` sin valores reales cuando aparezca la 
 | `docker` no se encuentra justo después de instalar | La terminal abierta antes de instalar no tiene el PATH nuevo | Abrir una terminal nueva (o anteponer `C:\Program Files\Docker\Docker\resources\bin` al PATH) |
 | PowerShell 5.1 marca como error la salida de `docker` | Trata como error todo lo que un programa escribe en stderr | Usar Git Bash, o fiarse del código de salida |
 | Puertos de Supabase publicados en `0.0.0.0` | Docker Desktop publica en todas las interfaces | Resuelto el 2026-10-27: la regla de entrada `Valmont Supabase dev` bloquea TCP 54321–54324 desde la red (localhost sigue funcionando). Revertir: `Remove-NetFirewallRule -DisplayName 'Valmont Supabase dev'` |
-| Plugins o skills que faltan con `CLAUDE_CONFIG_DIR=.claude-valmont` | La config de usuario está fuera del proyecto | Aceptar la confianza del proyecto al abrir Claude Code (`.claude/settings.json`) y ejecutar `npx skills experimental_install` |
+| Plugins o skills que faltan con `CLAUDE_CONFIG_DIR=.claude-valmont` | La config de usuario está fuera del proyecto | Aceptar la confianza del proyecto al abrir Claude Code (`.claude/settings.json`) y ejecutar `npm run skills:install` |
