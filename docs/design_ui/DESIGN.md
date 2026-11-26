@@ -1,7 +1,6 @@
 # Valmont — Guía de diseño de interfaz
 
-> **Estado: PROPUESTA PROVISIONAL.** No son activos oficiales de marca. Cuando exista el archivo de Figma de Valmont, sus variables pasan a ser la fuente canónica y este documento se actualiza para coincidir con ellas (D-006).
-> Cuando existan `BRIEF.md` (tokens, tipografía, retícula, componentes y marca) y `VIEWS.md` (inventario de vistas), ambos pendientes de T-110/T-111, serán la fuente canónica de tokens y vistas. Hasta entonces, los tokens de este archivo siguen como PROPUESTA. Kombai fue eliminado (D-031).
+> **Estado: tokens SUSTITUIDOS por Figma (T-110/T-111, D-031).** La fuente canónica de tokens, tipografía, retícula, componentes y marca es [BRIEF.md](BRIEF.md); la de vistas, rutas, datos, estados y matriz de reutilización es [VIEWS.md](VIEWS.md). Los valores de §2 (color), §3 (tipografía), §4 (espaciado y forma) y §6 (breakpoints) de este archivo eran una propuesta anterior a Figma, con otra paleta y otras fuentes: **ya no rigen**; se conservan como historial. Siguen vigentes los principios de §1 donde no contradigan el brief, los estados de §7, el flujo de §8 y la lista de revisión de §9. Kombai fue eliminado (D-031).
 
 ## 1. Principios
 
@@ -15,7 +14,7 @@ Valmont es alta relojería mecánica. La interfaz transmite **precisión, elegan
 
 **Evitar:** interfaces recargadas, componentes genéricos sin adaptar, sombras y degradados llamativos, carruseles automáticos, texto sobre imagen sin garantizar contraste.
 
-## 2. Color (tokens provisionales)
+## 2. Color (tokens provisionales; SUSTITUIDO por BRIEF.md §2)
 
 | Token | Valor | Uso | Contraste verificado |
 |---|---|---|---|
@@ -32,7 +31,7 @@ Valmont es alta relojería mecánica. La interfaz transmite **precisión, elegan
 
 Regla: todo par texto/fondo nuevo debe medir ≥ 4,5:1 (≥ 3:1 para texto grande y límites de controles) antes de usarse.
 
-## 3. Tipografía (provisional)
+## 3. Tipografía (provisional; SUSTITUIDA por BRIEF.md §3)
 
 | Rol | Familia | Uso |
 |---|---|---|
@@ -45,20 +44,20 @@ Regla: todo par texto/fondo nuevo debe medir ≥ 4,5:1 (≥ 3:1 para texto grand
 - Precios y especificaciones técnicas: `font-variant-numeric: tabular-nums`.
 - Longitud de línea del texto corrido: 60–75 caracteres.
 
-## 4. Espaciado, forma y elevación
+## 4. Espaciado, forma y elevación (SUSTITUIDO por BRIEF.md §4)
 
 - Espaciado base 4 px: `4 · 8 · 12 · 16 · 24 · 32 · 48 · 64 · 96 · 128`.
 - Radios: `0` (por defecto, aristas precisas) · `2 px` (campos y botones) · `999 px` (solo chips y filtros).
 - Elevación: casi plana. Una sola sombra suave para menús y diálogos; las tarjetas se separan con espacio o `color.line`.
 - Contenedor máximo: 1280 px; márgenes laterales 16 px (móvil) a 48 px (escritorio).
 
-## 5. Movimiento
+## 5. Movimiento (vigente como PROPUESTA; ver BRIEF.md §5)
 
 - Duraciones: `150 ms` (estado), `250 ms` (aparición), `400 ms` (transición de página o imagen).
 - Curva: `cubic-bezier(0.2, 0, 0, 1)`.
 - `prefers-reduced-motion: reduce` desactiva toda animación no esencial.
 
-## 6. Responsive
+## 6. Responsive (SUSTITUIDO por BRIEF.md §6)
 
 | Punto de corte | Ancho mínimo | Uso |
 |---|---|---|
@@ -80,14 +79,14 @@ Diseño móvil primero desde 360 px. Objetivos táctiles de al menos 44 × 44 px
 ## 8. Flujo Figma MCP → código (D-031)
 
 1. **Figma:** cada pantalla o componente es un *frame* nombrado según el área (`storefront/ProductCard`). Se lee con el MCP oficial de Figma (plugin `figma`, OAuth con `/mcp`).
-2. **Extracción (frontend-lead, T-110/T-111):** produce `docs/design_ui/BRIEF.md` (brief técnico de diseño y marca) y `docs/design_ui/VIEWS.md` (frame → ruta Astro → componentes reutilizables → datos/RF → estados, más la matriz de reutilización).
+2. **Extracción (frontend-lead, T-110/T-111; hecha el 2026-11-26):** produjo `docs/design_ui/BRIEF.md` (brief técnico de diseño y marca) y `docs/design_ui/VIEWS.md` (frame → ruta Astro → componentes reutilizables → datos/RF → estados, más la matriz de reutilización).
 3. **Implementación (frontend-dev):** skill `figma:figma-design-to-code` solo para los nodos citados en su paquete. La salida de referencia (React + Tailwind) se adapta a Astro y a los tokens. Los componentes genéricos van en `frontend/src/components/ui/`; se reutiliza antes de crear. Cada nodo se consulta una vez (cuota de la API).
 4. **Revisión:** frontend-lead revisa con la lista del §9 y se conectan los datos reales a través de `src/lib/api/`.
 5. Si Figma limita la API (rate limit), se espera a la renovación de la cuota o se trabaja con las capturas ya guardadas; no se repiten consultas.
 
 ## 9. Lista de revisión de la implementación desde Figma
 
-- [ ] Usa los tokens (§2–§5); no hay colores, tamaños ni fuentes sueltos.
+- [ ] Usa los tokens de BRIEF.md (§2–§6); no hay colores, tamaños ni fuentes sueltos.
 - [ ] HTML semántico, `alt` en imágenes, etiquetas en los campos y orden de foco lógico.
 - [ ] Contraste ≥ 4,5:1 en el texto.
 - [ ] Sin `fetch` ni lógica de negocio en el componente; los datos llegan por props.
