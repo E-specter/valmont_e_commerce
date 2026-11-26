@@ -7,6 +7,13 @@ from sqlalchemy import Connection, Engine, TextClause, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
+from tests.orders.orders_db_helpers import (
+    insert_delivery_row,
+    insert_history_row,
+    insert_line_row,
+    insert_order_row,
+)
+
 pytestmark = pytest.mark.integration
 
 CRUD = {"SELECT", "INSERT", "UPDATE", "DELETE"}
@@ -19,9 +26,13 @@ EXPECTED_TABLES = {
     "carts": CRUD,
     "case_materials": CRUD,
     "categories": CRUD,
+    "deliveries": {"SELECT", "INSERT", "UPDATE"},  # nada de orders se borra (SPEC §6, T-073)
     "inventory_items": CRUD,
     "inventory_settings": CRUD,
     "movement_types": CRUD,
+    "order_lines": {"SELECT", "INSERT"},  # la instantánea del pedido no se edita
+    "order_status_history": {"SELECT", "INSERT"},  # solo inserción (RF12.02, ORDERS-R11)
+    "orders": {"SELECT", "INSERT", "UPDATE"},
     "product_availability": {"SELECT"},
     "product_effective_price": {"SELECT"},
     "product_images": CRUD,
@@ -35,6 +46,9 @@ EXPECTED_TABLES = {
 }
 EXPECTED_SEQUENCES = {
     "audit_log_id_seq": {"USAGE", "SELECT"},
+    # Identidades de la 0010 (T-073): el INSERT en la tabla basta, no necesitan permiso propio.
+    "order_status_history_id_seq": set(),
+    "orders_order_number_seq": set(),
     "stock_movements_id_seq": {"USAGE", "SELECT"},
 }
 # Privilegios efectivos (directos o por PUBLIC) de valmont_app en cada relación de app. SELECT,
@@ -257,6 +271,74 @@ def test_app_role_adds_reads_and_removes_wishlist_items_but_cannot_update_them(
             app_session.execute(text(statement), params)
     app_session.execute(text("DELETE FROM app.wishlist_items WHERE user_id = :user"), params)
     assert app_session.scalar(count, params) == 0
+
+
+def test_app_role_creates_reads_and_updates_orders_and_their_delivery(
+    app_session: Session,
+) -> None:
+    # T-073: INSERT, SELECT y UPDATE sobre orders y deliveries; el número sale de la identidad
+    # sin permiso sobre su secuencia; lo escrito se lee con el mismo rol.
+    product = insert_product(app_session)
+    user = uuid4()
+    app_session.execute(text("INSERT INTO app.profiles (user_id) VALUES (:user)"), {"user": user})
+    order = insert_order_row(app_session, user)
+    insert_line_row(app_session, order, product)
+    insert_delivery_row(app_session, order)
+    insert_history_row(app_session, order)
+    params = {"order": order}
+
+    app_session.execute(
+        text("UPDATE app.orders SET status = 'cancelado', updated_at = now() WHERE id = :order"),
+        params,
+    )
+    app_session.execute(
+        text("UPDATE app.deliveries SET carrier = 'Olva' WHERE order_id = :order"), params
+    )
+
+    assert app_session.scalar(text("SELECT status FROM app.orders WHERE id = :order"), params) == (
+        "cancelado"
+    )
+    assert app_session.scalar(text("SELECT order_number FROM app.orders WHERE id = :order"), params)
+    for table, column in (
+        ("order_lines", "order_id"),
+        ("deliveries", "order_id"),
+        ("order_status_history", "order_id"),
+    ):
+        count = text(f"SELECT count(*) FROM app.{table} WHERE {column} = :order")
+        assert app_session.scalar(count, params) == 1
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "UPDATE app.order_status_history SET note = 'cambio' WHERE order_id = :order",
+        "DELETE FROM app.order_status_history WHERE order_id = :order",
+        "UPDATE app.order_lines SET quantity = 2, line_total_amount = 200000"
+        " WHERE order_id = :order",
+        "UPDATE app.order_lines SET sku = 'otro' WHERE order_id = :order",
+        "DELETE FROM app.order_lines WHERE order_id = :order",
+        "DELETE FROM app.deliveries WHERE order_id = :order",
+        "DELETE FROM app.orders WHERE id = :order",
+    ],
+)
+def test_app_role_is_denied_what_orders_never_do(app_session: Session, statement: str) -> None:
+    # CA-ORDERS-20: sin UPDATE ni DELETE sobre el historial y las líneas; nada de orders se borra.
+    # Hay una fila que casa: si el permiso no lo frenara, la sentencia la tocaría.
+    user = uuid4()
+    app_session.execute(text("INSERT INTO app.profiles (user_id) VALUES (:user)"), {"user": user})
+    order = insert_order_row(app_session, user)
+    insert_line_row(app_session, order, insert_product(app_session))
+    insert_delivery_row(app_session, order)
+    insert_history_row(app_session, order)
+
+    with pytest.raises(DBAPIError, match="permission denied"), app_session.begin_nested():
+        app_session.execute(text(statement), {"order": order})
+
+
+@pytest.mark.parametrize("table", ["orders", "order_lines", "deliveries", "order_status_history"])
+def test_app_role_cannot_truncate_the_orders_tables(app_session: Session, table: str) -> None:
+    with pytest.raises(DBAPIError, match="permission denied"), app_session.begin_nested():
+        app_session.execute(text(f"TRUNCATE app.{table}"))
 
 
 def test_app_role_cannot_truncate_wishlist_items(app_session: Session) -> None:

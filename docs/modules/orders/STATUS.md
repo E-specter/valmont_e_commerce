@@ -8,7 +8,7 @@
 | T-070 | SPEC de orders | module-coordinator | RF04, RF11.01, RF12, RF13.03, D-015…D-017, D-022, D-023, D-037, D-038 | DONE (aprobada por el Leader el 2026-11-26, D-040) |
 | T-071 | Costuras entre módulos (`wiring.py` de cart e inventory, `InsufficientStock` reexportada) y configuración de la boutique en `Settings` | backend-dev + qa-reviewer | excepción (7) (E-1, D-040) registrada en `modules.md` §3 | DONE (09cda5f) |
 | T-072 | Dominio puro de orders: estados, transiciones, entrega, pedido y funciones | backend-dev + qa-reviewer | T-070 aprobada | DONE (09cda5f) |
-| T-073 | Migración `0010`, filas y repositorio SQL (incluido el reloj de la BD y la caducidad) | backend-dev + qa-reviewer | T-072; E-2 registrada; T-016, T-026 integradas | READY |
+| T-073 | Migración `0010`, filas y repositorio SQL (incluido el reloj de la BD y la caducidad) | backend-dev + qa-reviewer | T-072; E-2 registrada; T-016, T-026 integradas | IN_REVIEW |
 | T-074 | Crear pedido (`CreateOrder`) y `POST /orders` | backend-dev + qa-reviewer | T-071, T-073; cart (T-059), inventory (T-042), promotions (T-051) integradas | BACKLOG |
 | T-075 | Lectura propia y caducidad (`ExpireOverdueOrders`, `ListMyOrders`, `GetMyOrder`) y 2 `GET` | backend-dev + qa-reviewer | T-074 | BACKLOG |
 | T-076 | Cancelar el pedido propio (`CancelMyOrder`) y `POST /orders/{id}/cancel` | backend-dev + qa-reviewer | T-075 | BACKLOG |
@@ -365,6 +365,17 @@ Y la fila de `docs/agents/_registry.md`: `docs/modules/orders/ · Carpeta · SPE
 - Escalar si: el panel necesita datos del cliente (correo, nombre de perfil) que orders no tiene (RF13.04, identity).
 
 ## Traspasos
+
+#### Traspaso T-073 — 2026-11-26 — backend-dev
+0. Corrección tras QA modo A: `apply` fija `shipped_at` siempre que `to_status = enviado` (carrier y tracking solo si llegan); la 0010 ya no concede permisos de secuencia (mínimo privilegio; anula la interpretación (a) y (c) en parte). Reaplicada: downgrade -1, upgrade head, alembic check limpio.
+1. Estado: IN_REVIEW. Sin pruebas ejecutadas por mí (D-033).
+2. Hecho: `migrations/versions/0010_orders.py` (4 tablas de §6, `CHECK` con nombre `ck_<tabla>_<sufijo>`, índices, `GRANT` y `downgrade` en orden historial, entrega, líneas, pedidos); registro en `migrations/env.py`; puertos y datos de lectura en `orders/application.py` (firmas del paquete, sin casos de uso); `orders/adapters/{__init__,persistence}.py` con `OrderRow`, `OrderLineRow`, `DeliveryRow`, `OrderStatusHistoryRow`, `SqlOrderRepository`, `SqlClock`.
+3. Interpretaciones: (a) la `0010` añade `GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA app`: la `0006` solo cubrió las secuencias existentes y `order_number` y el `id` del historial son identidades nuevas (sin esto `valmont_app` no podría insertar). (b) `OrderSummary.number` es `int` (el formato `VAL-` es presentación, `format_order_number`); `item_count` = Σ cantidades. (c) `apply` compara y cambia con un `UPDATE … WHERE status = from_status`; si `rowcount != 1` lanza `InvalidTransition(from, to, frozenset())` (`allowed` vacío: el repositorio no conoce la tabla de transiciones). `carrier`/`tracking_code` (si alguno llega) fijan también `shipped_at = change.at`. (d) `change.at` es la fecha del historial, de `paid_at`, `refunded_at` y `shipped_at`; `add` usa `order.created_at` como `created_at`/`updated_at`. (e) `list_all.q`: `ILIKE` del destinatario con `%`, `_` y `\` escapados, o igualdad del número si el texto (sin `VAL-`) son dígitos. Fechas: medianoche de Lima (UTC-5, `domain._LIMA` importado) `[from, to+1d)`. (f) `expire_overdue` con `order_ids=[]` devuelve `[]`; `IdempotencyConflict` se detecta por el nombre del `UNIQUE` en el error de BD y el resto de `IntegrityError` se relanza. (g) Importo `_LIMA` (privado) de `domain.py`: no lo modifiqué; si prefieren, hacerlo público en otra tarea.
+4. Estático: `uv run ruff format --check .` → 174 files already formatted; `uv run ruff check .` → All checks passed; capas (grep) → vacío.
+5. BD local: `alembic upgrade head` → 0009→0010; `alembic check` → No new upgrade operations detected; `downgrade -1` → `upgrade head` → `alembic check` limpio; `alembic current` → 0010 (head). `import valmont.modules.orders.adapters.persistence` OK.
+6. NO EJECUTADO: pruebas (D-028, D-033). El SQL del repositorio (`SKIP LOCKED`, `FOR UPDATE`, filtros, orden) solo está comprobado por QA, no por mí.
+7. Pendiente de QA: añadir las 4 tablas al mapa de `tests/test_app_role.py` (orders y deliveries: SELECT/INSERT/UPDATE; líneas e historial: SELECT/INSERT).
+8. Entrega: preparado, sin commit. Mensaje propuesto: `feat(orders): esquema 0010 y repositorio de pedidos (T-073)`.
 
 #### Traspaso T-071 y T-072 — 2026-11-26 — backend-dev
 1. Estado: IN_REVIEW (T-071, T-072). Sin pruebas ejecutadas por mí (D-033).
