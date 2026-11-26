@@ -12,7 +12,10 @@ Proyecto reiniciado desde cero (D-001). Hechos en esta sesión: `docs/` base, pr
 
 **2026-11-26:** T-108 (configuración de Claude: D-031…D-036) en la rama t108-claude-config; siguiente: T-110/T-111 cuando el usuario comparta la URL de Figma, y SPEC de promotions (T-050).
 
-**Al reanudar:**
-1. Preguntar al usuario por las decisiones abiertas, empezando por D-013 (git), D-011 (Docker), D-012 (estilos) y D-009/D-010.
-2. Si no hay respuesta, delegar T-007 a `backend-lead` (está READY y no depende de decisiones abiertas) y T-009 a `module-coordinator`.
-3. Validar en esa primera delegación que los subagentes cargan sus skills y devuelven el traspaso con el formato de PROTOCOL.md §5. Después, pasar T-002 a `DONE`.
+**Al reanudar (2026-11-26, la sesión sigue en el chat del proyecto con `.claude-valmont`):**
+1. Leer `docs/planning.md` §Estado actual, `docs/agents/tasks.md` (filas T-070, T-071…T-084, T-110, T-111) y `docs/modules/orders/STATUS.md` §T-071 y §T-072.
+2. Lanzar en paralelo:
+   - frontend-lead con T-110+T-111 (Figma conectado, una sola pasada, cada nodo una vez).
+   - backend-dev ∥ qa-reviewer (modo A) con T-071+T-072, en el worktree de orders; luego qa-reviewer en modo B → commit → `main` → `scripts/review-up.sh`.
+3. Los worktrees se crean desde `main` local (`git worktree add -b <rama> .claude/worktrees/<nombre> main`) y se retiran al integrar. Hay que copiar `backend/.env` al worktree.
+4. Las preguntas de negocio, con AskUserQuestion: opciones fundamentadas y una recomendada.

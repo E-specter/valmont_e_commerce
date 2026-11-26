@@ -444,7 +444,7 @@
   1. **Entrega:** el cliente elige `shipping` (envío a domicilio) o `pickup` (recojo en tienda).
      - En el envío se piden nombre, teléfono, departamento, provincia, distrito, dirección y referencia opcional, sin DNI (Ley 29733: minimización).
      - En el recojo se piden nombre y teléfono de quien recoge.
-     - Hay una sola boutique; sus datos van en configuración (hipótesis del Leader).
+     - Hay una sola boutique; sus datos van en configuración. Lo confirmó el usuario el 2026-11-26, junto con nombre y teléfono para el recojo y el estado `listo_para_recojo`.
   2. **Costo:** envío gratis a todo el Perú. `shipping_amount` queda modelado y vale 0.
   3. **Bajo pedido:** pago completo al crear el pedido, con las mismas reglas que el resto. Los artículos con y sin stock se entregan juntos.
   4. **Estados:**

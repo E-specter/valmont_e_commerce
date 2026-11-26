@@ -4,24 +4,19 @@
 > Tareas: [agents/tasks.md](agents/tasks.md) · Decisiones: [decisions.md](decisions.md) · Requisitos: [requirements.md](requirements.md).
 > Vocabulario de estado: PROPUESTO · PLANIFICADO · EN DESARROLLO · IMPLEMENTADO · PROBADO · REVISADO · INTEGRADO · LISTO PARA ENTREGA.
 
-## Estado actual (2026-11-26)
+## Estado actual (2026-11-26, cierre de sesión)
 
-- **En `main` (`88bb865`, integrado el 2026-11-26):**
-  - Fase 1 completa.
-  - De la Fase 2: identity (backend), audit, catalog (incluida T-030) e inventory.
-  - El **hito M1** completo: rol `valmont_app`, stack de despliegue con Caddy y Supabase autohospedado, lanzamiento verificado en Windows 11, y copias cifradas con restauración probada.
-  - Migraciones 0001–0006.
-  - Último recuento de QA: 704 pruebas unitarias + 267 de integración (T-101).
-- **Push pendiente:** `main` va 18 commits por delante de `origin/main`; el push lo hace el usuario.
-- **Atraso:** el proyecto lleva semanas sin avanzar. La interfaz no existe (0 de 66 RF con UI) y faltan 6 módulos de backend.
-- **En curso — T-108, configuración de Claude (D-031…D-036):**
-  - Figma por MCP en lugar de Kombai.
-  - Modelos 5.5 y esfuerzo por rol.
-  - QA escribe y ejecuta las pruebas.
-  - Integración en `main` con revisión manual tras cada implementación.
-  - Plugins, skills y MCP oficiales.
-  - Commits sin firma de IA.
-- **Decisiones abiertas:** D-012 (estilos) y D-014 (islas). Se deciden con la evidencia de Figma (T-111).
+- **En `main` (`b044e3f`; publicado hasta `8a58d21`, falta el push de los últimos commits):**
+  - Fase 1 y el hito M1 completos.
+  - **Backend de la Fase 2 integrado:** identity, audit, catalog, inventory, **promotions** (T-050…T-053), **cart** (T-055…T-059) y **wishlist** (T-065…T-068).
+  - Lectura compartida de productos en `shared/product_snapshots.py` (D-039).
+  - Migraciones 0001–0009.
+  - Último recuento de QA: 1081 unitarias + 856 de integración (T-067/T-068).
+- **Configuración de Claude (T-108, D-031…D-036):** hecha. Figma por MCP en lugar de Kombai, modelos y esfuerzo por rol, QA escribe y ejecuta las pruebas, integración en `main` con `scripts/review-up.sh` tras cada tarea, plugins, skills y MCP en `.claude/` y `.mcp.json`, y commits sin firma de IA.
+- **orders:** SPEC aprobada (T-070, D-040). Envío y recojo en tienda; el usuario confirmó las hipótesis del recojo (una boutique en configuración, nombre y teléfono de quien recoge, `listo_para_recojo`). **T-071 (costuras `wiring.py` y datos de la boutique en `shared/config.py`) y T-072 (dominio) están READY**; pueden ir en una sola entrega, porque tocan archivos distintos.
+- **Diseño:** Figma conectado (archivo `xRC4mg5JmdqlZ6mbv97kGO`). **T-110 (brief desde `guide_design_brand`) y T-111 (vistas `landing`, `auth`, `products`, `orders`, `wishlist`, `pay`) están READY**; se hacen en una sola pasada de frontend-lead. Alcance en `docs/agents/tasks.md`.
+- **Siguiente, en paralelo:** (1) T-110+T-111 con frontend-lead; (2) T-071+T-072 con backend-dev ∥ qa-reviewer. Después: T-073…T-080 (orders), payments (T-090…), las pantallas desde VIEWS y reports.
+- **Decisiones abiertas:** D-012 (estilos) y D-014 (islas); se deciden con la evidencia de T-111.
 
 ## Ruta al MVP (desde 2026-11-26): dos pistas en paralelo
 
