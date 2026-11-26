@@ -10,7 +10,8 @@ cd "$(git rev-parse --show-toplevel)"
 up() { curl -s -o /dev/null --max-time 2 "$1"; }
 logs="${TMPDIR:-/tmp}"
 
-npx supabase status >/dev/null 2>&1 || npm run db:start
+npm install --no-audit --no-fund --silent   # CLI de Supabase fijada en el package.json raíz (D-011)
+npx --no-install supabase status >/dev/null 2>&1 || npm run db:start
 
 (cd backend && uv sync --quiet && uv run alembic upgrade head)
 up http://127.0.0.1:8000/health || {
