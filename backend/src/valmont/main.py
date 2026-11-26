@@ -6,6 +6,7 @@ from valmont.modules.catalog.adapters import http as catalog_http
 from valmont.modules.identity.adapters import http as identity_http
 from valmont.modules.inventory.adapters import admin_http as inventory_admin_http
 from valmont.modules.promotions.adapters import admin_http as promotions_admin_http
+from valmont.modules.wishlist.adapters import http as wishlist_http
 from valmont.shared.config import get_settings
 from valmont.shared.errors import register_error_handlers
 from valmont.shared.logs import configure_logging, request_id_middleware
@@ -28,6 +29,7 @@ def create_app() -> FastAPI:
     app.include_router(inventory_admin_http.router)
     app.include_router(promotions_admin_http.router)
     app.include_router(cart_http.router)
+    app.include_router(wishlist_http.router)
     return app
 
 
