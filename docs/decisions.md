@@ -18,9 +18,9 @@
 | D-009 | 2026-10-26 | Supabase Auth + verificación del token en FastAPI | APROBADA |
 | D-010 | 2026-10-26 | SQLAlchemy 2 síncrono + psycopg 3 + Alembic, esquema `app` | APROBADA |
 | D-011 | 2026-10-26 | Docker Desktop + CLI de Supabase vía npx; lanzamiento portable con Compose | APROBADA (puerta Docker acotada por D-034) |
-| D-012 | — | Estrategia de estilos del frontend | PROPUESTA |
+| D-012 | 2026-11-26 | Estilos del frontend: CSS propio con variables (`tokens.css`) y estilos con ámbito de Astro | APROBADA |
 | D-013 | 2026-10-26 | Git + commit base, con credenciales fuera del proyecto | APROBADA (integración en `main`: D-034) |
-| D-014 | — | Framework para islas interactivas | PROPUESTA |
+| D-014 | 2026-11-26 | Islas: TypeScript sin framework; Preact solo si la isla del carrito (T-060) supera ~200 líneas de DOM | APROBADA (criterio; se aplica en T-060) |
 | D-015 | 2026-10-26 | Perú: PEN en céntimos, America/Lima, Ley 29733 | APROBADA |
 | D-016 | 2026-10-26 | Cancelación: cliente solo sin pagar; admin pagados con reembolso simulado | APROBADA |
 | D-017 | 2026-10-26 | Reserva de stock de 30 min al crear el pedido | APROBADA |
@@ -103,16 +103,20 @@
 - **Puerta Docker (condición del usuario):** toda acción de Docker (instalar, configurar, arrancar o detener contenedores, borrar volúmenes) la ejecuta el Leader tras mostrar una auditoría (qué hace, qué cambia, riesgos, cómo revertir) y recibir confirmación.
 - **Alternativas descartadas:** Docker Engine en WSL2 (más pasos, no documentado por Supabase para Windows) y PostgreSQL nativo (sin Auth ni Studio locales).
 
-### D-012 — Estilos del frontend (PROPUESTA)
+### D-012 — Estilos del frontend (APROBADA, 2026-11-26)
 - **Opciones:** (a) Tailwind CSS v4 con los tokens como variables CSS; (b) CSS propio con variables y estilos con ámbito de Astro.
-- **Nota:** se decide antes del primer componente generado con Kombai, porque define su salida.
+- **Decisión del usuario:** (b). Los tokens de `docs/design_ui/BRIEF.md` §13 van en `tokens.css` como variables CSS; cada componente usa estilos con ámbito de Astro, `@layer` para la cascada y *container queries* para el responsive. Sin colores, tamaños ni fuentes sueltos (DESIGN §9).
+- **Evidencia:** `docs/design_ui/VIEWS.md` §7 (Figma sin variables enlazadas, sistema pequeño y cerrado, cero dependencias nuevas).
+- **Consecuencia:** la salida de referencia de Figma (Tailwind) se traduce a variables; no se instala Tailwind.
 
 ### D-013 — Git, commit base y credenciales fuera del proyecto (APROBADA)
 - **Contexto:** la carpeta no es un repositorio. Los worktrees de Claude Code necesitan al menos un commit; su ausencia causó el fallo de la sesión anterior. Además, `.claude_session/` (tokens de Claude) estaba dentro del proyecto y la alcanza cualquier herramienta que lo recorra.
 - **Decisión:** `git init -b main` + commit base revisado con `git status --ignored`. `.claude_session/` se mueve a `%USERPROFILE%\.claude-valmont` y `CLAUDE_CONFIG_DIR` apunta allí. El trabajo sigue en ramas por tarea; integrar en `main` lo autoriza el usuario.
 
-### D-014 — Framework de islas (PROPUESTA)
+### D-014 — Framework de islas (APROBADA como criterio, 2026-11-26)
 - **Opciones:** TypeScript sin framework vs Preact. Se decide con la primera isla real (carrito o asistente); el prompt maestro pide no añadir un framework sin justificación.
+- **Decisión del usuario:** las islas empiezan en TypeScript sin framework (`<script>` de Astro o elementos personalizados). Si la isla del carrito (T-060) supera ~200 líneas de manipulación de DOM, frontend-lead propone adoptar Preact (`preact` + `@astrojs/preact`) en `Cart`, `CheckoutForm` y `ChatWidget`, con la medida del tamaño, y el usuario aprueba las dependencias.
+- **Evidencia:** `docs/design_ui/VIEWS.md` §8.
 
 ### D-015 — País de operación: Perú (APROBADA)
 - **Decisión:** importes en soles como entero en céntimos con código ISO 4217 (`{"amount": 125000, "currency": "PEN"}` = S/ 1,250.00 en formato `es-PE`; corregido el 2026-10-27, el ejemplo original decía "S/ 1 250,00"). Fechas guardadas y transmitidas en UTC; los períodos de los reportes se calculan en `America/Lima` (RF07.04). La protección de datos personales sigue la Ley 29733 y su reglamento (RNF10).
