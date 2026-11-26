@@ -7,7 +7,7 @@
 |---|---|---|---|---|
 | T-055 | SPEC de cart | module-coordinator | RF03, D-015, D-017, D-022, D-023, D-037 | IN_REVIEW (SPEC propuesta; falta aprobación) |
 | T-056 | Migración `0008`, dominio y repositorio del carrito | backend-dev + qa-reviewer | T-055 aprobada; excepción (6); T-021, T-026, T-016 integradas | DONE (QA APROBADO en la ronda 2: 843 + 542) |
-| T-057 | Lectura del carrito (`GetCart`, lector de producto, disponibilidad y precio) y `GET /cart` | backend-dev + qa-reviewer | T-056, T-044 (inventory), T-051 (promotions) | READY |
+| T-057 | Lectura del carrito (`GetCart`, lector de producto, disponibilidad y precio) y `GET /cart` | backend-dev + qa-reviewer | T-056, T-044 (inventory), T-051 (promotions) | IN_REVIEW |
 | T-058 | Agregar, cambiar cantidad, seleccionar y retirar (3 rutas) | backend-dev + qa-reviewer | T-057 | BACKLOG |
 | T-059 | Puerto para orders: `PrepareCheckout` y `RemoveCheckedOutItems` | backend-dev + qa-reviewer | T-057 | BACKLOG |
 | T-060 | Pantalla del carrito (checkout) y cliente de API | frontend-dev + qa-reviewer | T-057, T-058, T-111 (VIEWS.md y Figma) | BACKLOG (no READY: sin diseño) |
@@ -155,6 +155,13 @@ Rutas disjuntas (D-033): quien implementa escribe solo `backend/src/**` y las mi
 
 ## Traspasos
 
+#### Traspaso T-057 — 2026-11-26 — backend-dev
+1. Estado final: IN_REVIEW. `GetCart`, `SqlCartCatalog` y `GET /api/v1/cart` implementados según las firmas del paquete.
+2. Archivos: `modules/cart/{domain,application}.py`, `modules/cart/adapters/{persistence,http}.py`, `main.py` (2 líneas: import y `include_router`).
+3. Lector: `get_published` es una sola consulta (products JOIN product_availability, LATERAL de product_effective_price y de la primera imagen, `status = 'published'`, `id IN ids`); `get_names` otra solo para los despublicados. Sin migraciones ni imports de otros módulos (solo `identity` `current_user`/`CurrentUser`).
+4. `available`, precios y `promotion_id` salen de las vistas; `original_price` y `discount_amount` solo si `promotion_id` no es nulo; subtotal y total en Python (R8; los `unavailable` no suman).
+5. `image.url` replica `_image_url` de catalog dentro de `adapters/http.py` (no se importa catalog); falta `alt` -> cadena vacía.
+6. Análisis estático: `uv run ruff format .` -> 1 file reformatted; `uv run ruff check .` -> All checks passed; capas -> vacío. NO EJECUTADO: pruebas (D-028, D-033).
 #### Traspaso T-056 — 2026-11-26 — backend-dev
 1. Estado final: IN_REVIEW. Migración 0008, dominio, puerto y `SqlCartRepository` implementados según las firmas del paquete.
 2. Archivos: `migrations/versions/0008_cart.py`, `migrations/env.py` (1 línea), `modules/cart/{__init__,domain,application}.py`, `modules/cart/adapters/{__init__,persistence}.py`.

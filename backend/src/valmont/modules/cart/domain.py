@@ -1,5 +1,6 @@
 from dataclasses import dataclass, replace
 from datetime import datetime
+from enum import StrEnum
 from uuid import UUID
 
 # CART-R3 (H-1, H-2): límites del dominio; la BD solo protege lo invariable.
@@ -78,3 +79,33 @@ class Cart:
 
     def remove(self, product_id: UUID) -> Cart:
         return replace(self, items=tuple(i for i in self.items if i.product_id != product_id))
+
+
+class CartLineStatus(StrEnum):
+    OK = "ok"
+    INSUFFICIENT_STOCK = "insufficient_stock"
+    OUT_OF_STOCK = "out_of_stock"
+    UNAVAILABLE = "unavailable"
+
+
+def max_quantity(published: bool, order_policy: str, available: int) -> int:
+    """CART-R4: la cantidad más alta que se puede fijar ahora."""
+    if not published:
+        return 0
+    if order_policy == "stock":
+        return max(0, min(CART_ITEM_MAX_QUANTITY, available))
+    return CART_ITEM_MAX_QUANTITY
+
+
+def line_status(
+    published: bool, order_policy: str, available: int, quantity: int
+) -> CartLineStatus:
+    """CART-R7: regla pura; made_to_order y backorder no dependen del stock (RN-16)."""
+    if not published:
+        return CartLineStatus.UNAVAILABLE
+    if order_policy == "stock":
+        if available <= 0:
+            return CartLineStatus.OUT_OF_STOCK
+        if available < quantity:
+            return CartLineStatus.INSUFFICIENT_STOCK
+    return CartLineStatus.OK

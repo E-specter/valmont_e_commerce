@@ -103,3 +103,84 @@ def captured(session: Session) -> Iterator[list[str]]:
         yield statements
     finally:
         event.remove(connection, "before_cursor_execute", capture)
+
+
+LEAD_TIME_DAYS = 21
+
+
+def add_listed(
+    session: Session,
+    *,
+    price: int = 100000,
+    policy: str = "stock",
+    on_hand: int | None = None,
+    status: str = "published",
+    category_id: UUID | None = None,
+    name: str = "Reloj de prueba",
+    image: tuple[str, str] | None = None,
+) -> UUID:
+    """Producto publicable de la T-057: política, precio, estado, stock (None: sin fila de
+    inventario) e imagen (ruta, alt). Con política distinta de `stock` lleva plazo de 21 días."""
+    product_id, tag = uuid4(), uuid4().hex[:8]
+    if category_id is None:
+        category_id = uuid4()
+        session.execute(
+            text("INSERT INTO app.categories (id, slug, name) VALUES (:id, :slug, 'Lectura')"),
+            {"id": category_id, "slug": f"lectura-{tag}"},
+        )
+    session.execute(
+        text(
+            "INSERT INTO app.products (id, sku, slug, name, description, category_id,"
+            " price_cents, status, order_policy, lead_time_days, published_at) VALUES (:id, :sku,"
+            " :slug, :name, 'Reloj ficticio.', :category, :price, :status, :policy, :lead,"
+            " CASE WHEN :status = 'published' THEN now() END)"
+        ),
+        {
+            "id": product_id,
+            "sku": f"TST-LEC-{tag}",
+            "slug": f"lectura-{tag}",
+            "name": name,
+            "category": category_id,
+            "price": price,
+            "status": status,
+            "policy": policy,
+            "lead": None if policy == "stock" else LEAD_TIME_DAYS,
+        },
+    )
+    if on_hand is not None:
+        session.execute(
+            text("INSERT INTO app.inventory_items (product_id, on_hand) VALUES (:id, :n)"),
+            {"id": product_id, "n": on_hand},
+        )
+    if image is not None:
+        add_image(session, product_id, *image)
+    return product_id
+
+
+def add_image(
+    session: Session, product_id: UUID, path: str, alt: str = "Vista frontal", position: int = 0
+) -> None:
+    session.execute(
+        text(
+            "INSERT INTO app.product_images (id, product_id, storage_path, alt, position)"
+            " VALUES (gen_random_uuid(), :product, :path, :alt, :position)"
+        ),
+        {"product": product_id, "path": path, "alt": alt, "position": position},
+    )
+
+
+def identity_of(session: Session, product_id: UUID) -> tuple[str, str, str]:
+    """(sku, slug, name) tal como están en app.products."""
+    row = session.execute(
+        text("SELECT sku, slug, name FROM app.products WHERE id = :id"), {"id": product_id}
+    ).one()
+    return row[0], row[1], row[2]
+
+
+def set_product(session: Session, product_id: UUID, **columns: object) -> None:
+    """Cambia columnas de app.products (precio, estado, política...) como lo haría catalog."""
+    assignments = ", ".join(f"{column} = :{column}" for column in columns)
+    session.execute(
+        text(f"UPDATE app.products SET {assignments} WHERE id = :id"),
+        {**columns, "id": product_id},
+    )

@@ -1,3 +1,4 @@
+from collections.abc import Collection
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -6,11 +7,16 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     SmallInteger,
+    Text,
     UniqueConstraint,
+    Uuid,
+    column,
     delete,
     func,
     select,
+    table,
     true,
     update,
 )
@@ -18,6 +24,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
+from valmont.modules.cart.application import ProductSnapshot
 from valmont.modules.cart.domain import Cart, CartItem
 from valmont.shared.db import Base
 
@@ -141,3 +148,91 @@ class SqlCartRepository:
             raise
         stmt = update(CartRow).where(CartRow.id == cart.id).values(updated_at=func.now())
         self._session.execute(stmt)
+
+
+# Lectura de otros módulos (modules.md §3, excepción 6): tablas ligeras de solo lectura, nunca
+# sus modelos; mismo patrón que catalog para las vistas de inventory y promotions.
+_PRODUCT = table(
+    "products",
+    column("id", Uuid),
+    column("sku", Text),
+    column("slug", Text),
+    column("name", Text),
+    column("status", Text),
+    column("order_policy", Text),
+    schema="app",
+)
+_IMAGE = table(
+    "product_images",
+    column("product_id", Uuid),
+    column("storage_path", Text),
+    column("alt", Text),
+    column("position", Integer),
+    schema="app",
+)
+_AVAILABILITY = table(
+    "product_availability",
+    column("product_id", Uuid),
+    column("available", Integer),
+    column("status", Text),
+    column("lead_time_days", Integer),
+    schema="app",
+)
+_PRICE_VIEW = table(
+    "product_effective_price",
+    column("product_id", Uuid),
+    column("list_price_cents", Integer),
+    column("effective_price_cents", Integer),
+    column("discount_amount_cents", Integer),
+    column("promotion_id", Uuid),
+    schema="app",
+)
+
+
+class SqlCartCatalog:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def get_published(self, product_ids: Collection[UUID]) -> dict[UUID, ProductSnapshot]:
+        ids = set(product_ids)
+        if not ids:
+            return {}
+        image = (
+            select(_IMAGE.c.storage_path, _IMAGE.c.alt)
+            .where(_IMAGE.c.product_id == _PRODUCT.c.id)
+            .order_by(_IMAGE.c.position)
+            .limit(1)
+            .lateral("image")
+        )
+        price = (
+            select(_PRICE_VIEW).where(_PRICE_VIEW.c.product_id == _PRODUCT.c.id).lateral("price")
+        )
+        stmt = (
+            select(
+                _PRODUCT.c.id, _PRODUCT.c.sku, _PRODUCT.c.slug, _PRODUCT.c.name,
+                _PRODUCT.c.order_policy, image.c.storage_path, image.c.alt,
+                _AVAILABILITY.c.available, _AVAILABILITY.c.status, _AVAILABILITY.c.lead_time_days,
+                price.c.list_price_cents, price.c.effective_price_cents,
+                price.c.discount_amount_cents, price.c.promotion_id,
+            )
+            .join(_AVAILABILITY, _AVAILABILITY.c.product_id == _PRODUCT.c.id)
+            .join(price, true())
+            .outerjoin(image, true())
+            .where(_PRODUCT.c.id.in_(ids), _PRODUCT.c.status == "published")
+        )  # fmt: skip
+        return {
+            r[0]: ProductSnapshot(
+                product_id=r[0], sku=r[1], slug=r[2], name=r[3], order_policy=r[4],
+                image_path=r[5], alt=r[6], available=r[7], availability_status=r[8],
+                lead_time_days=r[9], list_price=r[10], price=r[11], discount_amount=r[12],
+                promotion_id=r[13],
+            )
+            for r in self._session.execute(stmt)
+        }  # fmt: skip
+
+    def get_names(self, product_ids: Collection[UUID]) -> dict[UUID, tuple[str, str]]:
+        ids = set(product_ids)
+        if not ids:
+            return {}
+        stmt = select(_PRODUCT.c.id, _PRODUCT.c.name, _PRODUCT.c.slug).where(_PRODUCT.c.id.in_(ids))
+        return {r[0]: (r[1], r[2]) for r in self._session.execute(stmt)}
