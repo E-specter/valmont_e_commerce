@@ -59,6 +59,7 @@
 | RF01.04 | Permitir recuperar el acceso a la cuenta (mecanismo según D-009). | POSTERIOR | PROPUESTO |
 | RF01.05 | Validar la sesión en el backend en cada solicitud protegida. | MVP | IMPLEMENTADO (backend, T-016) |
 | RF01.06 | Permitir que el cliente consulte y edite sus datos básicos de perfil. | MVP | IMPLEMENTADO (backend, T-016; sin UI) |
+| RF01.07 | Registrar la fecha de nacimiento del cliente y exigir 18 años cumplidos para comprar, tratándola como dato personal protegido (D-041). | MVP | PROPUESTO (T-113) |
 
 ### RF02 — Catálogo · módulo `catalog`
 
@@ -238,6 +239,7 @@ Los umbrales son **propuestas** pendientes de validación por el usuario; no son
 
 ## Registro de cambios
 
+- **2026-11-26 — v0.5 (claude-leader):** decisión del usuario D-041 (P-8). Nuevo: RF01.07 (fecha de nacimiento y mayoría de edad para comprar).
 - **2026-10-27 — v0.4 (claude-leader):** decisión del usuario D-023. Nuevos: RF02.08 (estados de disponibilidad), RF04.07 (pedidos bajo pedido), RF06.07 (política de venta por producto) y RN-16. RF14.01 y RF14.02 actualizados a IMPLEMENTADO tras T-021. Ningún ID cambia.
 - **2026-10-27 — v0.3 (claude-leader):** estados actualizados tras la Fase 1. IMPLEMENTADO: RF01.01 y RF01.02 (Supabase Auth, verificados E2E), RF01.05, RF01.06, RF11.02, RF13.01 y RF13.02 (backend, T-016). Ningún texto ni ID cambia.
 - **2026-10-26 — v0.2 (claude-leader):** decisiones del usuario D-015, D-016 y D-017. Nuevos: RF04.06, RF07.04 y RN-15. Modificados: RN-06 (reserva atómica con vencimiento), RN-08 (quién cancela), RF05.05 (POSTERIOR → MVP, reembolso simulado) y RNF10 (Ley 29733). H-03 resuelta. Ningún ID cambió de número.

@@ -151,6 +151,7 @@ Y la fila de `docs/agents/_registry.md`: `docs/modules/orders/ · Carpeta · SPE
 - Entrega: como T-071; mensaje propuesto `feat(orders): crear pedido desde el carrito con reserva e idempotencia (T-074)`.
 - IDs reservados: ninguno.
 - Escalar si: el contrato no cubre un caso, `PrepareCheckout` o `ReserveStock` no permiten cumplir R4 (p. ej. un bloqueo en otro orden), hace falta cambiar `CheckoutLine` (imagen, `slug`) o aparece una dependencia nueva.
+- **Ajuste D-041 (P-7):** `OrderLineOut` añade `image: OrderImageOut | None` (`url`, `alt`, misma forma que `CartImageOut`), leída al construir la respuesta con `SqlProductSnapshots(session).get_published(...)` de `valmont.shared.product_snapshots` (una consulta para todas las líneas) e `image_url`; `null` si el producto ya no está publicado o no tiene imagen. No se guarda en el pedido. Aplica a `OrderDetailOut` en todas las rutas que lo devuelven.
 
 ### T-075 — Lectura propia y caducidad (`GET /orders`, `GET /orders/{id}`)
 - Objetivo: el cliente ve sus pedidos y su historial; los pedidos vencidos pasan a `expirado` al leerse, con la reserva liberada.
@@ -176,6 +177,7 @@ Y la fila de `docs/agents/_registry.md`: `docs/modules/orders/ · Carpeta · SPE
 - Entrega: como T-071; mensaje propuesto `feat(orders): mis pedidos, detalle e historial con caducidad a los 30 minutos (T-075)`.
 - IDs reservados: ninguno.
 - Escalar si: la caducidad exige un proceso en segundo plano o un cambio en inventory, o el límite de 200 produce resultados incorrectos en la lectura.
+- **Ajuste D-041 (P-6):** el filtro admite varios estados: `GET /api/v1/orders?status=pagado&status=en_preparacion` (parámetro repetido; sin `status` = todos; un valor desconocido = 422). La firma pasa a `ListMyOrders.__call__(self, user_id, *, statuses: frozenset[OrderStatus] | None, page, page_size)`, y T-075 puede cambiar **solo** ese parámetro de `OrderRepository.list_for_user` y `SqlOrderRepository.list_for_user` (`statuses: Collection[OrderStatus] | None`, `IN (...)`). La agrupación de etiquetas vive en el frontend; ningún estado agrupado se guarda ni se devuelve.
 
 ### T-076 — Cancelar el pedido propio
 - Objetivo: el cliente cancela un pedido sin pagar y se liberan sus reservas.

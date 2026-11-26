@@ -47,6 +47,7 @@
 | D-038 | 2026-11-26 | Carrito: hasta 5 unidades sin pasar del stock, bajo pedido junto a stock, agotados marcados que bloquean la compra, sin caducidad, sin invitado | APROBADA |
 | D-039 | 2026-11-26 | Lista de deseos: mover al carrito desde la pantalla, tope blando de 50, despublicados visibles y marcados; lectura de producto compartida en `shared/` | APROBADA |
 | D-040 | 2026-11-26 | Pedidos: envío a domicilio y recojo en tienda, envío gratis a todo el Perú, datos sin DNI, bajo pedido con pago completo; proveedores `adapters/wiring.py` por módulo | APROBADA |
+| D-041 | 2026-11-26 | Interfaz: respuestas P-1…P-9 (cabecera, filtros estáticos, precio es-PE con D-037, pago simulado sin PAN, cookie httpOnly, estados agrupados solo en la vista, miniaturas del lector compartido, fecha de nacimiento +18, contenido de demo) | APROBADA |
 
 ---
 
@@ -471,3 +472,18 @@
 - **Alternativas descartadas:** solo envío o solo recojo; tarifa fija o solo Lima; pedir el DNI; adelanto y saldo; separar en pedidos distintos lo que tiene stock y lo que va bajo pedido; puertos sin proveedores (orders no podría construir los casos de uso de cart e inventory).
 - **Consecuencias:** excepción (7); migración 0010; T-071…T-084.
 - **Reversión:** decisiones nuevas sobre la entrega o el costo. El modelo admite `shipping_amount > 0` y varias boutiques sin migrar los pedidos existentes.
+
+### D-041 — Interfaz: preguntas P-1…P-9 del inventario de vistas (APROBADA, 2026-11-26)
+- **Contexto:** `docs/design_ui/VIEWS.md` §10 (T-111) dejó nueve preguntas entre el diseño de Figma, el contrato y los requisitos. P-1 se decidió junto con D-012 y D-014.
+- **Decisiones del usuario:**
+  1. **P-1 (navegación):** la cabecera añade carrito, cuenta, lista de deseos y búsqueda con los iconos del brief, y enlaces fijos (Relojes, Nosotros, Contacto).
+  2. **P-2 (filtros y etiquetas sin contrato):** solo funcionan los filtros que ofrece catalog (movimiento, material, precio, categoría, disponibilidad). El resto del diseño (filtro "Complicación", badges, "destacado") se maqueta **estático y no interactivo** (sin aparentar que filtra: `aria-disabled` o fuera del formulario), listo para cuando catalog lo amplíe con `api-contract-review`.
+  3. **P-3 (precio):** el frontend formatea con `Intl.NumberFormat('es-PE')`: `S/ 84,500` si el importe es entero y con 2 decimales si no. Los importes siguen en céntimos enteros calculados por el servidor (D-015, RN-09). **Se mantiene D-037:** todo importe derivado con fracción de céntimo se redondea al céntimo más cercano, con la mitad hacia arriba, en aritmética entera (el usuario lo confirmó frente a redondear siempre hacia arriba).
+  4. **P-4 (pago simulado):** formulario de tarjeta como en el diseño, pero el número y el CVV **nunca salen del navegador** ni se guardan o registran; el servidor solo simula el resultado (aprobado o rechazado). payments (T-090+) se diseña con un puerto de pasarela y un adaptador simulado, para sustituirlo por un proveedor real con tokenización o campos alojados (PCI DSS) sin cambiar orders ni la interfaz.
+  5. **P-5 (sesión en SSR):** cookie `httpOnly` emitida tras Supabase Auth y reenviada como Bearer al backend (confirma D-025).
+  6. **P-6 (estados de pedido):** la agrupación de etiquetas es **solo de presentación** (un mapa en el frontend); la BD y la API siguen con los ocho estados como única fuente, sin estados agrupados guardados. El filtro `status` de `GET /api/v1/orders` acepta **varios valores** (parámetro repetido), cambio compatible (T-075).
+  7. **P-7 (miniaturas en pedidos):** la imagen de cada línea se lee al consultar con el lector compartido `valmont.shared.product_snapshots` (imagen vigente del producto, no parte de la instantánea del pedido); `OrderLineOut.image` es `null` si el producto ya no está publicado o no tiene imagen (T-074, T-075).
+  8. **P-8 (mayoría de edad):** el perfil guarda la **fecha de nacimiento** y el backend exige 18 años cumplidos (fecha de Lima) para comprar (capacidad de contratar, Código Civil art. 42). Es un dato personal (Ley 29733 y su reglamento; buenas prácticas ISO/IEC 27001 y 27701): finalidad declarada (verificar la edad), consentimiento en el registro, solo la ven su dueño y el administrador, no aparece en logs, listados ni auditoría, y entra en la política de supresión pendiente (orders R-5). Nuevo RF01.07; tarea T-113.
+  9. **P-9 (contenido de "Nosotros"):** no se usa el texto de Figma tal cual: se redacta un contenido coherente con la marca, ficticio y señalado como de demostración, y **se retira o sustituye antes de producción** (lista de lanzamiento).
+- **Alternativas descartadas:** ampliar catalog en el MVP (P-2); 2 decimales siempre y redondeo siempre hacia arriba (P-3); botón "Simular pago" sin formulario (P-4); token en el navegador (P-5); una etiqueta por estado (P-6); imagen guardada en el pedido (P-7); sin fecha de nacimiento (P-8); contenido de Figma tal cual (P-9).
+- **Consecuencias:** ajustes en los paquetes T-074 y T-075 de orders; RF01.07 y T-113 (identity); notas para payments (T-090) y para las pantallas de VIEWS §11.

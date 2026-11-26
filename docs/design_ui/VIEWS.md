@@ -297,6 +297,8 @@ No se inventa nada: cada hueco es un campo o endpoint que la vista pide y el con
 | P-8 | **Registro: fecha de nacimiento y "+18"** (H-18). | (A) Omitir y quedarse con el consentimiento de términos y privacidad; (B) añadir `birth_date` a identity (dato personal, RNF10). | **A**; B solo si hay un requisito legal. |
 | P-9 | **Contenido de marca de "Nosotros"** (reconocimientos 2022–2025, "Est. 2005", redes `@valmontperu`, teléfonos). | (A) Usarlo tal cual como contenido de la demo; (B) retirarlo hasta confirmar su veracidad. | **B** para producción; **A** en la demo marcada como contenido de ejemplo. |
 
+**Decididas por el usuario (2026-11-26, D-041):** P-1 A · P-2 A, con los elementos sin contrato estáticos y no interactivos · P-3 A, con D-037 para las fracciones · P-4 A, con payments preparado para una pasarela real · P-5 A · P-6 B, agrupación solo de presentación · P-7 B · P-8 B (fecha de nacimiento y +18, dato personal protegido) · P-9: contenido redactado para la demo y retirado antes de producción.
+
 ## 11. Tareas propuestas (sin ID; las numera el Leader)
 
 1. `tokens.css`, fuentes alojadas y `BaseLayout`/`StoreLayout`/`AuthLayout` (depende de D-012).
