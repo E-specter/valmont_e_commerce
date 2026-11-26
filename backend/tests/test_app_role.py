@@ -21,9 +21,12 @@ EXPECTED_TABLES = {
     "inventory_settings": CRUD,
     "movement_types": CRUD,
     "product_availability": {"SELECT"},
+    "product_effective_price": {"SELECT"},
     "product_images": CRUD,
     "products": CRUD,
     "profiles": CRUD,
+    "promotion_products": CRUD,
+    "promotions": CRUD,
     "stock_movements": {"SELECT", "INSERT"},  # libro de movimientos: solo inserción
     "stock_reservations": CRUD,
 }
@@ -180,6 +183,51 @@ def test_app_role_is_denied_changes_to_stock_movements(
 
     with pytest.raises(DBAPIError, match="permission denied"), app_session.begin_nested():
         app_session.execute(text(statement), params)
+
+
+def test_app_role_manages_promotions_and_reads_their_effective_price(app_session: Session) -> None:
+    # T-051: CRUD sobre promotions y promotion_products; la vista, solo lectura.
+    product = insert_product(app_session)
+    params = {"product": product, "promotion": uuid4()}
+    for statement in (
+        "INSERT INTO app.promotions (id, name, kind, percent_off, scope, starts_at, ends_at)"
+        " VALUES (:promotion, 'T-051', 'percent', 10, 'products', now(),"
+        " now() + interval '1 day')",
+        "INSERT INTO app.promotion_products (promotion_id, product_id)"
+        " VALUES (:promotion, :product)",
+        "UPDATE app.promotions SET percent_off = 20 WHERE id = :promotion",
+    ):
+        app_session.execute(text(statement), params)
+    price = text(
+        "SELECT effective_price_cents FROM app.product_effective_price WHERE product_id = :product"
+    )
+
+    assert app_session.scalar(price, params) == 80  # 20 % de 100 céntimos
+    app_session.execute(
+        text("DELETE FROM app.promotion_products WHERE promotion_id = :promotion"), params
+    )
+    app_session.execute(text("DELETE FROM app.promotions WHERE id = :promotion"), params)
+    assert app_session.scalar(price, params) == 100
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "TRUNCATE app.promotions",
+        "TRUNCATE app.promotion_products",
+        "INSERT INTO app.product_effective_price (product_id) VALUES (gen_random_uuid())",
+        "UPDATE app.product_effective_price SET effective_price_cents = 1",
+        "DELETE FROM app.product_effective_price",
+    ],
+)
+def test_app_role_cannot_truncate_promotions_or_write_the_view(
+    app_session: Session, statement: str
+) -> None:
+    # La vista no es actualizable: PostgreSQL lo rechaza antes de mirar permisos; el mapa de
+    # privilegios (SELECT únicamente) es lo que prueba que no hay más.
+    denied = "permission denied|cannot (insert into|update|delete from) view"
+    with pytest.raises(DBAPIError, match=denied), app_session.begin_nested():
+        app_session.execute(text(statement))
 
 
 @pytest.mark.parametrize(

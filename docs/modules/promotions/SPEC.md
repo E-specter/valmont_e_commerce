@@ -88,8 +88,8 @@ Migración **0007** (siguiente tras `0006`; `--rev-id 0007`). Tablas en el esque
 app.promotions          id uuid PK · name text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 120)
                         kind text NOT NULL CHECK (kind IN ('percent','fixed_amount'))
                         percent_off smallint NULL · amount_off_cents integer NULL
-                        CHECK ((kind = 'percent' AND percent_off BETWEEN 1 AND 90 AND amount_off_cents IS NULL)
-                            OR (kind = 'fixed_amount' AND amount_off_cents >= 1 AND percent_off IS NULL))
+                        CHECK ((kind = 'percent' AND percent_off IS NOT NULL AND percent_off BETWEEN 1 AND 90 AND amount_off_cents IS NULL)
+                            OR (kind = 'fixed_amount' AND amount_off_cents IS NOT NULL AND amount_off_cents >= 1 AND percent_off IS NULL))   -- IS NOT NULL explícito: en un CHECK, NULL cuenta como cumplido (hallazgo H-1 de QA en T-051)
                         scope text NOT NULL CHECK (scope IN ('products','category','catalog'))
                         category_id uuid NULL FK → app.categories ON DELETE RESTRICT
                         CHECK ((scope = 'category') = (category_id IS NOT NULL))
