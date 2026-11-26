@@ -19,7 +19,8 @@ up http://127.0.0.1:8000/health || {
 }
 
 (cd frontend && npm install --no-audit --no-fund --silent)
-up http://localhost:4321 || (cd frontend && npx astro dev --background >/dev/null)
+# Sin stderr redirigido, el proceso de astro hereda la tubería y quien llama nunca ve el EOF.
+up http://localhost:4321 || (cd frontend && npx astro dev --background >/dev/null 2>&1)
 
 for i in $(seq 1 30); do up http://127.0.0.1:8000/health && up http://localhost:4321 && break; sleep 2; done
 
