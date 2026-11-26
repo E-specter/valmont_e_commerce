@@ -13,9 +13,9 @@
   - Migraciones 0001–0009.
   - Último recuento de QA: 1081 unitarias + 856 de integración (T-067/T-068).
 - **Configuración de Claude (T-108, D-031…D-036):** hecha. Figma por MCP en lugar de Kombai, modelos y esfuerzo por rol, QA escribe y ejecuta las pruebas, integración en `main` con `scripts/review-up.sh` tras cada tarea, plugins, skills y MCP en `.claude/` y `.mcp.json`, y commits sin firma de IA.
-- **orders:** SPEC aprobada (T-070, D-040). Envío y recojo en tienda; el usuario confirmó las hipótesis del recojo (una boutique en configuración, nombre y teléfono de quien recoge, `listo_para_recojo`). **T-071 (costuras `wiring.py` y datos de la boutique en `shared/config.py`) y T-072 (dominio) están READY**; pueden ir en una sola entrega, porque tocan archivos distintos.
+- **orders:** SPEC aprobada (T-070, D-040). Envío y recojo en tienda; el usuario confirmó las hipótesis del recojo (una boutique en configuración, nombre y teléfono de quien recoge, `listo_para_recojo`). **T-071 (costuras `wiring.py` y datos de la boutique) y T-072 (dominio) integradas** (09cda5f; QA: 1466 unitarias + 891 de integración). **T-073 (migración 0010 y repositorio) READY.**
 - **Diseño:** Figma conectado (archivo `xRC4mg5JmdqlZ6mbv97kGO`). **T-110 (brief desde `guide_design_brand`) y T-111 (vistas `landing`, `auth`, `products`, `orders`, `wishlist`, `pay`) están READY**; se hacen en una sola pasada de frontend-lead. Alcance en `docs/agents/tasks.md`.
-- **Siguiente, en paralelo:** (1) T-110+T-111 con frontend-lead; (2) T-071+T-072 con backend-dev ∥ qa-reviewer. Después: T-073…T-080 (orders), payments (T-090…), las pantallas desde VIEWS y reports.
+- **Siguiente, en paralelo:** (1) T-110+T-111 con frontend-lead; (2) T-073 con backend-dev ∥ qa-reviewer. Después: T-074…T-080 (orders), payments (T-090…), las pantallas desde VIEWS y reports.
 - **Decisiones abiertas:** D-012 (estilos) y D-014 (islas); se deciden con la evidencia de T-111.
 
 ## Ruta al MVP (desde 2026-11-26): dos pistas en paralelo
