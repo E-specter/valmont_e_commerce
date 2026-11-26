@@ -6,7 +6,7 @@
 
 ## Estado actual (2026-11-26)
 
-- **En `main` (`84f62e4`, integrado el 2026-11-26):**
+- **En `main` (`88bb865`, integrado el 2026-11-26):**
   - Fase 1 completa.
   - De la Fase 2: identity (backend), audit, catalog (incluida T-030) e inventory.
   - El **hito M1** completo: rol `valmont_app`, stack de despliegue con Caddy y Supabase autohospedado, lanzamiento verificado en Windows 11, y copias cifradas con restauración probada.
