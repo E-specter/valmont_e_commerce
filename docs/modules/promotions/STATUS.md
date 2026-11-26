@@ -7,8 +7,8 @@
 |---|---|---|---|---|
 | T-050 | SPEC de promotions | module-coordinator | RF09, D-015, D-022, D-037, CATALOG-R13 | DONE (SPEC v2 aprobada por el Leader el 2026-11-26: contrato §7, excepción (5) y H-1…H-7 adoptadas, D-037) |
 | T-051 | Migración `0007`, dominio, repositorios y puerto `GetEffectivePrices` | backend-dev + qa-reviewer | T-050 aprobada, T-021, T-026 | DONE (`492465f`; QA APROBADO en la ronda 2: 758 + 383; corregidos H-1, CHECK con NULL, y H-2, nombre en blanco) |
-| T-052 | API de administración con auditoría y promoción de demostración en las semillas | backend-dev + qa-reviewer | T-051 | READY |
-| T-053 | Precio vigente en la API pública de catalog | backend-dev + qa-reviewer | T-051; aprobación de la excepción (5) de `modules.md` §3 y de los campos nuevos por frontend-lead | BACKLOG |
+| T-052 | API de administración con auditoría y promoción de demostración en las semillas | backend-dev + qa-reviewer | T-051 | DONE (QA APROBADO: 801 + 471) |
+| T-053 | Precio vigente en la API pública de catalog | backend-dev + qa-reviewer | T-051; aprobación de la excepción (5) de `modules.md` §3 y de los campos nuevos por frontend-lead | READY |
 | T-054 | Backoffice de promociones y precio promocional en la tienda | frontend-dev + qa-reviewer | T-052, T-053, T-111 (VIEWS.md y nodos de Figma) | BACKLOG (no READY: sin diseño; frontend-lead lo divide y pide IDs fuera del rango) |
 
 IDs reservados del módulo: T-050–T-054 (sin libres). Orden: T-051 → (T-052 ∥ T-053) → T-054. T-052 y T-053 se pueden implementar en paralelo (rutas disjuntas) y se integran en ese orden, porque la revisión manual de T-053 usa la promoción de las semillas de T-052.
