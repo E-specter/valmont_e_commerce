@@ -16,7 +16,8 @@ npx --no-install supabase status >/dev/null 2>&1 || npm run db:start
 (cd backend && uv sync --quiet && uv run alembic upgrade head)
 # El backend se reinicia siempre: tras un fast-forward, el reloader de `fastapi dev` puede seguir con el código anterior.
 case "$(uname -s)" in
-  MINGW* | MSYS* | CYGWIN*) powershell -NoProfile -ExecutionPolicy Bypass -File scripts/restart-backend.ps1 ;;
+  # Sin redirigir, PowerShell recibe la tubería de quien llama y el backend la hereda: el script no terminaría.
+  MINGW* | MSYS* | CYGWIN*) powershell -NoProfile -ExecutionPolicy Bypass -File scripts/restart-backend.ps1 >/dev/null 2>&1 </dev/null ;;
   *)
     pkill -f "$PWD/backend/.venv/bin/fastapi" || true
     (cd backend && nohup uv run fastapi dev src/valmont/main.py >"$logs/valmont-backend.log" 2>&1 </dev/null &)
