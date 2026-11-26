@@ -14,9 +14,11 @@ import colorsys
 import struct
 import sys
 import zlib
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from valmont.modules.audit.adapters.persistence import SqlAuditRecorder
@@ -54,11 +56,17 @@ from valmont.modules.inventory.adapters.persistence import (
 from valmont.modules.inventory.application import Actor as InventoryActor
 from valmont.modules.inventory.application import RecordMovement
 from valmont.modules.inventory.domain import MovementKind
+from valmont.modules.promotions.adapters.persistence import PromotionRow, SqlPromotionRepository
+from valmont.modules.promotions.application import Actor as PromotionActor
+from valmont.modules.promotions.application import CreatePromotion
+from valmont.modules.promotions.domain import PromotionKind, PromotionScope
 from valmont.shared.config import get_settings
 from valmont.shared.db import get_engine
 
 SYSTEM = Actor(None, None)  # AUDIT-R5: actor nulo = sistema
 INVENTORY_SYSTEM = InventoryActor(None, None)  # el mismo, para los casos de uso de inventory
+PROMOTIONS_SYSTEM = PromotionActor(None, None)  # y para los de promotions
+PROMOTION_DAYS = 56  # vigencia de las promociones de demostración: ocho semanas desde hoy
 ALT = "Imagen de marcador (demo)"
 STOCK_NOTE = "Semilla de demostración"
 
@@ -151,6 +159,35 @@ DEMO_STOCK = {
 }
 
 
+def _demo_promotions(by_sku: dict[str, AdminProductView], category_id: Any) -> list[dict[str, Any]]:
+    """Un 15 % sobre dos productos y S/ 200 sobre una categoría; Alba (DEMO-001) está en las dos
+    y gana el porcentaje (menor precio final, R5)."""
+    start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    dates = {"starts_at": start, "ends_at": start + timedelta(days=PROMOTION_DAYS)}
+    return [
+        {
+            "name": "Demo: 15 % en Alba e Isla",
+            "kind": PromotionKind.PERCENT,
+            "percent_off": 15,
+            "amount_off": None,
+            "scope": PromotionScope.PRODUCTS,
+            "product_ids": [by_sku[sku].product.id for sku in ("DEMO-001", "DEMO-009")],
+            "category_id": None,
+        }
+        | dates,
+        {
+            "name": "Demo: S/ 200 en Vestir",
+            "kind": PromotionKind.FIXED_AMOUNT,
+            "percent_off": None,
+            "amount_off": 20000,
+            "scope": PromotionScope.CATEGORY,
+            "product_ids": [],
+            "category_id": category_id,
+        }
+        | dates,
+    ]
+
+
 def placeholder_png(rgb: tuple[int, int, int], size: int = 400) -> bytes:
     """PNG cuadrado de un color liso, generado aquí: ninguna foto real."""
 
@@ -198,6 +235,7 @@ def seed(session: Session, storage: ImageStorage) -> dict[str, int]:
         "imágenes": 0,
         "publicados": 0,
         "ajustes de stock": 0,
+        "promociones": 0,
     }
 
     by_slug = {category.slug: category for category in categories.list_all()}
@@ -234,6 +272,15 @@ def seed(session: Session, storage: ImageStorage) -> dict[str, int]:
             record_movement(view.product.id, adjust, units, STOCK_NOTE, INVENTORY_SYSTEM)
             created["ajustes de stock"] += 1
         session.commit()
+
+    # Promociones de demostración: por nombre, sin repetirse (UC-PROMOTIONS-01, AUDIT-R5).
+    promotions = SqlPromotionRepository(session)
+    existing = set(session.scalars(select(PromotionRow.name)))
+    for fields in _demo_promotions(_products_by_sku(products), by_slug["demo-vestir"].id):
+        if fields["name"] not in existing:
+            CreatePromotion(promotions, audit)(fields, PROMOTIONS_SYSTEM)
+            created["promociones"] += 1
+    session.commit()
     return created
 
 

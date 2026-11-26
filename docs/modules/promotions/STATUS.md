@@ -137,6 +137,15 @@ Rutas disjuntas (D-033): quien implementa escribe solo `backend/src/**` y las mi
 
 ## Traspasos
 
+#### Traspaso T-052 — 2026-11-26 — backend-dev
+1. Estado: IN_REVIEW. API `/api/v1/promotions/admin` (6 rutas), casos de uso con auditoría R13 y promociones de demostración en `seed_dev`.
+2. Archivos: `promotions/application.py`, `promotions/adapters/admin_http.py` (nuevo), `main.py` (2 líneas), `scripts/seed_dev.py`.
+3. Estático: `uv run ruff format .` → 44 files left unchanged; `uv run ruff check .` → All checks passed; capas → vacío. NO EJECUTADO: pruebas (D-028, D-033).
+4. Claves del `Mapping` de `Create/UpdatePromotion`: nombres del dominio (`name, kind, percent_off, amount_off` en céntimos, `scope, category_id, product_ids, starts_at, ends_at`).
+5. Auditoría: `after` completo al crear; en update solo lo que cambia (R13, claves `amount_off_cents`); activar/desactivar `{"is_active": ...}`; repetidos sin entrada.
+6. DISCREPANCIA para el Leader: el detalle necesita `sku`, `name` de `app.products` y `id, slug, name` de `app.categories`, fuera de la excepción 5 de `modules.md` §3 (solo `id, category_id, price_cents`); `admin_http.py` los lee con tablas ligeras de solo lectura. Hace falta ampliar la excepción o aprobar otra vía.
+7. Un `PATCH` vacío da 422 con `loc ["body"]`; `status` se calcula con la hora del servidor al responder.
+
 #### Traspaso T-050 (v2) — 2026-11-26 — module-coordinator
 (El texto completo está en la respuesta final de la tarea; aquí queda el resumen.)
 1. Estado final: IN_REVIEW. SPEC v2 y STATUS actualizados con las decisiones del usuario (D-037); no hay código ni pruebas.
