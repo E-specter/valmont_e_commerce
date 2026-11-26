@@ -46,6 +46,7 @@
 | D-037 | 2026-11-26 | Promociones: porcentaje o monto fijo; alcance producto, categoría o catálogo; gana el menor precio final; vigencia obligatoria | APROBADA |
 | D-038 | 2026-11-26 | Carrito: hasta 5 unidades sin pasar del stock, bajo pedido junto a stock, agotados marcados que bloquean la compra, sin caducidad, sin invitado | APROBADA |
 | D-039 | 2026-11-26 | Lista de deseos: mover al carrito desde la pantalla, tope blando de 50, despublicados visibles y marcados; lectura de producto compartida en `shared/` | APROBADA |
+| D-040 | 2026-11-26 | Pedidos: envío a domicilio y recojo en tienda, envío gratis a todo el Perú, datos sin DNI, bajo pedido con pago completo; proveedores `adapters/wiring.py` por módulo | APROBADA |
 
 ---
 
@@ -436,3 +437,33 @@
 - **Alternativas descartadas:** ruta atómica de mover; sin tope o con tope de 20; ocultar o borrar los despublicados; replicar la consulta de cart dentro de wishlist; puertos por lotes nuevos en catalog, inventory y promotions.
 - **Consecuencias:** `shared/product_snapshots.py` (T-066); migración 0009; excepción (6) de `modules.md` §3 ampliada a la lectura compartida; T-066…T-069.
 - **Reversión:** una decisión nueva sobre el tope. La lectura compartida no tiene vuelta atrás razonable: es la forma de no duplicar la consulta.
+
+### D-040 — Reglas de negocio de pedidos y composición entre módulos (APROBADA)
+- **Contexto:** SPEC de orders (T-070). El usuario respondió P-1, 2, 3 y 5 el 2026-11-26. El Leader adoptó las recomendaciones técnicas de la SPEC (E-1…E-3, P-4, 6, 7, 8, 9, 10 y 11).
+- **Decisión:**
+  1. **Entrega:** el cliente elige `shipping` (envío a domicilio) o `pickup` (recojo en tienda).
+     - En el envío se piden nombre, teléfono, departamento, provincia, distrito, dirección y referencia opcional, sin DNI (Ley 29733: minimización).
+     - En el recojo se piden nombre y teléfono de quien recoge.
+     - Hay una sola boutique; sus datos van en configuración (hipótesis del Leader).
+  2. **Costo:** envío gratis a todo el Perú. `shipping_amount` queda modelado y vale 0.
+  3. **Bajo pedido:** pago completo al crear el pedido, con las mismas reglas que el resto. Los artículos con y sin stock se entregan juntos.
+  4. **Estados:**
+     - Recojo: `pendiente_pago → pagado → en_preparacion → listo_para_recojo → entregado`.
+     - Envío: `… → en_preparacion → enviado → entregado`.
+     - Cancelación según D-016, antes de `enviado` o `listo_para_recojo`.
+     - Si la reserva vence sin pago (D-017), el pedido se cancela.
+  5. **Número visible:** secuencial `VAL-000123`.
+  6. **Pedidos sin pagar:** como máximo 3 por cliente.
+  7. **Reembolso simulado** (D-016): es un dato de orders (`refunded_amount`). Para que el stock vuelva, el administrador registra una `devolucion` en inventory.
+  8. **Composición entre módulos** (excepción (7) de `modules.md` §3): cada módulo puede exponer `adapters/wiring.py` con proveedores de FastAPI de sus casos de uso, y otro router puede importarlos. La lógica sigue entrando solo por los puertos de `application`. Orders tiene FK a `app.profiles` y `app.products`.
+- **Alcance:** RF04, RF11.01, RF12 y RF13.03. Payments (T-090+) marcará el pedido como pagado a través del puerto que define esta SPEC.
+- **Fuera de alcance:** pagos reales, operador logístico, varias boutiques, cobro de envío, adelantos o pagos parciales, y facturación electrónica.
+- **Limitaciones y riesgos:**
+  - Hay carreras entre pago, cancelación y vencimiento. Se mitigan con un orden fijo de bloqueo: carrito → pedido → reservas → stock.
+  - La dirección es un dato personal y falta definir la política de supresión.
+  - La clave de idempotencia no guarda la huella del cuerpo.
+- **Requisitos afectados:** RF04, RF05.05, RF11.01, RF12, RF13.03, RF14, D-015, D-016, D-017, D-022, D-023, D-037, D-038.
+- **Casos de uso:** UC-ORDERS-01…10 de la SPEC.
+- **Alternativas descartadas:** solo envío o solo recojo; tarifa fija o solo Lima; pedir el DNI; adelanto y saldo; separar en pedidos distintos lo que tiene stock y lo que va bajo pedido; puertos sin proveedores (orders no podría construir los casos de uso de cart e inventory).
+- **Consecuencias:** excepción (7); migración 0010; T-071…T-084.
+- **Reversión:** decisiones nuevas sobre la entrega o el costo. El modelo admite `shipping_amount > 0` y varias boutiques sin migrar los pedidos existentes.
