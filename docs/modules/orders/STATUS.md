@@ -8,7 +8,7 @@
 | T-070 | SPEC de orders | module-coordinator | RF04, RF11.01, RF12, RF13.03, D-015…D-017, D-022, D-023, D-037, D-038 | DONE (aprobada por el Leader el 2026-11-26, D-040) |
 | T-071 | Costuras entre módulos (`wiring.py` de cart e inventory, `InsufficientStock` reexportada) y configuración de la boutique en `Settings` | backend-dev + qa-reviewer | excepción (7) (E-1, D-040) registrada en `modules.md` §3 | DONE (09cda5f) |
 | T-072 | Dominio puro de orders: estados, transiciones, entrega, pedido y funciones | backend-dev + qa-reviewer | T-070 aprobada | DONE (09cda5f) |
-| T-073 | Migración `0010`, filas y repositorio SQL (incluido el reloj de la BD y la caducidad) | backend-dev + qa-reviewer | T-072; E-2 registrada; T-016, T-026 integradas | DONE (368b7db) |
+| T-073 | Migración `0010`, filas y repositorio SQL (incluido el reloj de la BD y la caducidad) | backend-dev + qa-reviewer | T-072; E-2 registrada; T-016, T-026 integradas | DONE (3194a85) |
 | T-074 | Crear pedido (`CreateOrder`) y `POST /orders` | backend-dev + qa-reviewer | T-071, T-073; cart (T-059), inventory (T-042), promotions (T-051) integradas | READY |
 | T-075 | Lectura propia y caducidad (`ExpireOverdueOrders`, `ListMyOrders`, `GetMyOrder`) y 2 `GET` | backend-dev + qa-reviewer | T-074 | BACKLOG |
 | T-076 | Cancelar el pedido propio (`CancelMyOrder`) y `POST /orders/{id}/cancel` | backend-dev + qa-reviewer | T-075 | BACKLOG |
