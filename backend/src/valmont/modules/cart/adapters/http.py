@@ -1,7 +1,6 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Annotated, Literal
-from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
@@ -29,21 +28,12 @@ from valmont.modules.cart.domain import (
 )
 from valmont.modules.identity.adapters.http import current_user
 from valmont.modules.identity.domain import CurrentUser
-from valmont.shared.config import get_settings
 from valmont.shared.db import SessionDep
 from valmont.shared.errors import ERROR_RESPONSES, AppError, ErrorOut
 from valmont.shared.money import Money
+from valmont.shared.product_snapshots import image_url
 
 router = APIRouter(prefix="/api/v1/cart", tags=["cart"])
-
-
-def _image_url(storage_path: str) -> str:
-    """URL pública de Storage, como catalog (SPEC cart §7)."""
-    settings = get_settings()
-    base = settings.storage_public_url or settings.supabase_url
-    if not base:
-        raise RuntimeError("Falta STORAGE_PUBLIC_URL o SUPABASE_URL en el entorno (backend/.env).")
-    return f"{base.rstrip('/')}/storage/v1/object/public/products/{quote(storage_path)}"
 
 
 def _money(cents: int | None) -> Money | None:
@@ -79,7 +69,7 @@ class CartItemOut(BaseModel):
     @classmethod
     def from_view(cls, line: CartLineView) -> CartItemOut:
         image = (
-            CartImageOut(url=_image_url(line.image_path), alt=line.alt or "")
+            CartImageOut(url=image_url(line.image_path), alt=line.alt or "")
             if line.image_path
             else None
         )

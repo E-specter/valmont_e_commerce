@@ -1,6 +1,5 @@
 from decimal import Decimal
 from typing import Annotated, Literal, Self
-from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -34,6 +33,7 @@ from valmont.shared.config import get_settings
 from valmont.shared.db import SessionDep
 from valmont.shared.errors import ERROR_RESPONSES, AppError
 from valmont.shared.money import Money
+from valmont.shared.product_snapshots import image_url
 
 # --- Dependencias ---
 
@@ -56,12 +56,8 @@ Attributes = Annotated[AttributeRepository, Depends(get_attribute_repository)]
 
 
 def _image_url(storage_path: str) -> str:
-    """URL pública de Storage (SPEC §6); la ruta interna nunca sale en la respuesta."""
-    settings = get_settings()
-    base = settings.storage_public_url or settings.supabase_url
-    if not base:
-        raise RuntimeError("Falta STORAGE_PUBLIC_URL o SUPABASE_URL en el entorno (backend/.env).")
-    return f"{base.rstrip('/')}/storage/v1/object/public/products/{quote(storage_path)}"
+    """URL pública de Storage (SPEC §6); settings resueltos aquí."""
+    return image_url(storage_path, get_settings())
 
 
 # --- Esquemas de entrada ---

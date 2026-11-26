@@ -31,6 +31,7 @@ EXPECTED_TABLES = {
     "promotions": CRUD,
     "stock_movements": {"SELECT", "INSERT"},  # libro de movimientos: solo inserción
     "stock_reservations": CRUD,
+    "wishlist_items": {"SELECT", "INSERT", "DELETE"},  # una fila se agrega o se retira: sin UPDATE
 }
 EXPECTED_SEQUENCES = {
     "audit_log_id_seq": {"USAGE", "SELECT"},
@@ -231,6 +232,36 @@ def test_app_role_manages_carts_and_their_items(app_session: Session) -> None:
     app_session.execute(text("DELETE FROM app.cart_items WHERE cart_id = :cart"), params)
     app_session.execute(text("DELETE FROM app.carts WHERE id = :cart"), params)
     assert app_session.scalar(quantity, params) is None
+
+
+def test_app_role_adds_reads_and_removes_wishlist_items_but_cannot_update_them(
+    app_session: Session,
+) -> None:
+    # T-066: SELECT, INSERT y DELETE sobre wishlist_items; la fila nunca se modifica (SPEC §6).
+    product = insert_product(app_session)
+    params = {"product": product, "user": uuid4()}
+    for statement in (
+        "INSERT INTO app.profiles (user_id) VALUES (:user)",
+        "INSERT INTO app.wishlist_items (id, user_id, product_id)"
+        " VALUES (gen_random_uuid(), :user, :product)",
+    ):
+        app_session.execute(text(statement), params)
+    count = text("SELECT count(*) FROM app.wishlist_items WHERE user_id = :user")
+
+    assert app_session.scalar(count, params) == 1
+    for statement in (
+        "UPDATE app.wishlist_items SET created_at = now() WHERE user_id = :user",
+        "UPDATE app.wishlist_items SET product_id = product_id WHERE user_id = :user",
+    ):
+        with pytest.raises(DBAPIError, match="permission denied"), app_session.begin_nested():
+            app_session.execute(text(statement), params)
+    app_session.execute(text("DELETE FROM app.wishlist_items WHERE user_id = :user"), params)
+    assert app_session.scalar(count, params) == 0
+
+
+def test_app_role_cannot_truncate_wishlist_items(app_session: Session) -> None:
+    with pytest.raises(DBAPIError, match="permission denied"), app_session.begin_nested():
+        app_session.execute(text("TRUNCATE app.wishlist_items"))
 
 
 @pytest.mark.parametrize("statement", ["TRUNCATE app.carts", "TRUNCATE app.cart_items"])

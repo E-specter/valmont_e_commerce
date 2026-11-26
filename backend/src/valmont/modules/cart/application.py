@@ -5,6 +5,7 @@ from typing import Protocol
 from uuid import UUID
 
 from valmont.modules.cart.domain import Cart, CartLineStatus, line_status, max_quantity
+from valmont.shared.product_snapshots import ProductSnapshot
 
 
 class CartRepository(Protocol):
@@ -19,24 +20,6 @@ class CartRepository(Protocol):
     def save(self, cart: Cart) -> None:
         """Persiste el estado del carrito; solo con la fila bloqueada."""
         ...
-
-
-@dataclass(frozen=True)
-class ProductSnapshot:
-    product_id: UUID
-    sku: str
-    slug: str
-    name: str
-    image_path: str | None
-    alt: str | None
-    order_policy: str
-    available: int
-    availability_status: str
-    lead_time_days: int | None
-    list_price: int
-    price: int
-    discount_amount: int
-    promotion_id: UUID | None
 
 
 class CartCatalog(Protocol):
