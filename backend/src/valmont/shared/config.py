@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     storage_public_url: str | None = None
     # Sube y borra imágenes (D-019). Salta RLS: SecretStr para que no salga en repr ni en logs.
     supabase_service_role_key: SecretStr | None = None
+    # Boutique del recojo en tienda (orders, H-1). Sin secretos; si falta alguno, no hay recojo.
+    pickup_store_name: str | None = None
+    pickup_store_address: str | None = None
+    pickup_store_hours: str | None = None
 
 
 @cache

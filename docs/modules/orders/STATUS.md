@@ -366,6 +366,13 @@ Y la fila de `docs/agents/_registry.md`: `docs/modules/orders/ · Carpeta · SPE
 
 ## Traspasos
 
+#### Traspaso T-071 y T-072 — 2026-11-26 — backend-dev
+1. Estado: IN_REVIEW (T-071, T-072). Sin pruebas ejecutadas por mí (D-033).
+2. T-071: `cart/adapters/wiring.py` (`get_prepare_checkout`, `get_remove_checked_out_items`), `inventory/adapters/wiring.py` (`get_reserve_stock`, `get_consume_reservations`, `get_release_reservations`), `InsufficientStock` reexportada en `inventory/application.py` (con `# noqa: F401`), tres campos `pickup_store_*` en `Settings` y `.env.example` comentado.
+3. T-072: `orders/__init__.py` (vacío) y `orders/domain.py` con las firmas del paquete.
+4. Decisiones de lectura (no contradicen la SPEC): `admin_targets(pendiente_pago)={cancelado}` (R10, R19); `Order` valida lineas no vacías y reembolso solo en `cancelado` y total; `Order.history` e `idempotency_key` llevan valor por defecto; `OrderLine` exige quantity ≥ 1 y precios ≥ 1 (ValueError); `estimated_delivery_on` trata un `created_at` sin zona como UTC; en `build_order` solo cuentan las líneas `made_to_order` para R5; `reference` vacía → None en `shipping` y en `pickup` cualquier valor no `None` (incluida "") es DeliveryInvalid; nombre y ubicación y dirección colapsan espacios.
+5. Estático: `uv run ruff format .` → 161 files left unchanged; `uv run ruff check .` → All checks passed; capas (grep de fastapi/pydantic/sqlalchemy/zoneinfo/valmont en orders) → vacío. NO EJECUTADO: pruebas (D-028, D-033).
+
 #### Traspaso T-070 (D-040) — 2026-11-26 — module-coordinator
 1. Estado final: IN_REVIEW. SPEC y STATUS actualizados con D-040; sin preguntas de negocio abiertas.
 2. Cambios: dos modalidades de entrega (`shipping`, `pickup`; envío gratis a todo el Perú; sin DNI); nuevo estado `listo_para_recojo` (ocho estados; transiciones por modalidad); `deliveries` con `delivery_method` y `CHECK` de coherencia con `IS NOT NULL` explícitos; contrato con `delivery_method` (unión discriminada), `pickup_store` y 409 `pickup_unavailable`; R13 reescrita y R20 nueva; CA-04, 18, 19, 23 ajustados y CA-26 nueva; §12 pasa a "Decisiones tomadas (D-040)" con las hipótesis H-1…H-6.

@@ -10,6 +10,7 @@ from valmont.modules.inventory.domain import (
     MADE_TO_ORDER,
     RESERVATION_MINUTES,
     Availability,
+    InsufficientStock,  # noqa: F401 (reexportada: orders la captura, modules.md §3 excepción 7)
     InventorySettings,
     MovementKind,
     OnRequestLine,
