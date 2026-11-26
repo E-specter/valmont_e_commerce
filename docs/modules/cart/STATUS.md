@@ -6,8 +6,8 @@
 | ID | Título | Rol | Depende de | Estado |
 |---|---|---|---|---|
 | T-055 | SPEC de cart | module-coordinator | RF03, D-015, D-017, D-022, D-023, D-037 | IN_REVIEW (SPEC propuesta; falta aprobación) |
-| T-056 | Migración `0008`, dominio y repositorio del carrito | backend-dev + qa-reviewer | T-055 aprobada; excepción (6); T-021, T-026, T-016 integradas | READY |
-| T-057 | Lectura del carrito (`GetCart`, lector de producto, disponibilidad y precio) y `GET /cart` | backend-dev + qa-reviewer | T-056, T-044 (inventory), T-051 (promotions) | BACKLOG |
+| T-056 | Migración `0008`, dominio y repositorio del carrito | backend-dev + qa-reviewer | T-055 aprobada; excepción (6); T-021, T-026, T-016 integradas | DONE (QA APROBADO en la ronda 2: 843 + 542) |
+| T-057 | Lectura del carrito (`GetCart`, lector de producto, disponibilidad y precio) y `GET /cart` | backend-dev + qa-reviewer | T-056, T-044 (inventory), T-051 (promotions) | READY |
 | T-058 | Agregar, cambiar cantidad, seleccionar y retirar (3 rutas) | backend-dev + qa-reviewer | T-057 | BACKLOG |
 | T-059 | Puerto para orders: `PrepareCheckout` y `RemoveCheckedOutItems` | backend-dev + qa-reviewer | T-057 | BACKLOG |
 | T-060 | Pantalla del carrito (checkout) y cliente de API | frontend-dev + qa-reviewer | T-057, T-058, T-111 (VIEWS.md y Figma) | BACKLOG (no READY: sin diseño) |
