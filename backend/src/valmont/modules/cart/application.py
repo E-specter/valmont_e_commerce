@@ -216,3 +216,89 @@ class RemoveFromCart:
         cart = self._carts.lock_for_user(user_id)
         self._carts.save(cart.remove(product_id))  # idempotente
         return GetCart(self._carts, self._catalog)(user_id)
+
+
+@dataclass(frozen=True)
+class CheckoutLine:
+    product_id: UUID
+    sku: str
+    name: str
+    quantity: int
+    list_price: int
+    price: int
+    discount_amount: int
+    promotion_id: UUID | None
+    availability_status: str
+    lead_time_days: int | None
+
+
+@dataclass(frozen=True)
+class CheckoutCart:
+    lines: tuple[CheckoutLine, ...]
+    total: int
+
+
+@dataclass(frozen=True)
+class CartIssue:
+    product_id: UUID
+    status: CartLineStatus
+
+
+class EmptySelection(Exception):
+    """No hay artículos seleccionados."""
+
+
+class CheckoutBlocked(Exception):
+    def __init__(self, issues: tuple[CartIssue, ...]) -> None:
+        super().__init__(issues)
+        self.issues = issues
+
+
+class PrepareCheckout:
+    """Sin commit: corre en la transacción de orders (el carrito queda bloqueado)."""
+
+    def __init__(self, carts: CartRepository, catalog: CartCatalog) -> None:
+        self._carts = carts
+        self._catalog = catalog
+
+    def __call__(self, user_id: UUID) -> CheckoutCart:
+        cart = self._carts.lock_for_user(user_id)
+        items = [i for i in cart.items if i.selected]
+        if not items:
+            raise EmptySelection
+        published = self._catalog.get_published([i.product_id for i in items])
+        issues: list[CartIssue] = []
+        lines: list[CheckoutLine] = []
+        for item in items:
+            snap = published.get(item.product_id)
+            status = (
+                CartLineStatus.UNAVAILABLE
+                if snap is None
+                else line_status(True, snap.order_policy, snap.available, item.quantity)
+            )
+            if snap is None or status is not CartLineStatus.OK:
+                issues.append(CartIssue(item.product_id, status))
+                continue
+            lines.append(
+                CheckoutLine(
+                    product_id=item.product_id, sku=snap.sku, name=snap.name,
+                    quantity=item.quantity, list_price=snap.list_price, price=snap.price,
+                    discount_amount=snap.discount_amount, promotion_id=snap.promotion_id,
+                    availability_status=snap.availability_status,
+                    lead_time_days=snap.lead_time_days,
+                )
+            )  # fmt: skip
+        if issues:
+            raise CheckoutBlocked(tuple(issues))
+        return CheckoutCart(lines=tuple(lines), total=sum(ln.price * ln.quantity for ln in lines))
+
+
+class RemoveCheckedOutItems:
+    def __init__(self, carts: CartRepository) -> None:
+        self._carts = carts
+
+    def __call__(self, user_id: UUID, product_ids: Collection[UUID]) -> None:
+        cart = self._carts.lock_for_user(user_id)
+        for pid in product_ids:
+            cart = cart.remove(pid)  # ids ausentes se ignoran
+        self._carts.save(cart)
