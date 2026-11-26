@@ -8,7 +8,9 @@
 
 ## Nota de continuidad
 
-Proyecto reiniciado desde cero (D-001). Hechos en esta sesión: `docs/` base, protocolos, 6 subagentes, 7 skills, reglas de Kombai, y los esqueletos de backend y frontend con las puertas verificadas (T-001…T-005).
+Proyecto reiniciado desde cero (D-001). Hechos en esta sesión: `docs/` base, protocolos, 6 subagentes, 7 skills, reglas de frontend (Kombai, eliminado en D-031; el diseño se lee ahora con el MCP de Figma), y los esqueletos de backend y frontend con las puertas verificadas (T-001…T-005).
+
+**2026-11-26:** T-108 (configuración de Claude: D-031…D-036) en la rama t108-claude-config; siguiente: T-110/T-111 cuando el usuario comparta la URL de Figma, y SPEC de promotions (T-050).
 
 **Al reanudar:**
 1. Preguntar al usuario por las decisiones abiertas, empezando por D-013 (git), D-011 (Docker), D-012 (estilos) y D-009/D-010.

@@ -7,11 +7,11 @@
 
 | Herramienta | Versión verificada | Uso |
 |---|---|---|
-| git | 2.56.0 | Control de versiones (repositorio aún no inicializado, D-013) |
+| git | 2.56.0 | Control de versiones (rama `main`, hooks en `.githooks`, D-013, D-026) |
 | Node.js / npm | 26.12.1 / 12.2.1 | Frontend |
 | uv | 0.12.1 | Backend: intérprete, dependencias y ejecución |
 | Python (gestionado por uv) | 3.14.7 | Backend (`backend/.python-version`) |
-| VS Code | 1.143.1 | Extensiones: Kombai 2.0.158, Astro 2.16.20, Figma 0.4.8 |
+| VS Code | 1.143.1 | Extensiones: Astro 2.16.20, Figma 0.4.8 |
 | Docker Desktop / Compose | 29.9.2 / v5.6.1 | Contenedores de Supabase local (D-011) |
 | CLI de Supabase | 2.120.0 (fijada en el `package.json` raíz, vía `npx`) | Supabase local |
 | psql | no instalado en Windows | `docker exec -it supabase_db_valmont psql -U postgres` |
@@ -21,7 +21,7 @@
 
 ```
 valmont_e_commerce/
-├── AGENTS.md                 instrucciones comunes a TODOS los agentes (Claude, Kombai, Codex…)
+├── AGENTS.md                 instrucciones comunes a TODOS los agentes (Claude, Codex…)
 ├── CLAUDE.md                 importa AGENTS.md + específico de Claude Code
 ├── backend/                  API FastAPI (uv)
 ├── frontend/                 sitio Astro (npm); frontend/AGENTS.md = guía oficial de Astro
@@ -29,10 +29,8 @@ valmont_e_commerce/
 ├── .claude/
 │   ├── agents/               subagentes de Claude Code (jerarquía, D-004)
 │   └── skills/               skills del proyecto (catálogo: docs/skills/README.md)
-├── .kombai/
-│   ├── rules/                reglas de proyecto que Kombai aplica siempre
-│   ├── design-systems/       sistema de diseño .ds de Kombai (se genera desde docs/design_ui/DESIGN.md)
-│   └── canvas/               diseños .canvas del modo Design de Kombai
+├── .claude/settings.json     plugins del proyecto (D-035); .mcp.json: MCP astro-docs y supabase-local
+├── scripts/review-up.sh      levanta el stack local para la revisión manual (D-034)
 ├── .vscode/settings.json     fija CLAUDE_CONFIG_DIR=%USERPROFILE%\.claude-valmont (credenciales FUERA del proyecto, D-013)
 └── valmont_e_commerce.code-workspace
 ```
@@ -90,6 +88,14 @@ Servicios activos: Postgres 17, Auth (GoTrue), Kong, PostgREST, Storage (bucket 
 | Build | `npm run build` |
 | Vista previa del build | `npm run preview` |
 
+### Revisión manual en main (D-034)
+
+Tras el APROBADO de QA, el Leader integra en `main` con fast-forward y ejecuta, desde la copia de `main`: `bash scripts/review-up.sh`. El script es idempotente y exige `backend/.env`. Hace, en orden: arranca Supabase local si no está en marcha, `uv sync`, `alembic upgrade head`, backend de desarrollo en :8000, `npm install` y `astro dev` en :4321. Arrancar y detener el stack local de desarrollo está autorizado; instalar, configurar, borrar volúmenes o desplegar siguen bajo la puerta Docker (D-011).
+
+### Herramientas de agentes
+
+Los plugins viven en `.claude/settings.json`. Las skills de terceros (`find-skills`, `modern-web-guidance`) se instalan con la CLI `skills`; su lock es `skills-lock.json` y sus carpetas están ignoradas por git. Para restaurarlas: `npx skills experimental_install`.
+
 Las puertas de calidad completas están en la skill `testing-and-quality-gates`.
 
 ## 4. Entornos (PROPUESTO)
@@ -104,13 +110,15 @@ Cada componente tendrá un `.env.example` sin valores reales cuando aparezca la 
 
 ## 5. MCP y herramientas de agentes
 
-| Herramienta | Estado verificado (2026-10-26) | Notas |
+| Herramienta | Estado | Notas |
 |---|---|---|
-| Figma (conector claude.ai) | disponible en la cuenta | Lectura de diseños por Claude; el flujo principal es Kombai (D-006) |
-| Kombai MCP Server | no configurado | Requiere la **app de escritorio** de Kombai (no la extensión). Escribe en `~/.claude.json`, que las terminales de VS Code de este workspace **no** leen (usan `CLAUDE_CONFIG_DIR=%USERPROFILE%\.claude-valmont`) |
-| Astro docs MCP | no configurado | Opcional; mientras tanto, enlaces en `frontend/AGENTS.md` |
-| Supabase MCP (local) | disponible en `http://127.0.0.1:54321/mcp` con Supabase en marcha; no configurado en Claude Code | Solo en `dev` y con aprobación si escribe |
-| GitHub MCP | falla (HTTP 400, cabecera de autorización) | Revisar el token del conector |
+| Figma (plugin `figma` / conector claude.ai) | configurado | Flujo principal de diseño (D-031). OAuth con `/mcp` |
+| Kombai | eliminado (D-031) | Reemplazado por el MCP de Figma |
+| Astro docs MCP | configurado en `.mcp.json` | `https://mcp.docs.astro.build/mcp` |
+| Supabase MCP local | configurado en `.mcp.json` | `http://127.0.0.1:54321/mcp`, con Supabase en marcha. Solo `dev`, lectura y diagnóstico |
+| Playwright | plugin (D-035) | E2E y capturas (QA); fidelidad visual (frontend-lead) |
+| context7 | plugin (D-035), OAuth | Documentación de FastAPI, SQLAlchemy, Alembic, Pydantic y Astro |
+| GitHub MCP | desactivado en el proyecto | Falla con HTTP 400 (cabecera de autorización) |
 
 ## Problemas conocidos
 
@@ -121,4 +129,4 @@ Cada componente tendrá un `.env.example` sin valores reales cuando aparezca la 
 | `docker` no se encuentra justo después de instalar | La terminal abierta antes de instalar no tiene el PATH nuevo | Abrir una terminal nueva (o anteponer `C:\Program Files\Docker\Docker\resources\bin` al PATH) |
 | PowerShell 5.1 marca como error la salida de `docker` | Trata como error todo lo que un programa escribe en stderr | Usar Git Bash, o fiarse del código de salida |
 | Puertos de Supabase publicados en `0.0.0.0` | Docker Desktop publica en todas las interfaces | Resuelto el 2026-10-27: la regla de entrada `Valmont Supabase dev` bloquea TCP 54321–54324 desde la red (localhost sigue funcionando). Revertir: `Remove-NetFirewallRule -DisplayName 'Valmont Supabase dev'` |
-| Kombai no ve el `AGENTS.md` de `frontend/` | Kombai solo lee el `AGENTS.md` de la raíz | Las reglas de Kombai van en `AGENTS.md` raíz o en `.kombai/rules/` |
+| Plugins o skills que faltan con `CLAUDE_CONFIG_DIR=.claude-valmont` | La config de usuario está fuera del proyecto | Aceptar la confianza del proyecto al abrir Claude Code (`.claude/settings.json`) y ejecutar `npx skills experimental_install` |

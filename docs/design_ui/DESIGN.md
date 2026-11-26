@@ -1,7 +1,7 @@
 # Valmont — Guía de diseño de interfaz
 
 > **Estado: PROPUESTA PROVISIONAL.** No son activos oficiales de marca. Cuando exista el archivo de Figma de Valmont, sus variables pasan a ser la fuente canónica y este documento se actualiza para coincidir con ellas (D-006).
-> Este archivo también sirve de fuente para generar el sistema de diseño de Kombai (ver §8).
+> Cuando existan `BRIEF.md` (tokens, tipografía, retícula, componentes y marca) y `VIEWS.md` (inventario de vistas), ambos pendientes de T-110/T-111, serán la fuente canónica de tokens y vistas. Hasta entonces, los tokens de este archivo siguen como PROPUESTA. Kombai fue eliminado (D-031).
 
 ## 1. Principios
 
@@ -77,15 +77,15 @@ Diseño móvil primero desde 360 px. Objetivos táctiles de al menos 44 × 44 px
 
 **Estados obligatorios en cada vista con datos:** cargando · error (con acción de reintento) · vacío · éxito · operación pendiente.
 
-## 8. Flujo Figma → Kombai → código
+## 8. Flujo Figma MCP → código (D-031)
 
-1. **Figma:** cada pantalla o componente es un *frame* nombrado según el área (`storefront/ProductCard`). Kombai exige enlaces a un frame concreto (con `node-id`); no acepta enlaces de proyecto ni de página, ni URLs de Figma Make o Sites.
-2. **Sistema de diseño en Kombai:** Design Systems → crear desde este `DESIGN.md` (o desde el archivo de Figma cuando exista) → guardar el `.ds` en `.kombai/design-systems/valmont.ds`. Si cambian los tokens, se actualiza primero este documento y después se regenera el `.ds`.
-3. **Generación:** en Kombai, adjuntar el frame con `@figma` y pedir un componente Astro en `frontend/src/components/<área>/`. Kombai aplica `AGENTS.md` y `.kombai/rules/valmont-frontend.md`.
-4. **Revisión:** frontend-lead (o frontend-dev con la skill `frontend-module-implementation`) revisa la salida con la lista del §9 y conecta los datos reales a través de `src/lib/api/`.
-5. Si Figma limita la API (rate limit), exportar el frame como PNG en alta resolución y adjuntarlo a Kombai.
+1. **Figma:** cada pantalla o componente es un *frame* nombrado según el área (`storefront/ProductCard`). Se lee con el MCP oficial de Figma (plugin `figma`, OAuth con `/mcp`).
+2. **Extracción (frontend-lead, T-110/T-111):** produce `docs/design_ui/BRIEF.md` (brief técnico de diseño y marca) y `docs/design_ui/VIEWS.md` (frame → ruta Astro → componentes reutilizables → datos/RF → estados, más la matriz de reutilización).
+3. **Implementación (frontend-dev):** skill `figma:figma-design-to-code` solo para los nodos citados en su paquete. La salida de referencia (React + Tailwind) se adapta a Astro y a los tokens. Los componentes genéricos van en `frontend/src/components/ui/`; se reutiliza antes de crear. Cada nodo se consulta una vez (cuota de la API).
+4. **Revisión:** frontend-lead revisa con la lista del §9 y se conectan los datos reales a través de `src/lib/api/`.
+5. Si Figma limita la API (rate limit), se espera a la renovación de la cuota o se trabaja con las capturas ya guardadas; no se repiten consultas.
 
-## 9. Lista de revisión de la salida de Kombai
+## 9. Lista de revisión de la implementación desde Figma
 
 - [ ] Usa los tokens (§2–§5); no hay colores, tamaños ni fuentes sueltos.
 - [ ] HTML semántico, `alt` en imágenes, etiquetas en los campos y orden de foco lógico.
@@ -94,3 +94,5 @@ Diseño móvil primero desde 360 px. Objetivos táctiles de al menos 44 × 44 px
 - [ ] Sin hidratación (`client:*`) salvo que el componente necesite estado; en ese caso va en `islands/`.
 - [ ] Funciona desde 360 px y respeta `prefers-reduced-motion`.
 - [ ] Textos de interfaz en español.
+- [ ] Reutilización: no duplica un componente existente en `components/ui/` ni en `components/<área>/`.
+- [ ] Captura de Playwright de la página comparada con `get_screenshot` del frame de Figma (fidelidad visual).

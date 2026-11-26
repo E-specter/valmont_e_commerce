@@ -30,10 +30,9 @@ Todo eso va en el punto 12 del veredicto.
 2. Haz el commit con el mensaje propuesto. Los hooks validan el asunto, la tarea y los secretos:
    ```bash
    git commit -m "feat(catalog): API de administración del catálogo (T-028)" \
-     -m "Qué cambia y por qué. Verificado por qa-reviewer (APROBADO, huella 3f2a…): pytest -q → 445 passed; pytest -m integration -q → 117 passed." \
-     -m "Agent: backend-dev
-   Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+     -m "Qué cambia y por qué. Verificado por QA (APROBADO, huella 3f2a…): pytest -q → 445 passed; pytest -m integration -q → 117 passed."
    ```
+   Sin trailers de IA (`Co-Authored-By` de Claude, `Claude-Session`, `Agent:`): el autor es solo el usuario (D-036) y el hook lo rechaza.
 3. Anota el resultado con `git log -1 --format="%h %s"`. En un cambio solo de documentación, el Leader revisa y hace el commit sin pasar por QA.
 
 Si el hook rechaza el commit, corrige la causa (mensaje, archivo `.env` o secreto). **Nunca** uses `--no-verify`.

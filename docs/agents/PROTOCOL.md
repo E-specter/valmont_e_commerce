@@ -1,20 +1,21 @@
 # Protocolo multiagente — Valmont_E_Commerce
 
-> Fuente canónica de roles, delegación, contexto y traspasos. Obligatorio para todo agente (Claude, Kombai u otro proveedor).
+> Fuente canónica de roles, delegación, contexto y traspasos. Obligatorio para todo agente (Claude u otro proveedor).
 > Origen: [prompt_maestro.md](../prompt_maestro.md) §8, §10, §11, §17, §18. Procedimientos paso a paso: skills en `.claude/skills/` ([catálogo](../skills/README.md)).
 
 ## 1. Jerarquía y su materialización
 
-| Nivel | Rol | Materialización | Delega en | Autoridad | No puede |
+| Nivel | Rol | Materialización (modelo · esfuerzo, D-032) | Delega en | Autoridad | No puede |
 |---|---|---|---|---|---|
-| 1 | Leader Agent | Sesión principal de Claude Code (`CLAUDE.md`) | Nivel 2, 3, 4 o auxiliares | Plan maestro, arquitectura global, contratos compartidos, aceptación final, `docs/` | Delegar su responsabilidad final de coherencia |
-| 2 | Líder técnico backend | Subagente `backend-lead` | `module-coordinator`, `backend-dev` | Arquitectura backend, dominio, API, persistencia, seguridad del servidor | Cambiar contratos compartidos sin el Leader |
-| 2 | Líder técnico frontend | Subagente `frontend-lead` | `module-coordinator`, `frontend-dev` | Arquitectura Astro, sistema visual, a11y, consumo de API, revisión de Kombai | Inventar endpoints; cambiar contratos sin backend-lead |
-| 3 | Coordinador de módulo | Subagente `module-coordinator` | `backend-dev`, `frontend-dev` | SPEC, plan, tareas y criterios del **módulo asignado** | Cambiar entidades compartidas, contratos globales o decisiones aprobadas |
-| 4 | Desarrollador backend | Subagente `backend-dev` | — | Implementar el paquete de tarea asignado | Añadir dependencias, cambiar contratos o tablas de otros módulos; ejecutar pruebas o hacer commits (D-028) |
-| 4 | Desarrollador frontend | Subagente `frontend-dev` | — | Implementar el paquete de tarea asignado | Inventar endpoints, campos o reglas de negocio; ejecutar pruebas o hacer commits (D-028) |
-| Aux. | Revisor QA independiente | Subagente `qa-reviewer` (solo lectura + ejecutar pruebas) | — | Único que ejecuta las pruebas (D-028); veredicto con evidencias de toda tarea con código | Editar código o hacer commits |
-| Ext. | Generador visual | Kombai (extensión de VS Code) | — | Componentes visuales desde Figma en `frontend/src/components/` | Ver §9 |
+| 1 | Leader Agent | Sesión principal de Claude Code (`CLAUDE.md`) · Opus 5.5 · high | Nivel 2, 3, 4 o auxiliares | Plan maestro, arquitectura global, contratos compartidos, aceptación final, commits, integración en `main` (D-034), `docs/` | Delegar su responsabilidad final de coherencia; ejecutar pruebas |
+| 2 | Líder técnico backend | Subagente `backend-lead` · Sonnet 5.5 · high | `module-coordinator`, `backend-dev`, `qa-reviewer` | Arquitectura backend, dominio, API, persistencia, seguridad del servidor | Cambiar contratos compartidos sin el Leader |
+| 2 | Líder técnico frontend | Subagente `frontend-lead` · Sonnet 5.5 · high | `module-coordinator`, `frontend-dev`, `qa-reviewer` | Arquitectura Astro, Figma → BRIEF y VIEWS (D-031), reutilización de componentes, a11y, consumo de API | Inventar endpoints; cambiar contratos sin backend-lead |
+| 3 | Coordinador de módulo | Subagente `module-coordinator` · Sonnet 5.5 · high | `backend-dev`, `frontend-dev`, `qa-reviewer` | SPEC, plan, tareas y criterios del **módulo asignado** | Cambiar entidades compartidas, contratos globales o decisiones aprobadas |
+| 4 | Desarrollador backend | Subagente `backend-dev` · Sonnet 5.5 · medium | — | Código de producción del paquete asignado | Escribir o ejecutar pruebas (D-033); añadir dependencias; cambiar contratos o tablas de otros módulos; hacer commits |
+| 4 | Desarrollador frontend | Subagente `frontend-dev` · Sonnet 5.5 · medium | — | Código de producción del paquete asignado, desde los nodos de Figma citados | Escribir o ejecutar pruebas (D-033); inventar endpoints, campos o reglas; hacer commits |
+| Aux. | Auditor QA | Subagente `qa-reviewer` · Sonnet 5.5 · high (Opus solo en la auditoría final de orders, payments y assistant) | — | **Escribe** todas las pruebas desde la SPEC y es el **único que las ejecuta** (D-028, D-033); veredicto con evidencias | Editar código de producción, migraciones o `docs/`; hacer commits |
+| Aux. | Simplificador | Subagente `code-simplifier` · Sonnet 5.5 | — | Simplificar un diff preparado de más de unas 200 líneas antes de QA, dentro de las mismas rutas | Cambiar el comportamiento o tocar pruebas |
+| Aux. | Exploración | Agente integrado `Explore` · Haiku 5.5 · low | — | Barridos de archivos y localización de código | Opinar sobre diseño |
 
 **Hechos verificados de Claude Code (D-004):** cada subagente empieza con contexto **aislado** (no ve la conversación del que lo lanza); recibe su prompt, el mensaje de la tarea, `CLAUDE.md` y las skills de su campo `skills:`; puede lanzar subagentes hasta 3 niveles por debajo de la sesión principal; solo su resumen final vuelve a quien lo lanzó. Por eso **todo lo que el siguiente agente necesite debe estar en el paquete de tarea o en `docs/`**.
 
@@ -45,7 +46,10 @@ Toda delegación incluye este bloque, en el mensaje al subagente y en el STATUS 
 - Protegido (no tocar): <rutas>
 - Resultado esperado: <archivos/endpoints/componentes>
 - Criterios de aceptación: <lista comprobable>
-- Pruebas obligatorias: <pruebas que escribe quien implementa y puertas de la skill testing-and-quality-gates que ejecutará qa-reviewer (D-028)>
+- Firmas públicas: <casos de uso, puertos, endpoints o props contra los que QA escribe sus pruebas (D-033)>
+- Pruebas obligatorias: <pruebas que escribe qa-reviewer, una por criterio, y puertas de testing-and-quality-gates que ejecuta (D-028, D-033)>
+- Diseño (frontend): <nodos de Figma y filas de docs/design_ui/VIEWS.md; componentes que se reutilizan>
+- Revisión manual: <qué debe comprobar el usuario en main tras integrar (D-034)>
 - Seguridad: <restricciones específicas>
 - Estado inicial: READY
 - Entrega: cambio preparado sin commit (`git add <rutas>`) y mensaje propuesto en el punto 12 del traspaso; qa-reviewer lo verifica y el Leader hace el commit (§11.2, D-028)
@@ -73,7 +77,7 @@ Cada agente termina con este informe, como respuesta final y anotado en el STATU
 2. Cambios: <resumen>
 3. Archivos modificados: <rutas>
 4. Decisiones tomadas: <D-xxx o "ninguna">
-5. Pruebas ejecutadas → resultado observado: <comando → salida resumida> (quien implementa: solo análisis estático; las pruebas, qa-reviewer, D-028)
+5. Pruebas ejecutadas → resultado observado: <comando → salida resumida> (quien implementa: solo análisis estático; las pruebas las escribe y ejecuta qa-reviewer, D-033)
 6. Pruebas no ejecutadas y motivo: <…>
 7. Dependencias pendientes: <…>
 8. Riesgos conocidos: <…>
@@ -113,13 +117,23 @@ Prohibido sin autorización específica: `git reset --hard`, `git clean`, borrad
 4. **Verificar lo crítico:** un resumen no sustituye la lectura de un contrato o de la implementación.
 5. **Compactación o fin de sesión:** dejar de incorporar información no esencial → actualizar STATUS o `tasks.md` (hecho, pendiente, comandos de prueba, errores conocidos) → registrar decisiones → escribir la siguiente acción concreta → nota de continuidad en `docs/agents/<agente>/profile.md`. Al reanudar: leer primero el estado persistente y comprobar los archivos afectados.
 6. **Evitar:** releer archivos irrelevantes, repetir análisis sin evidencia nueva, informes largos sin decisiones, varios agentes analizando lo mismo o tareas obsoletas marcadas como activas.
+7. **Presupuesto de tokens (D-032):**
+   - claude-mem (`mem-search`) antes de volver a explorar.
+   - context7 o `astro-docs` para la documentación de librerías.
+   - Figma una vez por nodo y guardado en `docs/design_ui/`.
+   - Precargar solo las skills del rol.
+   - Traspasos de 40 líneas como máximo.
+   - Una ronda de QA por tarea como objetivo.
+   - Explore con Haiku para los barridos.
+   - Nada de Workflow sin que lo pida el usuario.
+8. **Herramientas por rol:** catálogo canónico en [skills/README.md](../skills/README.md) (D-035).
 
-## 9. Agentes externos
+## 9. Diseño (Figma) y agentes externos
 
-**Kombai** (lee `AGENTS.md` y `.kombai/rules/`):
-- Puede escribir en `frontend/src/components/**`, `frontend/src/layouts/**`, `frontend/src/styles/**` y `frontend/public/**`, y crear páginas en `frontend/src/pages/**` solo cuando la tarea lo indique.
-- No puede tocar `backend/**`, `docs/**` (salvo `docs/design_ui/`), `frontend/src/lib/api/**`, `.claude/**` ni la configuración de dependencias sin una tarea que lo indique.
-- Su salida queda en `IN_REVIEW` hasta pasar la lista de [design_ui/DESIGN.md §9](../design_ui/DESIGN.md).
+**Figma por MCP (D-031):**
+- Lo recorre entero solo frontend-lead, que deja el resultado en `docs/design_ui/BRIEF.md` y `VIEWS.md`.
+- frontend-dev consulta únicamente los nodos que cita su paquete.
+- Todo componente nuevo pasa la lista de [design_ui/DESIGN.md §9](../design_ui/DESIGN.md) y la comprobación de reutilización.
 
 **Otros proveedores (OpenAI, Google…):** siguen este protocolo leyendo los archivos. Se registran en `docs/agents/<agente-id>/profile.md` (plantilla del skill coordinador) y en [_registry.md](_registry.md).
 
@@ -143,7 +157,11 @@ Procedimiento paso a paso: skill `version-control`. Estas son las reglas.
    - Mientras haya un cambio preparado pendiente, otra tarea en paralelo va en otro worktree: el índice es de la copia.
    - Las correcciones a un commit ya hecho van en commits nuevos; no se reescribe (`amend`, `rebase`) un commit ya comunicado.
 3. **Solo lo propio:** se añaden rutas concretas (`git add <rutas>`), nunca `git add -A` cuando hay más agentes trabajando en la misma copia. Antes del commit, `git diff --cached --stat` y las puertas de secretos.
-4. **Formato del mensaje:** asunto `<tipo>(<ámbito>): <resumen> (T-NNN)` con tipo `feat` · `fix` · `docs` · `chore` · `refactor` · `test` · `perf`; cuerpo con qué y por qué y las evidencias clave; y al final los trailers `Agent: <agente-id>` y `Co-Authored-By` del modelo, si lo hubo. Los hooks de `.githooks/` rechazan un asunto sin formato o sin `T-NNN`, archivos `.env` y secretos literales.
+4. **Formato del mensaje:** asunto `<tipo>(<ámbito>): <resumen> (T-NNN)` con tipo `feat` · `fix` · `docs` · `chore` · `refactor` · `test` · `perf`; cuerpo con qué y por qué y las evidencias clave. **Sin firmas de IA** (`Co-Authored-By` de Claude, `Claude-Session`, `Agent:`, "Generated with Claude Code"), ni en commits ni en PR: el autor y responsable es solo el usuario (D-036). Los hooks de `.githooks/` rechazan un asunto sin formato o sin `T-NNN`, una firma de IA, archivos `.env` y secretos literales.
 5. **Comunicación obligatoria:** cada commit se comunica: el Leader se lo informa al usuario en el mismo turno (hash corto + asunto + veredicto de QA).
 6. **Recopilación para el push:** el Leader prepara el "paquete de push" (skill `version-control` §C): los commits pendientes de subir, las tareas que cubren, las puertas que ejecutó qa-reviewer y los riesgos. Git es el registro: no se mantiene una lista a mano.
-7. **Push e integración:** solo el usuario hace `push`, salvo que autorice uno concreto. Integrar en `main` exige la autorización del usuario (preferentemente fast-forward). Prohibidos siempre: `push --force`, reescribir historia publicada y borrar ramas ajenas.
+7. **Integración y revisión manual (D-034):**
+   - Tras el APROBADO de QA y el commit, el Leader integra la rama de la tarea en `main` con fast-forward. Tiene autorización permanente del usuario desde el 2026-11-26. Si no hay fast-forward, rebasa la rama local y QA vuelve a verificar.
+   - Acto seguido ejecuta `scripts/review-up.sh` en la copia de `main` y le pasa al usuario las URLs y la línea "Revisión manual" del paquete.
+   - Solo el usuario hace `push`, salvo que autorice uno concreto.
+   - Prohibidos siempre: `push --force`, reescribir historia publicada y borrar ramas ajenas.

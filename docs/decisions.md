@@ -3,6 +3,8 @@
 > Una entrada por decisión. No se reescriben: si una decisión cambia, se agrega otra que la reemplaza (`Reemplaza a D-xxx`).
 > Estados: `PROPUESTA` (requiere aprobación del usuario) · `APROBADA` · `ADOPTADA` (decisión reversible tomada por el Leader dentro de su autoridad) · `REEMPLAZADA`.
 
+**Plantilla para decisiones importantes (desde D-031):** Contexto · Decisión · Alcance · Fuera de alcance · Limitaciones y riesgos · Requisitos afectados · Casos de uso · Alternativas descartadas · Consecuencias (archivos y tareas) · Reversión. Las decisiones menores pueden usar solo Contexto · Decisión · Consecuencia.
+
 | ID | Fecha | Decisión | Estado |
 |---|---|---|---|
 | D-001 | 2026-10-26 | Reinicio del proyecto desde cero | APROBADA |
@@ -10,14 +12,14 @@
 | D-003 | 2026-10-26 | IDs de requisitos estables; no usar `actualizar-requerimientos-rf` | ADOPTADA |
 | D-004 | 2026-10-26 | Jerarquía de agentes como subagentes de Claude Code | ADOPTADA |
 | D-005 | 2026-10-26 | `AGENTS.md` como instrucciones comunes a todos los agentes | ADOPTADA |
-| D-006 | 2026-10-26 | Flujo visual Figma → Kombai → revisión | APROBADA |
+| D-006 | 2026-10-26 | Flujo visual Figma → Kombai → revisión | REEMPLAZADA por D-031 |
 | D-007 | 2026-10-26 | Backend: Python 3.14 + uv + FastAPI, paquete `valmont` | ADOPTADA |
 | D-008 | 2026-10-26 | Frontend: Astro 7 + npm + TypeScript strict | ADOPTADA |
 | D-009 | 2026-10-26 | Supabase Auth + verificación del token en FastAPI | APROBADA |
 | D-010 | 2026-10-26 | SQLAlchemy 2 síncrono + psycopg 3 + Alembic, esquema `app` | APROBADA |
-| D-011 | 2026-10-26 | Docker Desktop + CLI de Supabase vía npx; lanzamiento portable con Compose | APROBADA |
+| D-011 | 2026-10-26 | Docker Desktop + CLI de Supabase vía npx; lanzamiento portable con Compose | APROBADA (puerta Docker acotada por D-034) |
 | D-012 | — | Estrategia de estilos del frontend | PROPUESTA |
-| D-013 | 2026-10-26 | Git + commit base, con credenciales fuera del proyecto | APROBADA |
+| D-013 | 2026-10-26 | Git + commit base, con credenciales fuera del proyecto | APROBADA (integración en `main`: D-034) |
 | D-014 | — | Framework para islas interactivas | PROPUESTA |
 | D-015 | 2026-10-26 | Perú: PEN en céntimos, America/Lima, Ley 29733 | APROBADA |
 | D-016 | 2026-10-26 | Cancelación: cliente solo sin pagar; admin pagados con reembolso simulado | APROBADA |
@@ -32,9 +34,15 @@
 | D-025 | 2026-10-27 | Sesión en cookies con `@supabase/ssr`; el servidor de Astro reenvía el Bearer a FastAPI | APROBADA |
 | D-026 | 2026-10-27 | Protocolo de control de versiones: commits atómicos comunicados, paquete de push y push del usuario | APROBADA |
 | D-027 | 2026-10-27 | Inventory: umbral de "Últimas unidades" 2 (configurable), un solo almacén y motivos cerrados con nota | APROBADA |
-| D-028 | 2026-10-27 | Las pruebas las ejecuta solo qa-reviewer; el Leader hace el commit tras su APROBADO | APROBADA |
+| D-028 | 2026-10-27 | Las pruebas las ejecuta solo qa-reviewer; el Leader hace el commit tras su APROBADO | APROBADA (quién escribe las pruebas: D-033) |
 | D-029 | 2026-10-27 | Lanzamiento portable (M1): Caddy, frontend en contenedor desde ya y primera prueba en https://localhost | APROBADA |
 | D-030 | 2026-10-27 | Copias de seguridad: disco distinto más copia semanal fuera del equipo, cifradas con GPG | APROBADA |
+| D-031 | 2026-11-26 | Figma por MCP reemplaza a Kombai: brief técnico de diseño y marca, inventario de vistas y componentes reutilizables | APROBADA |
+| D-032 | 2026-11-26 | Modelos 5.5, esfuerzo por rol y presupuesto de tokens | APROBADA |
+| D-033 | 2026-11-26 | Las pruebas las escribe y ejecuta QA; los desarrolladores no escriben pruebas | APROBADA |
+| D-034 | 2026-11-26 | Integración en `main` tras el APROBADO de QA y proyecto levantado desde `main` para la revisión manual | APROBADA |
+| D-035 | 2026-11-26 | Plugins, skills y MCP oficiales del proyecto declarados en `.claude/` | APROBADA |
+| D-036 | 2026-11-26 | Commits y PR sin firma de IA: autoría solo del usuario | APROBADA |
 
 ---
 
@@ -206,3 +214,161 @@
   - Al restaurar se omiten las ACL de las funciones de `unaccent` en el esquema `extensions`, que son de `supabase_admin`. La ACL de `app.f_unaccent` se conserva.
   - La copia solo se restaura sobre las mismas imágenes de Supabase. El `MANIFEST` las registra y `restore.sh` avisa si difieren.
 - **Tareas:** T-103.
+
+### D-031 — Figma por MCP reemplaza a Kombai (APROBADA; reemplaza a D-006)
+- **Contexto:** el usuario (2026-11-26) dejó de usar Kombai: el desarrollo visual sale de Figma, al que se accede por su MCP oficial porque ahí está el prototipado completo del proyecto. T-010 seguía bloqueada esperando D-012 y la URL de Figma.
+- **Decisión:** Figma es la única fuente visual y se lee con el MCP oficial (plugin `figma@claude-plugins-official` o conector de claude.ai). El flujo es este:
+  1. El usuario comparte la URL del archivo o prototipo.
+  2. **T-110 (frontend-lead):** con `get_metadata` (estructura) y luego `get_variable_defs`, `get_design_context` y `get_screenshot` de los frames clave, redacta `docs/design_ui/BRIEF.md`, el **brief técnico de diseño y marca**. Cubre tokens (color, tipografía, espaciado, radios, sombras, movimiento), retícula y breakpoints, componentes base con sus variantes y estados, iconografía, tratamiento de imagen, voz y tono, accesibilidad y la correspondencia de cada token con una variable CSS.
+  3. **T-111 (frontend-lead):** redacta `docs/design_ui/VIEWS.md`, el **inventario de vistas**. Para cada frame registra: ruta de Astro, layout, componentes reutilizables, datos (endpoint y RF) y estados (carga, vacío, error, éxito). Incluye una matriz de reutilización componente × vista.
+  4. Con BRIEF y VIEWS se deciden D-012 (estilos) y D-014 (islas) con evidencia, no por suposición.
+  5. **Implementación:** frontend-dev usa la skill `figma:figma-design-to-code` nodo a nodo. Primero los átomos reutilizables en `frontend/src/components/ui/` y después las vistas, que los componen. Un componente nuevo solo se crea si VIEWS no lista uno reutilizable.
+- **Alcance:** toda la interfaz (tienda y backoffice): tokens, componentes, layouts y vistas.
+- **Fuera de alcance:** Figma no define reglas de negocio, contratos ni datos, que vienen de la SPEC y la API. No se inventan activos de marca oficiales. Code Connect (`figma:figma-code-connect`) solo si el plan de Figma lo permite.
+- **Limitaciones y riesgos:**
+  - El MCP de Figma exige que el usuario se autentique en la configuración `.claude-valmont` (`/mcp`).
+  - Figma limita las llamadas según el plan y el asiento; en los planes básicos el cupo es muy bajo. Por eso cada nodo se consulta **una vez** y su resultado se guarda en BRIEF y VIEWS. Está prohibido volver a consultar lo que ya está documentado.
+  - `get_design_context` devuelve código de referencia (React + Tailwind por defecto). Se adapta a Astro y a los tokens; nunca se pega tal cual.
+  - Una vista incompleta en el prototipo se registra en VIEWS como `PENDIENTE`; no se inventa.
+- **Requisitos afectados:** RNF01, RNF04, RNF07, RF02, RF03, RF04, RF10, RF11; prompt maestro §3.
+- **Casos de uso:**
+  - CU-D1: crear el brief desde Figma.
+  - CU-D2: implementar una vista nueva. Se busca su frame en VIEWS, se reutilizan los componentes listados y solo se crean en `ui/` los que falten.
+  - CU-D3: el diseño cambia en Figma. frontend-lead actualiza BRIEF o VIEWS (solo la diferencia) y abre una tarea.
+  - CU-D4: revisión visual. Captura de Playwright de la vista frente a `get_screenshot` del frame.
+- **Alternativas descartadas:** Kombai (lo descartó el usuario); maquetar desde capturas de pantalla (se pierden los tokens exactos).
+- **Consecuencias:**
+  - D-006 queda REEMPLAZADA y se elimina `.kombai/`.
+  - T-010 pasa a CANCELLED y la sustituyen T-110 y T-111.
+  - Se actualizan PROTOCOL §1 y §9, `AGENTS.md`, `CLAUDE.md`, `design_ui/DESIGN.md`, `frontend-lead`, `frontend-dev`, la skill `frontend-module-implementation` y `setup.md` §1 y §5.
+- **Reversión:** restaurar `.kombai/` desde el commit anterior a T-108.
+
+### D-032 — Modelos 5.5, esfuerzo por rol y presupuesto de tokens (APROBADA)
+- **Contexto:** el usuario (2026-11-26) pidió que el Leader defina modelo, esfuerzo, responsabilidad y especificación de cada agente con modelos 5.5, con eficiencia y calidad, y cuidando el consumo de tokens. T-107 había puesto todos los subagentes en Sonnet 5.5 sin fijar el esfuerzo.
+- **Decisión:**
+
+  | Rol | Modelo | Esfuerzo | Motivo |
+  |---|---|---|---|
+  | Leader (sesión principal) | Opus 5.5 | `high`; `xhigh` solo para decisiones de arquitectura o seguridad | Coherencia global; lo elige el usuario con `/model` |
+  | `backend-lead`, `frontend-lead` | Sonnet 5.5 | `high` | Diseño y revisión de contratos |
+  | `module-coordinator` | Sonnet 5.5 | `high` | Un error de especificación es el más caro de corregir |
+  | `qa-reviewer` | Sonnet 5.5 | `high` | Escribe y ejecuta las pruebas (D-033) y revisa la seguridad |
+  | `backend-dev`, `frontend-dev` | Sonnet 5.5 | `medium` | Implementación acotada por un paquete cerrado |
+  | `code-simplifier` | Sonnet 5.5 | `medium` | Limpieza de diffs grandes |
+  | Búsquedas mecánicas (agente `Explore`) | Haiku 5.5 | `low` | Barridos de archivos sin juicio de diseño |
+
+  - **Única escalada permitida:** la auditoría final de seguridad de orders, payments y assistant (RF04, RF05, RF08) puede lanzarse con `qa-reviewer` en `model: "opus"`, y queda anotado en el traspaso.
+- **Presupuesto de tokens (reglas para todo agente):**
+  1. Leer `docs/` por ID o por sección (`grep`), nunca entero; `prompt_maestro.md`, solo la sección citada.
+  2. Antes de explorar, buscar en claude-mem (`mem-search`); para la documentación de librerías, context7 o el MCP de Astro, no la web.
+  3. Delegar solo los paquetes cuyo tamaño justifica arrancar un contexto nuevo. Lo pequeño lo hace quien lo tiene.
+  4. Precargar en cada subagente (`skills:`) solo las skills de su rol; el resto se invoca cuando hace falta.
+  5. Lo que se obtiene de Figma se guarda en `docs/design_ui/` y no se vuelve a consultar (D-031).
+  6. Traspasos de 40 líneas como máximo, con referencias en vez de copias.
+  7. Una sola ronda de QA por tarea como objetivo: el paquete llega con criterios verificables.
+  8. Orquestaciones masivas (Workflow) solo si el usuario las pide.
+  9. Los plugins ajenos al proyecto se desactivan en `.claude/settings.json` (D-035).
+- **Alcance:** todos los agentes de Claude Code del proyecto.
+- **Fuera de alcance:** el modelo de la sesión principal, que lo elige el usuario.
+- **Limitaciones:**
+  - `xhigh` y `max` solo existen en Opus.
+  - El campo `effort` de la frontmatter necesita una versión reciente de Claude Code; si se ignora, el subagente hereda el esfuerzo de la sesión.
+- **Requisitos afectados:** OE06, OE07, prompt maestro §10.7 y §22.
+- **Casos de uso:**
+  - CU-M1: implementar un paquete con backend-dev (Sonnet, `medium`).
+  - CU-M2: especificar un módulo con module-coordinator (Sonnet, `high`).
+  - CU-M3: localizar todos los usos de un símbolo con Explore (Haiku, `low`).
+  - CU-M4: auditoría de payments con qa-reviewer en Opus.
+- **Consecuencias:** frontmatter de `.claude/agents/*.md`, `CLAUDE.md`, PROTOCOL §1 y §8.
+- **Reversión:** editar la frontmatter.
+
+### D-033 — Las pruebas las escribe y ejecuta QA (APROBADA; modifica D-028)
+- **Contexto:** el usuario (2026-11-26) indicó: "los que hacen el código (los dev), no desarrollan las pruebas, esto lo hacen los auditores (qa)". En D-028, quien implementaba escribía las pruebas.
+- **Decisión:** `qa-reviewer` pasa a ser el **auditor QA**. Escribe todas las pruebas (unitarias, integración, contrato, seguridad y E2E con Playwright) a partir de la SPEC y de los criterios de aceptación, y sigue siendo el único que las ejecuta. Los desarrolladores escriben solo código de producción (y las migraciones autorizadas); no crean ni modifican pruebas, `conftest`, *fixtures*, *factories* ni datos de prueba.
+- **Flujo por tarea (las pruebas salen de la especificación):**
+  1. El paquete está READY, con criterios verificables y el contrato o las firmas públicas cerradas.
+  2. QA escribe las pruebas y las prepara con `git add`. Puede ejecutarlas para verlas fallar.
+  3. En paralelo, el desarrollador implementa: rutas disjuntas (`src/**` frente a `tests/**`), en la misma copia. Solo pasa el análisis estático y prepara sus cambios.
+  4. QA ejecuta todas las puertas sobre lo preparado, anota la huella y da su veredicto.
+  5. Si falla por el código, corrige el desarrollador. Si la prueba contradice la SPEC, la corrige QA. Si la SPEC es ambigua, decide el coordinador o el Leader.
+  6. El Leader hace un único commit atómico con código y pruebas, e integra (D-034).
+- **Alcance:** `backend/tests/**`, `frontend/tests/**`, `frontend/e2e/**` y su configuración.
+- **Fuera de alcance:** QA no edita código de producción, migraciones ni `docs/`, salvo su traspaso y el STATUS de la tarea.
+- **Limitaciones y riesgos:**
+  - Separar autoría y prueba da independencia, a cambio de que una prueba escrita contra detalles internos no encaje. Por eso las pruebas atacan la interfaz pública (casos de uso, puertos, endpoints, DOM accesible), y las firmas van en el paquete.
+  - QA recibe `Write` y `Edit`. El protocolo limita sus rutas y el Leader comprueba en el diff que no tocó `src/`.
+- **Requisitos afectados:** RNF11, prompt maestro §13.
+- **Casos de uso:**
+  - CU-Q1: tarea nueva de backend.
+  - CU-Q2: error encontrado. QA escribe la prueba que lo reproduce y el desarrollador lo corrige.
+  - CU-Q3: flujo E2E con Playwright.
+- **Vigencia:** las tareas que empiecen desde el 2026-11-26 (promotions en adelante). QA mantiene también las pruebas existentes.
+- **Consecuencias:** `AGENTS.md`, PROTOCOL §1, §3 y §5, los agentes `backend-dev`, `frontend-dev` y `qa-reviewer`, y las skills `testing-and-quality-gates`, `backend-module-implementation`, `frontend-module-implementation` y `version-control`.
+
+### D-034 — Integración en `main` y revisión manual tras cada implementación (APROBADA; modifica D-013 y D-011)
+- **Contexto:** el usuario (2026-11-26) pidió: "después de cada implementación, se debe levantar el proyecto en main para la revisión manual", y terminar el MVP lo antes posible. Hasta ahora cada integración en `main` y cada arranque de contenedores requerían su autorización.
+- **Decisión:**
+  1. **Integración.** Tras el APROBADO de QA y el commit en la rama de la tarea, el Leader integra en `main` con fast-forward. El usuario lo autorizó de forma permanente el 2026-11-26. Si el fast-forward no es posible, la rama de la tarea (local y sin publicar) se rebasa sobre `main` y QA vuelve a verificar.
+  2. **Revisión manual.** El Leader ejecuta `scripts/review-up.sh` en la copia de `main`. El script es idempotente: Supabase local, dependencias, migraciones aprobadas, backend y frontend en modo desarrollo. Después le pasa al usuario las URLs y qué revisar (los criterios de aceptación de la tarea). En las integraciones siguientes, los servidores de desarrollo recargan solos.
+  3. **Push.** Lo sigue haciendo el usuario, con el paquete de push.
+- **Autorización de Docker:** queda autorizado arrancar (`npm run db:start`) y detener conservando los datos (`npm run db:stop`) el stack local de desarrollo. Siguen pasando por la puerta D-011:
+  - instalar o actualizar Docker;
+  - cambiar la configuración;
+  - borrar volúmenes (`supabase stop --no-backup`, `supabase db reset`);
+  - todo el stack de `deploy/`.
+- **Fuera de alcance:** producción, push y migraciones destructivas, que siguen requiriendo aprobación expresa.
+- **Limitaciones y riesgos:**
+  - `main` avanza en local sin pull request: la revisión de código es la de QA más el Leader.
+  - Un fallo que aparezca en la revisión manual se corrige con una tarea `fix` nueva; `main` no se reescribe.
+  - Las migraciones se aplican solas a la BD de desarrollo: solo las aprobadas por QA y reversibles.
+  - Los puertos 8000 (backend) y 4321 (frontend) deben estar libres.
+- **Casos de uso:**
+  - CU-I1: tarea backend integrada → `/docs` de la API listo para probarse.
+  - CU-I2: tarea frontend integrada → vista en `http://localhost:4321`.
+  - CU-I3: el usuario rechaza la revisión → tarea `fix`.
+- **Consecuencias:** PROTOCOL §11.7, `CLAUDE.md`, la skill `version-control`, `setup.md` §3 y `scripts/review-up.sh`.
+- **Reversión:** volver a exigir la autorización en PROTOCOL §11.7.
+
+### D-035 — Plugins, skills y MCP oficiales del proyecto (APROBADA)
+- **Contexto:** el usuario (2026-11-26) fijó las herramientas: ponytail, find-skills, superpowers, claude-mem, frontend-design, playwright, code-simplifier, context7 y modern-web-guidance, junto con las CLI y los MCP oficiales de cada tecnología. La configuración `.claude-valmont` de las terminales del proyecto solo tenía `frontend-design`, mientras que la de usuario cargaba decenas de skills ajenas al proyecto, con el gasto de tokens que eso supone.
+- **Decisión:**
+  - **`.claude/settings.json` (versionado):**
+    - `extraKnownMarketplaces` con ponytail y thedotmack (claude-mem).
+    - Activados en `enabledPlugins`: superpowers, ponytail, claude-mem, frontend-design, playwright, code-simplifier, context7 y figma.
+    - Desactivados **solo en este proyecto**: product-management, cowork-plugin-management, design, engineering, code-review, claude-code-setup, skill-creator y github.
+  - **Skills de terceros**, instaladas en el proyecto con la CLI oficial `skills`: find-skills (vercel-labs/skills) y modern-web-guidance (GoogleChrome). Se versiona `skills-lock.json`; las carpetas se ignoran en git y se restauran con `npx skills experimental_install`.
+  - **`.mcp.json` (versionado):**
+    - `astro-docs` (`https://mcp.docs.astro.build/mcp`): solo lectura de la documentación.
+    - `supabase-local` (`http://127.0.0.1:54321/mcp`): solo en desarrollo.
+  - **MCP de plugin o de la cuenta:** Figma, Playwright y context7.
+  - **CLI oficiales:** `uv`, `supabase` (vía `npx`), `astro`, `npm`, `git` y `skills`.
+  - **Uso por rol:** la tabla canónica está en `docs/skills/README.md`.
+- **Política de uso:**
+  - `supabase-local` solo para lectura y diagnóstico (tablas, avisos, logs). El esquema cambia únicamente con Alembic.
+  - Instalar una skill nueva (find-skills) requiere la aprobación del Leader.
+  - Las skills de terceros se revisan antes de usarse, porque corren con todos los permisos del agente.
+- **Limitaciones y riesgos:**
+  - Al abrir el proyecto con `.claude-valmont`, Claude Code pide confiar en los marketplaces y en los plugins declarados.
+  - Figma y context7 exigen OAuth del usuario.
+  - `supabase-local` tiene acceso total a la BD local.
+  - Desactivar un plugin aquí no lo desinstala en la cuenta.
+- **Requisitos afectados:** OE06, OE07, RNF05.
+- **Casos de uso:**
+  - CU-T1: API de FastAPI o SQLAlchemy → context7.
+  - CU-T2: HTML, CSS o JS → modern-web-guidance, obligatoria.
+  - CU-T3: diseño → MCP de Figma.
+  - CU-T4: E2E o revisión visual → Playwright.
+  - CU-T5: diagnóstico de la BD → `supabase-local`.
+  - CU-T6: falta una capacidad → find-skills, con propuesta al Leader.
+- **Reversión:** borrar `.claude/settings.json`, `.mcp.json` y `skills-lock.json`.
+
+### D-036 — Commits y PR sin firma de IA (APROBADA; modifica D-026 §formato)
+- **Contexto:** el usuario (2026-11-26) asume el 100 % de la responsabilidad del proyecto y pidió quitar la firma de Claude de git: solo debe constar su firma (`Especter <especter.o.a@gmail.com>`).
+- **Decisión:** ningún commit ni PR lleva `Co-Authored-By` de Claude o Anthropic, `Claude-Session`, `Agent:` ni "Generated with Claude Code". El autor y quien hace el commit es la identidad de git del usuario.
+- **Cómo se garantiza:**
+  - `.claude/settings.json`: `attribution` vacío e `includeCoAuthoredBy: false`.
+  - El hook `.githooks/commit-msg` rechaza esos trailers.
+  - Lo recogen PROTOCOL §11.4 y la skill `version-control`.
+- **Alcance:** los commits desde el 2026-11-26.
+- **Fuera de alcance:** la historia ya existente no se reescribe. Hacerlo cambiaría todos los hashes y es una operación destructiva que el usuario no ha pedido.
+- **Limitación:** la trazabilidad de qué agente hizo qué se mantiene en los traspasos de `docs/` (STATUS y `tasks.md`), no en git.

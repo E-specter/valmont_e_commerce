@@ -3,6 +3,9 @@
 # Worktrees y ajustes personales de agentes
 .claude/worktrees/
 .claude/settings.local.json
+# Skills de terceros (D-035): se restauran desde skills-lock.json con `npx skills experimental_install`
+.claude/skills/find-skills/
+.claude/skills/modern-web-guidance/
 
 # Secretos
 .env

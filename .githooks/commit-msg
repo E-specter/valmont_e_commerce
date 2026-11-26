@@ -12,3 +12,8 @@ if ! grep -Eq 'T-[0-9]{3}' "$1"; then
   echo "commit-msg: el mensaje debe citar la tarea (T-NNN) en el asunto o en el cuerpo." >&2
   exit 1
 fi
+# D-036: la autoría es solo del usuario; ninguna firma de IA en el mensaje.
+if grep -Eiq '^(Co-Authored-By:.*(claude|anthropic)|Claude-Session:|Agent:)|Generated with \[?Claude' "$1"; then
+  echo "commit-msg: quita la firma de IA (Co-Authored-By de Claude, Claude-Session, Agent:, 'Generated with Claude') (D-036)." >&2
+  exit 1
+fi

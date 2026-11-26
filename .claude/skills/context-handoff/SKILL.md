@@ -11,13 +11,14 @@ Las reglas están en `docs/agents/PROTOCOL.md` §2 (inicio), §5 (plantilla de t
 
 1. Identifica el `task_id`. Si no existe y la tarea no es trivial, pídelo a quien te delegó (o, si eres el Leader, créalo en `docs/agents/tasks.md`).
 2. Lee el paquete de la tarea: `docs/modules/<módulo>/STATUS.md` o la sección de paquetes de `docs/agents/tasks.md`.
-3. Lee **solo** lo que el paquete pone en "Leer:". Busca los requisitos por ID en vez de leer el documento entero:
+3. Antes de explorar el código o `docs/`, busca en claude-mem (`mem-search`) si ya hay contexto de la tarea.
+4. Lee **solo** lo que el paquete pone en "Leer:". Busca los requisitos por ID en vez de leer el documento entero:
    ```bash
    grep -n "RF02\.03\|RN-05" docs/requirements.md
    ```
-4. Verifica el estado real: abre los archivos de código citados. La línea base de pruebas es el último veredicto de qa-reviewer en el STATUS: solo QA ejecuta pruebas (D-028).
-5. Anota para ti un plan de 3 a 7 pasos y dos listas: "puedo tocar" y "no puedo tocar".
-6. Pasa tu fila de la tarea a `IN_PROGRESS` (solo tu fila).
+5. Verifica el estado real: abre los archivos de código citados. La línea base de pruebas es el último veredicto de qa-reviewer en el STATUS: solo QA escribe y ejecuta pruebas (D-028, D-033).
+6. Anota para ti un plan de 3 a 7 pasos y dos listas: "puedo tocar" y "no puedo tocar".
+7. Pasa tu fila de la tarea a `IN_PROGRESS` (solo tu fila).
 
 **Amplía la lectura solo si** el paquete cita un contrato o documento que no existe, el cambio toca archivos compartidos (`backend/src/valmont/main.py`, `backend/src/valmont/shared/`, `frontend/src/lib/api/`) o dos fuentes se contradicen. En ese caso registra la discrepancia en el STATUS; no elijas en silencio.
 
@@ -30,7 +31,7 @@ Las reglas están en `docs/agents/PROTOCOL.md` §2 (inicio), §5 (plantilla de t
 ## C. Al terminar: traspaso
 
 1. Guarda cada `comando → resultado observado` de lo que ejecutaste:
-   - Si implementas: solo el análisis estático, más `NO EJECUTADO: pruebas (D-028)`.
+   - Si implementas: solo el análisis estático, más `NO EJECUTADO: pruebas (D-028, D-033)`.
    - Si eres qa-reviewer: todas las puertas.
 2. Rellena los 12 puntos de la plantilla de `PROTOCOL.md` §5. Las pruebas, literales: `uv run pytest -q → 12 passed`, no "las pruebas pasan".
 3. Añade el traspaso al STATUS del módulo (sección "Traspasos", el más reciente arriba) o debajo del paquete en `tasks.md`.

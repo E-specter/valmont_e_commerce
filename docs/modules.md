@@ -16,7 +16,7 @@ frontend/ (Astro) ── src/lib/api (cliente tipado único) ──HTTP/JSON─�
                                                                     ─► proveedor de IA (sustituible)
                                                                     ─► almacenamiento de imágenes (pendiente)
 
-Diseño visual: Figma ─► Kombai ─► frontend/src/components ─► revisión frontend-lead (D-006)
+Diseño visual: Figma (MCP) ─► BRIEF/VIEWS ─► frontend/src/components ─► revisión frontend-lead (D-031)
 ```
 
 La lógica de negocio crítica vive solo en el backend. El frontend presenta y orquesta; nunca calcula importes ni decide permisos.
@@ -90,7 +90,8 @@ backend/
 frontend/src/
   pages/        rutas (SSG por defecto; SSR solo donde haya datos por usuario)
   layouts/      layouts base: lang="es", metadatos, SEO
-  components/   componentes Astro sin estado; código de Kombai en components/<área>/
+  components/   componentes Astro sin estado; por área en components/<área>/
+    ui/         componentes genéricos reutilizables (botón, campo, tarjeta…)
   islands/      componentes hidratados (client:*), solo si necesitan estado
   lib/api/      único punto de acceso a la API: cliente tipado, errores, sesión
   styles/       tokens.css (desde el sistema de diseño) y estilos globales

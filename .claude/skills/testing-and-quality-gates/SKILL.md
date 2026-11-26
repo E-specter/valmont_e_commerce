@@ -7,10 +7,14 @@ description: Puertas de calidad de Valmont con los comandos reales del repositor
 
 Estrategia por niveles: `docs/planning.md` ("Estrategia de pruebas"). Casos E2E prioritarios: `docs/prompt_maestro.md` §13.4.
 
-**Quién ejecuta (D-028):**
-- Las pruebas solo las ejecuta `qa-reviewer`, y solo su resultado cuenta como evidencia. Son pruebas: pytest (unitarias y de integración), las migraciones reversibles, `alembic check`, `npm run build` y E2E.
-- Quien implementa escribe las pruebas y puede pasar el análisis estático (formato, lint, capas, `npm run check`, secretos) para detectar erratas.
+**Quién hace qué (D-028, D-033):**
+- `qa-reviewer` (auditor QA) **escribe y ejecuta** las pruebas, y solo su resultado cuenta como evidencia. Son pruebas: pytest (unitarias y de integración), las migraciones reversibles, `alembic check`, `npm run build` y E2E.
+- Quien implementa (`backend-dev`, `frontend-dev`) escribe solo código de producción: no crea ni modifica pruebas, `conftest` ni fixtures. Puede pasar el análisis estático (formato, lint, capas, `npm run check`, secretos) para detectar erratas.
 - Los líderes, el coordinador y el Leader piden la verificación a `qa-reviewer`.
+
+**Modos de `qa-reviewer`:**
+- **Modo A, escribir pruebas:** a partir de la SPEC y contra las firmas públicas del paquete, en paralelo al desarrollador. Una prueba por criterio de aceptación, más las negativas y las de seguridad (acceso a datos ajenos, roles, entradas inválidas). E2E con Playwright cuando el paquete lo pida.
+- **Modo B, ejecutar puertas:** sobre lo preparado por el desarrollador, con el formato de evidencia del §4.
 
 ## 1. Puertas disponibles
 
@@ -26,7 +30,7 @@ Estrategia por niveles: `docs/planning.md` ("Estrategia de pruebas"). Casos E2E 
 | Frontend | Tipos y diagnóstico Astro | `cd frontend && npm run check` | activa |
 | Frontend | Build | `cd frontend && npm run build` | activa |
 | Frontend | Lint | — | no configurada |
-| E2E | Flujos de punta a punta | — | no configurada (Playwright propuesto para la Fase 3) |
+| E2E | Flujos de punta a punta | — | no configurada (Playwright, plugin de D-035; la escribe y ejecuta QA, Fase 3) |
 | Seguridad | Secretos en el código | `git diff --cached \| grep -inE "(api[_-]?key\|secret\|password\|token)[\"' ]*[:=] *[\"'][^\"']{8,}[\"']"` (debe salir vacío; solo detecta valores literales entre comillas, así que `password: str` no da falso positivo) | activa |
 | Seguridad | `.env.example` sin valores secretos | `grep -nE "^[A-Z_]*(KEY\|SECRET\|PASSWORD\|TOKEN)[A-Z_]*=.+" backend/.env.example` (debe salir vacío) | activa |
 | Docs | Requisitos citados existen | `grep -c "^\| RFnn.mm \|" docs/requirements.md` debe dar 1 por cada ID citado (busca la fila que lo define, no una mención) | activa |
@@ -37,7 +41,7 @@ En la tabla, `\|` es un `|` escapado: en la terminal se escribe sin la barra inv
 
 | Tipo de cambio | Obligatorias |
 |---|---|
-| Dominio o caso de uso | formato, lint, pruebas (unitarias nuevas), capas |
+| Dominio o caso de uso | formato, lint, pruebas unitarias nuevas (escritas por QA, modo A), capas |
 | Endpoint | lo anterior + pruebas HTTP + skill `api-contract-review` |
 | Migración o esquema | skill `database-migration-review` + migraciones reversibles + `pytest -m integration` |
 | Repositorio o endpoint que toca la BD | unitarias + `pytest -m integration` |
@@ -66,4 +70,4 @@ NO EJECUTADO: E2E (no configurado)
 
 Cada línea: el comando exacto y lo que se **observó**. Lo que no se ejecutó se declara con su motivo.
 - qa-reviewer añade el commit base (`git rev-parse --short HEAD`) y la huella de lo preparado (`git diff --cached | git hash-object --stdin`, con `git diff` vacío).
-- Quien implementa declara `NO EJECUTADO: pruebas (D-028)`.
+- Quien implementa declara `NO EJECUTADO: pruebas (D-028, D-033)`.

@@ -4,24 +4,41 @@
 > Tareas: [agents/tasks.md](agents/tasks.md) · Decisiones: [decisions.md](decisions.md) · Requisitos: [requirements.md](requirements.md).
 > Vocabulario de estado: PROPUESTO · PLANIFICADO · EN DESARROLLO · IMPLEMENTADO · PROBADO · REVISADO · INTEGRADO · LISTO PARA ENTREGA.
 
-## Estado actual (2026-10-26)
+## Estado actual (2026-11-26)
 
-- **Fase actual:** Fase 1 (backend y base de datos) completada e integrada en `main` el 2026-10-27 (`a381dee`). En curso: Fase 2 en la rama `worktree-fase2-audit-catalog`.
-  - **En `main` (`5135935`):** audit, catalog salvo T-030, e inventory (T-040–T-044).
-  - **Hechos en la rama, sin integrar:** T-030 (disponibilidad en catalog) y el **hito M1, completo**: rol `valmont_app` (T-101), imágenes y stack de despliegue con Caddy y Supabase autohospedado (T-100, T-102), lanzamiento verificado en Windows 11 (T-104) y copias cifradas con restauración probada (T-103, D-030).
-  - **Siguiente:** promotions, y T-018 (endurecimiento) antes de abrir al público.
-- **Implementado y probado:** backend con configuración por entorno, errores comunes, `X-Request-ID`, capa de datos (SQLAlchemy + Alembic, esquema `app`, migraciones 0001–0002) y autenticación (Supabase Auth + JWKS ES256) con el perfil de identity: 133 pruebas unitarias + 12 de integración + E2E con Supabase real. Supabase local en Docker Desktop. Frontend: esqueleto (`astro check` y build).
-- **Fase 2 (al 2026-10-27):**
-  - audit: registro de solo inserción.
-  - catalog: API pública y de administración, imágenes en Storage y semillas.
-  - inventory: stock, reservas de 30 min con concurrencia y API de administración.
-  - Migraciones 0001–0005.
-  - Pruebas: 691 unitarias + 236 de integración, ejecutadas por qa-reviewer.
-- **Agentes:** cadena validada con T-007, T-015 y T-016. Desde D-028 (2026-10-27), backend-dev implementa sin ejecutar pruebas, qa-reviewer ejecuta todas las puertas sobre el cambio preparado y el Leader hace el commit si la huella coincide.
-- **Decisiones:** aprobadas D-009, D-010, D-011, D-013, D-015, D-016 y D-017 (auth, datos, entorno, git, país, cancelación, stock). Siguen abiertas D-012 (estilos) y D-014 (islas), de la pista de frontend.
-- **Hecho a petición del usuario (2026-10-27):** Fase 1 integrada en `main` con fast-forward; regla de firewall para los puertos de Supabase; `.kombai/stack.json` corregido (npm, Python 3.14).
-- **Requisitos:** con backend implementado y probado RF01.05, RF01.06, RF11.02, RF13.01 y RF13.02; RF01.01 y RF01.02 los cubre Supabase Auth y están verificados de punta a punta; RF01.03 y RF01.04 los ofrece Supabase Auth sin verificar aún. Ninguno tiene interfaz todavía (7 de 66 RF con backend).
-- **Plan aprobado de backend y BD:** etapas 0–2 de abajo (Fase 1 completa → Fase 2 módulo a módulo + hito M1 de lanzamiento portable).
+- **En `main` (`84f62e4`, integrado el 2026-11-26):**
+  - Fase 1 completa.
+  - De la Fase 2: identity (backend), audit, catalog (incluida T-030) e inventory.
+  - El **hito M1** completo: rol `valmont_app`, stack de despliegue con Caddy y Supabase autohospedado, lanzamiento verificado en Windows 11, y copias cifradas con restauración probada.
+  - Migraciones 0001–0006.
+  - Último recuento de QA: 704 pruebas unitarias + 267 de integración (T-101).
+- **Push pendiente:** `main` va 18 commits por delante de `origin/main`; el push lo hace el usuario.
+- **Atraso:** el proyecto lleva semanas sin avanzar. La interfaz no existe (0 de 66 RF con UI) y faltan 6 módulos de backend.
+- **En curso — T-108, configuración de Claude (D-031…D-036):**
+  - Figma por MCP en lugar de Kombai.
+  - Modelos 5.5 y esfuerzo por rol.
+  - QA escribe y ejecuta las pruebas.
+  - Integración en `main` con revisión manual tras cada implementación.
+  - Plugins, skills y MCP oficiales.
+  - Commits sin firma de IA.
+- **Decisiones abiertas:** D-012 (estilos) y D-014 (islas). Se deciden con la evidencia de Figma (T-111).
+
+## Ruta al MVP (desde 2026-11-26): dos pistas en paralelo
+
+La interfaz no espera al backend completo: catalog, inventory e identity ya tienen API. Cada tarea termina con QA → commit → `main` → `scripts/review-up.sh` → revisión manual del usuario (D-034).
+
+| Orden | Pista backend (backend-lead) | Pista frontend (frontend-lead) | Hito revisable en `main` |
+|---|---|---|---|
+| 1 | SPEC de promotions (T-050) → implementación (T-051…T-054) | T-110 brief desde Figma → T-111 vistas, matriz de reutilización, D-012 y D-014 | Brief y vistas aprobados |
+| 2 | cart (T-055…T-064) | Sistema de diseño: tokens + componentes `ui/` | Catálogo de componentes |
+| 3 | wishlist (T-065…T-069) | Inicio, listado con filtros y ficha de producto (API de catalog) | **Tienda navegable** (Fase 3) |
+| 4 | orders (T-070…T-089) | Registro, sesión y perfil (identity); carrito y deseos | Cuenta y carrito |
+| 5 | payments simulados (T-090…T-099) | Checkout, pago simulado y seguimiento | **Compra de punta a punta** (Fase 4) |
+| 6 | reports y endurecimiento T-018 | Backoffice: productos, inventario, promociones, pedidos, reportes | **Backoffice** (Fase 5) |
+| 7 | assistant (3 modos, herramientas autorizadas) | Interfaz del asistente | **Asistente** (Fase 6) |
+| 8 | Regresión, seguridad (QA con Opus en orders, payments y assistant) | E2E con Playwright, a11y, rendimiento | **MVP listo** (Fase 7) |
+
+Dentro de cada pista, el código (dev) y las pruebas (QA) del mismo paquete avanzan en paralelo (D-033).
 
 ## Fases
 
@@ -29,7 +46,7 @@
 |---|---|---|---|
 | 0 | Diagnóstico y preparación | Diagnóstico, `docs/` base, protocolos y plan coherentes con el repositorio | COMPLETADA |
 | 1 | Fundamentos técnicos | Entornos funcionando: backend y frontend base, Supabase local, configuración por entorno, errores y logging, migraciones, auth decidida, puertas de calidad | COMPLETADA en backend y BD (2026-10-27); frontend: esqueleto hecho, D-012 y D-014 abiertas |
-| 2 | Dominio comercial y datos | Entidades, restricciones, estados y migraciones de identity, audit, catalog, inventory, cart, wishlist, orders y payments con pruebas de persistencia | PLANIFICADO |
+| 2 | Dominio comercial y datos | Entidades, restricciones, estados y migraciones de identity, audit, catalog, inventory, cart, wishlist, orders y payments con pruebas de persistencia | EN DESARROLLO (identity, audit, catalog e inventory integrados; M1 completo) |
 | 3 | Experiencia de catálogo | Sistema visual desde Figma/Kombai; inicio, catálogo, filtros, ficha y promociones con datos reales | PLANIFICADO |
 | 4 | Compra y cuenta | Registro, sesión, perfil, carrito con selección, deseos, pedido, entrega, pago simulado y seguimiento de punta a punta | PLANIFICADO |
 | 5 | Administración | Backoffice protegido: productos, inventario, promociones, pedidos, clientes, auditoría y reportes | PLANIFICADO |
