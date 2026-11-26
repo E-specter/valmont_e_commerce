@@ -45,6 +45,7 @@
 | D-036 | 2026-11-26 | Commits y PR sin firma de IA: autoría solo del usuario | APROBADA |
 | D-037 | 2026-11-26 | Promociones: porcentaje o monto fijo; alcance producto, categoría o catálogo; gana el menor precio final; vigencia obligatoria | APROBADA |
 | D-038 | 2026-11-26 | Carrito: hasta 5 unidades sin pasar del stock, bajo pedido junto a stock, agotados marcados que bloquean la compra, sin caducidad, sin invitado | APROBADA |
+| D-039 | 2026-11-26 | Lista de deseos: mover al carrito desde la pantalla, tope blando de 50, despublicados visibles y marcados; lectura de producto compartida en `shared/` | APROBADA |
 
 ---
 
@@ -416,3 +417,22 @@
 - **Alternativas descartadas:** 1 por reloj o tope por producto; no admitir bajo pedido o en pedido aparte; quitar o excluir en silencio los agotados; caducidad a los 30 días; carrito de invitado; puertos por lotes nuevos en catalog, inventory y promotions.
 - **Consecuencias:** excepción (6); migración 0008; T-056…T-060.
 - **Reversión:** una decisión nueva que cambie el tope o la política. El modelo admite cambiar el tope sin migrar datos.
+
+### D-039 — Lista de deseos y lectura compartida de productos (APROBADA)
+- **Contexto:** SPEC de wishlist (T-065). El usuario respondió P-WISH-1…3 el 2026-11-26, en los tres casos con la opción recomendada. El Leader decidió P-WISH-4 y cómo se reutiliza la lectura de productos, siguiendo el criterio del usuario de reutilizar código en todo el proyecto.
+- **Decisión:**
+  1. **Mover al carrito:** lo hace la pantalla, que llama a cart y, si se quiere, retira el artículo de la lista. No hay ruta de servidor nueva.
+  2. **Tope:** 50 artículos por cliente, tope blando. Se cuenta antes de insertar, sin bloqueo; en una carrera puede excederse en 1, y se acepta.
+  3. **Despublicado:** sigue visible, marcado `unavailable`, solo con nombre y slug, igual que en D-038.3.
+  4. **Sin duplicados:** UNIQUE por cliente y producto (RN-03). Agregar y retirar son idempotentes.
+  5. **Reutilización:** la lectura por lotes de producto, disponibilidad, precio vigente y primera imagen, que hoy vive en `SqlCartCatalog`, se extrae a `backend/src/valmont/shared/product_snapshots.py`. La usan cart (sin cambiar su comportamiento) y wishlist, así que no se duplican la consulta ni la URL de imagen. Sustituye a la excepción (7) que pedía la SPEC.
+- **Alcance:** RF10.01…RF10.04 y RN-03.
+- **Fuera de alcance:** mover al carrito en el servidor, compartir la lista, avisos de bajada de precio y listas múltiples.
+- **Limitaciones y riesgos:**
+  - Con el tope blando, una carrera puede dejar 51 artículos.
+  - La extracción a `shared/` toca cart, que ya está integrado. Lo cubren sus pruebas de regresión, y QA ejecuta la suite completa.
+- **Requisitos afectados:** RF10, RN-03, D-038.
+- **Casos de uso:** los UC de `docs/modules/wishlist/SPEC.md`.
+- **Alternativas descartadas:** ruta atómica de mover; sin tope o con tope de 20; ocultar o borrar los despublicados; replicar la consulta de cart dentro de wishlist; puertos por lotes nuevos en catalog, inventory y promotions.
+- **Consecuencias:** `shared/product_snapshots.py` (T-066); migración 0009; excepción (6) de `modules.md` §3 ampliada a la lectura compartida; T-066…T-069.
+- **Reversión:** una decisión nueva sobre el tope. La lectura compartida no tiene vuelta atrás razonable: es la forma de no duplicar la consulta.
