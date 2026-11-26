@@ -155,6 +155,14 @@ Rutas disjuntas (D-033): quien implementa escribe solo `backend/src/**` y las mi
 
 ## Traspasos
 
+#### Traspaso T-058 — 2026-11-26 — backend-dev
+1. Estado final: IN_REVIEW. `AddToCart`, `UpdateCartItem`, `RemoveFromCart` y las rutas POST/PATCH/DELETE `items` según las firmas del paquete; siempre `CartOut` (mapeo reutilizado de T-057).
+2. Archivos: `modules/cart/application.py`, `modules/cart/adapters/http.py`. Sin tocar domain, persistence, migraciones, main ni pruebas.
+3. Orden de R5 al agregar: dominio (`QuantityLimit`/`CartFull`) y luego stock sobre la cantidad resultante. Al fijar: `set_quantity` y stock solo si sube. `selected` no mira stock. Un rechazo lanza antes de `save` (la sesión hace rollback, también del carrito creado por R1).
+4. Decisión mía: PATCH que sube cantidad de un producto despublicado → 409 `out_of_stock` (`max_quantity` 0), coherente con R4; la SPEC no lo dice (confirmar).
+5. Error 422 de producto no agregable: `loc ["body","product_id"]`, mismo mensaje para inexistente y borrador. `product_id` mal formado en ruta → 422 con `loc ["path","product_id"]` (no `body`).
+6. Análisis estático: `ruff format` → 6 files left unchanged; `ruff check` → All checks passed; capas (grep) → vacío. NO EJECUTADO: pruebas (D-028, D-033).
+
 #### Traspaso T-057 — 2026-11-26 — backend-dev
 1. Estado final: IN_REVIEW. `GetCart`, `SqlCartCatalog` y `GET /api/v1/cart` implementados según las firmas del paquete.
 2. Archivos: `modules/cart/{domain,application}.py`, `modules/cart/adapters/{persistence,http}.py`, `main.py` (2 líneas: import y `include_router`).

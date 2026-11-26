@@ -1,5 +1,6 @@
 from collections.abc import Collection
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -126,3 +127,92 @@ class GetCart:
             total=sum(ln.subtotal or 0 for ln in selected),  # R8: los unavailable no suman
             can_checkout=bool(selected) and all(ln.status is CartLineStatus.OK for ln in selected),
         )
+
+
+class ProductNotAvailable(Exception):
+    """R6: inexistente o no publicado (mismo error para ambos)."""
+
+
+class CartItemNotFound(Exception):
+    """El producto no está en el carrito del usuario."""
+
+
+class ItemOutOfStock(Exception):
+    def __init__(self, max_quantity: int = 0) -> None:
+        super().__init__(max_quantity)
+        self.max_quantity = max_quantity
+
+
+class ItemInsufficientStock(Exception):
+    def __init__(self, max_quantity: int) -> None:
+        super().__init__(max_quantity)
+        self.max_quantity = max_quantity
+
+
+def _check_stock(snap: ProductSnapshot | None, quantity: int) -> None:
+    """R5 (solo al subir la cantidad); RN-16: bajo pedido no depende del stock."""
+    if snap is None:  # despublicado: max_quantity 0 (R4)
+        raise ItemOutOfStock
+    if snap.order_policy != "stock":
+        return
+    if snap.available <= 0:
+        raise ItemOutOfStock
+    if snap.available < quantity:
+        raise ItemInsufficientStock(snap.available)
+
+
+class AddToCart:
+    def __init__(self, carts: CartRepository, catalog: CartCatalog) -> None:
+        self._carts = carts
+        self._catalog = catalog
+
+    def __call__(self, user_id: UUID, product_id: UUID, quantity: int = 1) -> CartView:
+        cart = self._carts.lock_for_user(user_id)
+        snap = self._catalog.get_published([product_id]).get(product_id)
+        if snap is None:
+            raise ProductNotAvailable(product_id)
+        cart = cart.add(product_id, quantity, datetime.now(UTC))  # R2, R3
+        total = next(i.quantity for i in cart.items if i.product_id == product_id)
+        _check_stock(snap, total)
+        self._carts.save(cart)
+        return GetCart(self._carts, self._catalog)(user_id)
+
+
+class UpdateCartItem:
+    def __init__(self, carts: CartRepository, catalog: CartCatalog) -> None:
+        self._carts = carts
+        self._catalog = catalog
+
+    def __call__(
+        self,
+        user_id: UUID,
+        product_id: UUID,
+        quantity: int | None = None,
+        selected: bool | None = None,
+    ) -> CartView:
+        if quantity is None and selected is None:
+            raise ValueError("Se requiere quantity o selected.")
+        cart = self._carts.lock_for_user(user_id)
+        current = next((i for i in cart.items if i.product_id == product_id), None)
+        if current is None:
+            raise CartItemNotFound(product_id)
+        if quantity is not None:
+            cart = cart.set_quantity(product_id, quantity)
+            if quantity > current.quantity:  # bajar nunca se rechaza por stock
+                snap = self._catalog.get_published([product_id]).get(product_id)
+                _check_stock(snap, quantity)
+        if selected is not None:
+            cart = cart.set_selected(product_id, selected)
+        self._carts.save(cart)
+        return GetCart(self._carts, self._catalog)(user_id)
+
+
+class RemoveFromCart:
+    def __init__(self, carts: CartRepository, catalog: CartCatalog) -> None:
+        self._carts = carts
+        self._catalog = catalog
+
+    def __call__(self, user_id: UUID, product_id: UUID) -> CartView:
+        cart = self._carts.lock_for_user(user_id)
+        self._carts.save(cart.remove(product_id))  # idempotente
+        return GetCart(self._carts, self._catalog)(user_id)
