@@ -44,6 +44,7 @@
 | D-035 | 2026-11-26 | Plugins, skills y MCP oficiales del proyecto declarados en `.claude/` | APROBADA |
 | D-036 | 2026-11-26 | Commits y PR sin firma de IA: autoría solo del usuario | APROBADA |
 | D-037 | 2026-11-26 | Promociones: porcentaje o monto fijo; alcance producto, categoría o catálogo; gana el menor precio final; vigencia obligatoria | APROBADA |
+| D-038 | 2026-11-26 | Carrito: hasta 5 unidades sin pasar del stock, bajo pedido junto a stock, agotados marcados que bloquean la compra, sin caducidad, sin invitado | APROBADA |
 
 ---
 
@@ -393,3 +394,25 @@
 - **Alternativas descartadas:** solo porcentaje o solo lista de productos (las recomendaba la SPEC; el usuario eligió la opción completa); acumular descuentos; prohibir solapes; vigencia sin fin.
 - **Consecuencias:** excepción (5) en `docs/modules.md` §3; migración 0007; T-051…T-054.
 - **Reversión:** añadir una decisión que restrinja tipos o alcances. El modelo con columna de tipo y de alcance lo admite sin migrar datos.
+
+### D-038 — Reglas de negocio del carrito (APROBADA)
+- **Contexto:** SPEC de cart (T-055, `docs/modules/cart/SPEC.md`). El usuario respondió P-CART-1…4 el 2026-11-26, en todos los casos con la opción recomendada. P-CART-5, 6 y 7 las adopta el Leader.
+- **Decisión:**
+  1. **Cantidad:** hasta 5 unidades por artículo, nunca más que el stock disponible.
+  2. **Bajo pedido:** se añade al carrito junto con los artículos en stock (RF04.07); cada línea muestra su plazo.
+  3. **Agotado o despublicado ya en el carrito:** se queda marcado con su `status` y bloquea la compra (`can_checkout = false`) hasta que el cliente lo quita o lo desmarca. Nada desaparece sin avisar.
+  4. **Caducidad:** el carrito no caduca. El precio y la disponibilidad se recalculan en cada lectura y no se congela el precio: la instantánea la toma orders (RN-04).
+  5. **Invitado:** no hay carrito anónimo. Uno por cliente autenticado (RN-02, RF03.07).
+  6. **Datos por artículo** (P-CART-6): los de la SPEC §7. Se ajustan con Figma (T-111).
+  7. **Lectura de otros módulos** (P-CART-7): en SQL, con la excepción (6) de `docs/modules.md` §3, el mismo patrón que las excepciones (3)…(5); el precio sale de la vista de promotions, así que carrito y ficha no discrepan.
+- **Alcance:** RF03.01…RF03.07. Puerto hacia orders: `PrepareCheckout` y `RemoveCheckedOutItems`.
+- **Fuera de alcance:** carrito de invitado y su fusión al iniciar sesión, caducidad, guardar para más tarde (eso es wishlist, RF10), y reservar stock al añadir (la reserva la hace el pedido, D-017).
+- **Limitaciones y riesgos:**
+  - Sin reserva al añadir, dos clientes pueden tener la última unidad en el carrito; el pedido la decide (D-017).
+  - Con bajo pedido y stock parcial, el carrito indica `ok` y orders trata la línea según su política.
+  - El tope de 20 líneas por carrito es una hipótesis de la SPEC.
+- **Requisitos afectados:** RF03, RF04.07, RN-02, RN-04, RN-05, RN-09, D-017, D-023, D-037.
+- **Casos de uso:** UC-CART-01…07 de la SPEC.
+- **Alternativas descartadas:** 1 por reloj o tope por producto; no admitir bajo pedido o en pedido aparte; quitar o excluir en silencio los agotados; caducidad a los 30 días; carrito de invitado; puertos por lotes nuevos en catalog, inventory y promotions.
+- **Consecuencias:** excepción (6); migración 0008; T-056…T-060.
+- **Reversión:** una decisión nueva que cambie el tope o la política. El modelo admite cambiar el tope sin migrar datos.
