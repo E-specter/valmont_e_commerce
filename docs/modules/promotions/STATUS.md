@@ -137,6 +137,13 @@ Rutas disjuntas (D-033): quien implementa escribe solo `backend/src/**` y las mi
 
 ## Traspasos
 
+#### Traspaso T-053 — 2026-11-26 — backend-dev
+1. Estado: IN_REVIEW. Precio vigente en la API pública de catalog (listado, ficha y relacionados).
+2. Archivos: `catalog/domain.py` (`Pricing`, `ProductSummary.pricing`), `catalog/adapters/persistence.py` (tabla ligera `_EFFECTIVE_PRICE` sobre `app.product_effective_price`, unida en `_summaries()`; `price_min/max` y órdenes por precio vigente), `catalog/adapters/http.py` (`original_price`, `discount_amount` anulables, `null` si el descuento es 0).
+3. Estático: `uv run ruff format .` → 111 files left unchanged; `uv run ruff check .` → All checks passed; capas → vacío. NO EJECUTADO: pruebas (D-028, D-033).
+4. El conteo `total` une la vista solo si hay `price_min/max`. Sin `promotion_id` en la tabla ligera.
+5. `ProductSummary(..., pricing)` es campo obligatorio al final: los fakes de pruebas que lo construyan deben pasarlo.
+
 #### Traspaso T-052 — 2026-11-26 — backend-dev
 1. Estado: IN_REVIEW. API `/api/v1/promotions/admin` (6 rutas), casos de uso con auditoría R13 y promociones de demostración en `seed_dev`.
 2. Archivos: `promotions/application.py`, `promotions/adapters/admin_http.py` (nuevo), `main.py` (2 líneas), `scripts/seed_dev.py`.

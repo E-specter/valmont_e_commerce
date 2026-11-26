@@ -50,6 +50,7 @@ from valmont.modules.catalog.domain import (
     Category,
     InvalidReference,
     OrderPolicy,
+    Pricing,
     Product,
     ProductImage,
     ProductPage,
@@ -175,6 +176,24 @@ _AVAILABILITY = table(
 )
 _WITH_AVAILABILITY = _AVAILABILITY.c.product_id == ProductRow.id
 
+# Contrato de lectura de promotions (modules.md §3, excepción 5; migración 0007): una fila por
+# producto con el mejor descuento vigente. Sin promotion_id: no sale de promotions (R5).
+_EFFECTIVE_PRICE = table(
+    "product_effective_price",
+    column("product_id", Uuid),
+    column("effective_price_cents", Integer),
+    column("discount_amount_cents", Integer),
+    schema="app",
+)
+# LATERAL por producto (como la imagen principal): la vista se evalúa solo para las filas que
+# sobreviven a los filtros y no altera el plan de la búsqueda (GIN en ix_products_search).
+_PRICE = (
+    select(_EFFECTIVE_PRICE.c.effective_price_cents, _EFFECTIVE_PRICE.c.discount_amount_cents)
+    .where(_EFFECTIVE_PRICE.c.product_id == ProductRow.id)
+    .lateral("price")
+)
+_EFFECTIVE = _PRICE.c.effective_price_cents  # CATALOG-R13
+
 # Restricción violada → campo del CatalogConflict. Cualquier otra se relanza tal cual.
 _CONFLICT_FIELDS = {
     "uq_products_sku": "sku",
@@ -250,7 +269,7 @@ def _product(row: ProductRow) -> Product:
 
 
 def _summary(row: Any) -> ProductSummary:
-    product, category, movement, material, image, status, lead_time_days = row
+    product, category, movement, material, image, status, lead_time_days, price, discount = row
     return ProductSummary(
         product=_product(product),
         category=_category(category),
@@ -258,6 +277,7 @@ def _summary(row: Any) -> ProductSummary:
         case_material=_attribute(material) if material else None,
         main_image=_image(image) if image else None,
         availability=Availability(AvailabilityStatus(status), lead_time_days),
+        pricing=Pricing(product.price_cents, price, discount),
     )
 
 
@@ -272,11 +292,17 @@ def _summaries() -> Select[Any]:
         .lateral()
     )
     main_image = aliased(ProductImageRow, first_image)
-    availability = (_AVAILABILITY.c.status, _AVAILABILITY.c.lead_time_days)
+    view_columns = (
+        _AVAILABILITY.c.status,
+        _AVAILABILITY.c.lead_time_days,
+        _EFFECTIVE,
+        _PRICE.c.discount_amount_cents,
+    )
     return (
-        select(ProductRow, CategoryRow, MovementTypeRow, CaseMaterialRow, main_image, *availability)
+        select(ProductRow, CategoryRow, MovementTypeRow, CaseMaterialRow, main_image, *view_columns)
         .join(CategoryRow, ProductRow.category_id == CategoryRow.id)
-        .join(_AVAILABILITY, _WITH_AVAILABILITY)  # la vista tiene una fila por producto
+        .join(_AVAILABILITY, _WITH_AVAILABILITY)  # las vistas tienen una fila por producto
+        .join(_PRICE, true())
         .outerjoin(MovementTypeRow, ProductRow.movement_code == MovementTypeRow.code)
         .outerjoin(CaseMaterialRow, ProductRow.case_material_code == CaseMaterialRow.code)
         .outerjoin(main_image, true())
@@ -303,7 +329,7 @@ def _filters(query: ProductQuery) -> list[ColumnElement[bool]]:
     ranges = (
         (ProductRow.case_diameter_mm, query.diameter_min, query.diameter_max),
         (ProductRow.water_resistance_m, query.water_resistance_min, None),
-        (ProductRow.price_cents, query.price_min, query.price_max),
+        (_EFFECTIVE, query.price_min, query.price_max),
     )
     for attribute, low, high in ranges:
         if low is not None:
@@ -320,9 +346,9 @@ def _filters(query: ProductQuery) -> list[ColumnElement[bool]]:
 def _order(query: ProductQuery) -> tuple[Any, ...]:
     match query.sort:
         case ProductSort.PRICE_ASC:
-            return (ProductRow.price_cents, ProductRow.id)
+            return (_EFFECTIVE, ProductRow.id)
         case ProductSort.PRICE_DESC:
-            return (ProductRow.price_cents.desc(), ProductRow.id)
+            return (_EFFECTIVE.desc(), ProductRow.id)
         case ProductSort.RELEVANCE:
             return (func.ts_rank(ProductRow.search, _tsquery(query.q)).desc(), ProductRow.id)
     return _NEWEST
@@ -442,16 +468,26 @@ class SqlProductRepository:
     def list_published(self, query: ProductQuery) -> ProductPage:
         conditions = _filters(query)
         count = select(func.count()).select_from(ProductRow)
-        if query.available:  # el filtro lee la vista; sin él, el total no la necesita
+        # Los filtros leen las vistas; sin ellos, el total no las necesita.
+        if query.available:
             count = count.join(_AVAILABILITY, _WITH_AVAILABILITY)
+        if query.price_min is not None or query.price_max is not None:
+            count = count.join(_PRICE, true())
         count = count.where(_IS_PUBLISHED, *conditions)
-        page = (
-            _summaries()
-            .where(*conditions)
+        # La página se decide solo sobre products + precio vigente (filtros, orden, LIMIT) y,
+        # ya con sus ids, se unen categoría, atributos, disponibilidad e imagen: así el
+        # planificador no mezcla esos joins con la búsqueda GIN. MATERIALIZED fija ese orden.
+        ids = select(ProductRow.id).join(_PRICE, true())
+        if query.available:
+            ids = ids.join(_AVAILABILITY, _WITH_AVAILABILITY)
+        ids = (
+            ids.where(_IS_PUBLISHED, *conditions)
             .order_by(*_order(query))
             .limit(query.page_size)
             .offset((query.page - 1) * query.page_size)
         )
+        page_ids = ids.cte("page_ids").prefix_with("MATERIALIZED")
+        page = _summaries().join(page_ids, page_ids.c.id == ProductRow.id).order_by(*_order(query))
         items = [_summary(row) for row in self._session.execute(page)]
         return ProductPage(items, self._session.scalar(count) or 0)
 

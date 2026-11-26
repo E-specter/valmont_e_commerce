@@ -24,6 +24,7 @@ from valmont.modules.catalog.domain import (
     Availability,
     AvailabilityStatus,
     Category,
+    Pricing,
     Product,
     ProductImage,
     ProductPage,
@@ -43,6 +44,8 @@ SUMMARY_KEYS = {
     "name",
     "category",
     "price",
+    "original_price",
+    "discount_amount",
     "movement",
     "case_material",
     "case_diameter_mm",
@@ -63,6 +66,7 @@ def summary(
     images: int = 1,
     attributes: bool = True,
     availability: Availability = IN_STOCK,
+    pricing: Pricing | None = None,
 ) -> ProductSummary:
     main = make_image(product, 0) if images else None
     return ProductSummary(
@@ -72,6 +76,8 @@ def summary(
         STEEL if attributes else None,
         main,
         availability,
+        pricing=pricing
+        or Pricing(list_price=product.price, price=product.price, discount_amount=0),
     )
 
 
@@ -163,6 +169,8 @@ def test_listing_returns_the_contract_page_and_summary_shape(
         "name": "Heritage de prueba",
         "category": {"slug": CATEGORY.slug, "name": CATEGORY.name},
         "price": {"amount": 1250000, "currency": "PEN"},
+        "original_price": None,  # sin promoción: los dos campos nuevos van en null (T-053)
+        "discount_amount": None,
         "movement": {"code": AUTOMATIC.code, "label": AUTOMATIC.label},
         "case_material": {"code": STEEL.code, "label": STEEL.label},
         "case_diameter_mm": 38.0,
@@ -491,3 +499,115 @@ def test_responses_never_carry_quantities(client: TestClient, products: FakeProd
 
     for body in (listing, detail):
         assert not QUANTITIES & all_keys(body)
+
+
+# --- Precio vigente con promociones (T-053, promotions SPEC §7, CA-PROMOTIONS-09) ---
+
+MONEY_OUT = {"$ref": "#/components/schemas/Money-Output"}
+DISCOUNTED = Pricing(list_price=1250000, price=1062500, discount_amount=187500)
+DISCOUNTED_JSON = {
+    "price": {"amount": 1062500, "currency": "PEN"},
+    "original_price": {"amount": 1250000, "currency": "PEN"},
+    "discount_amount": {"amount": 187500, "currency": "PEN"},
+}
+PRICE_KEYS = ("price", "original_price", "discount_amount")
+
+
+def test_listing_shows_the_effective_price_and_the_saving_not_the_base_price(
+    client: TestClient, products: FakeProducts
+) -> None:
+    on_sale = make_product(CATEGORY, "Heritage de prueba", price=1250000)
+    regular = make_product(CATEGORY, "Sencillo de prueba", price=300000)
+    products.summaries = {
+        on_sale.slug: summary(on_sale, pricing=DISCOUNTED),
+        regular.slug: summary(regular),
+    }
+
+    first, second = client.get(f"{BASE}/products").json()["items"]
+
+    assert {key: first[key] for key in PRICE_KEYS} == DISCOUNTED_JSON
+    assert first["discount_amount"]["amount"] == (
+        first["original_price"]["amount"] - first["price"]["amount"]
+    )
+    assert second["price"] == {"amount": 300000, "currency": "PEN"}
+    assert (second["original_price"], second["discount_amount"]) == (None, None)
+    assert set(second) == SUMMARY_KEYS  # los campos viajan siempre, aunque sean null
+
+
+def test_price_comes_from_pricing_even_if_the_product_base_price_differs(
+    client: TestClient, products: FakeProducts
+) -> None:
+    product = make_product(CATEGORY, "Heritage de prueba", price=999999)
+    products.summaries = {product.slug: summary(product, pricing=DISCOUNTED)}
+
+    item = client.get(f"{BASE}/products").json()["items"][0]
+
+    assert item["price"]["amount"] == 1062500
+    assert item["original_price"]["amount"] == 1250000
+
+
+def test_detail_and_related_share_the_discounted_shape(
+    client: TestClient, products: FakeProducts
+) -> None:
+    product = make_product(CATEGORY, "Heritage de prueba", price=1250000)
+    sibling = make_product(CATEGORY, "Otro de prueba", price=800000)
+    plain = make_product(CATEGORY, "Sencillo de prueba", price=300000)
+    products.summaries = {product.slug: summary(product, pricing=DISCOUNTED)}
+    products.related_items = [
+        summary(sibling, pricing=Pricing(800000, 720000, 80000)),
+        summary(plain),
+    ]
+
+    body = client.get(f"{BASE}/products/{product.slug}").json()
+
+    assert {key: body[key] for key in PRICE_KEYS} == DISCOUNTED_JSON
+    assert set(body) == DETAIL_KEYS
+    discounted, undiscounted = body["related"]
+    assert set(discounted) == set(undiscounted) == SUMMARY_KEYS
+    assert discounted["price"]["amount"] == 720000
+    assert discounted["original_price"]["amount"] == 800000
+    assert discounted["discount_amount"]["amount"] == 80000
+    assert undiscounted["price"]["amount"] == 300000
+    assert (undiscounted["original_price"], undiscounted["discount_amount"]) == (None, None)
+
+
+def test_detail_without_promotion_has_the_two_fields_null(
+    client: TestClient, products: FakeProducts
+) -> None:
+    product = make_product(CATEGORY, "Heritage de prueba", price=1250000)
+    products.summaries = {product.slug: summary(product)}
+
+    body = client.get(f"{BASE}/products/{product.slug}").json()
+
+    assert body["price"] == {"amount": 1250000, "currency": "PEN"}
+    assert (body["original_price"], body["discount_amount"]) == (None, None)
+
+
+def test_public_body_never_exposes_promotion_internals(
+    client: TestClient, products: FakeProducts
+) -> None:
+    product = make_product(CATEGORY, "Heritage de prueba", price=1250000)
+    products.summaries = {product.slug: summary(product, pricing=DISCOUNTED)}
+    products.related_items = [summary(product, pricing=DISCOUNTED)]
+
+    listing = client.get(f"{BASE}/products").json()
+    detail = client.get(f"{BASE}/products/{product.slug}").json()
+
+    for body in (listing, detail):
+        keys = all_keys(body)
+        assert not {k for k in keys if "promotion" in k}
+        assert not keys & {"kind", "scope", "percent_off", "amount_off", "starts_at", "ends_at"}
+        assert not keys & {"discount_percent", "discount_type", "list_price"}
+        assert "promotion" not in json.dumps(body).lower()
+
+
+def test_openapi_new_price_fields_are_required_and_nullable_money() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+
+    for name in ("ProductSummaryOut", "ProductDetailOut"):
+        properties = schemas[name]["properties"]
+        assert properties["price"] == MONEY_OUT  # no cambia: sigue obligatorio y no anulable
+        for field in ("original_price", "discount_amount"):
+            assert properties[field]["anyOf"] == [MONEY_OUT, {"type": "null"}]
+            assert field in schemas[name]["required"]  # siempre presentes (CATALOG-R5)
+        assert "price" in schemas[name]["required"]

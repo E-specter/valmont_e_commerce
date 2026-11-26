@@ -170,7 +170,9 @@ class ProductSummaryOut(BaseModel):
     sku: str
     name: str
     category: CategoryRefOut
-    price: Money  # precio que se cobra (CATALOG-R13)
+    price: Money  # precio vigente, el que se cobra (CATALOG-R13)
+    original_price: Money | None  # precio de lista; null sin descuento (promotions SPEC §7)
+    discount_amount: Money | None
     movement: AttributeValueOut | None
     case_material: AttributeValueOut | None
     case_diameter_mm: float | None
@@ -182,13 +184,17 @@ class ProductSummaryOut(BaseModel):
     def from_domain(cls, summary: ProductSummary) -> Self:
         product = summary.product
         diameter = product.case_diameter_mm
+        pricing = summary.pricing
+        discounted = pricing.discount_amount > 0
         return cls(
             id=product.id,
             slug=product.slug,
             sku=product.sku,
             name=product.name,
             category=CategoryRefOut(slug=summary.category.slug, name=summary.category.name),
-            price=Money(amount=product.price),
+            price=Money(amount=pricing.price),
+            original_price=Money(amount=pricing.list_price) if discounted else None,
+            discount_amount=Money(amount=pricing.discount_amount) if discounted else None,
             movement=AttributeValueOut.from_domain(summary.movement),
             case_material=AttributeValueOut.from_domain(summary.case_material),
             case_diameter_mm=None if diameter is None else float(diameter),

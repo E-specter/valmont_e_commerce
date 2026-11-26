@@ -344,6 +344,15 @@ class Product:
 
 
 @dataclass(frozen=True)
+class Pricing:
+    """Precio de lista, precio vigente y ahorro, en céntimos (promotions R5; sin promoción 0)."""
+
+    list_price: int
+    price: int
+    discount_amount: int
+
+
+@dataclass(frozen=True)
 class ProductSummary:
     """Producto publicado con lo que muestra un listado (SPEC §7, ProductSummary)."""
 
@@ -353,6 +362,7 @@ class ProductSummary:
     case_material: AttributeValue | None
     main_image: ProductImage | None  # la de menor posición
     availability: Availability  # de la vista de inventory, en la misma consulta (T-030)
+    pricing: Pricing  # de la vista de promotions, en la misma consulta (T-053)
 
 
 @dataclass(frozen=True)
