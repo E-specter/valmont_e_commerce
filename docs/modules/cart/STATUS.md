@@ -9,7 +9,7 @@
 | T-056 | Migración `0008`, dominio y repositorio del carrito | backend-dev + qa-reviewer | T-055 aprobada; excepción (6); T-021, T-026, T-016 integradas | DONE (QA APROBADO en la ronda 2: 843 + 542) |
 | T-057 | Lectura del carrito (`GetCart`, lector de producto, disponibilidad y precio) y `GET /cart` | backend-dev + qa-reviewer | T-056, T-044 (inventory), T-051 (promotions) | DONE (QA APROBADO: 935 + 608) |
 | T-058 | Agregar, cambiar cantidad, seleccionar y retirar (3 rutas) | backend-dev + qa-reviewer | T-057 | DONE (QA APROBADO: 948 + 718) |
-| T-059 | Puerto para orders: `PrepareCheckout` y `RemoveCheckedOutItems` | backend-dev + qa-reviewer | T-057 | READY |
+| T-059 | Puerto para orders: `PrepareCheckout` y `RemoveCheckedOutItems` | backend-dev + qa-reviewer | T-057 | DONE (QA APROBADO: 982 + 742) |
 | T-060 | Pantalla del carrito (checkout) y cliente de API | frontend-dev + qa-reviewer | T-057, T-058, T-111 (VIEWS.md y Figma) | BACKLOG (no READY: sin diseño) |
 
 IDs reservados del módulo: T-055–T-064. En uso: T-055–T-060; **libres: T-061–T-064** (correcciones `fix`, o la división de T-060 por frontend-lead). Orden: T-056 → T-057 → (T-058 ∥ T-059) → T-060. T-058 y T-059 tocan archivos distintos (ver "Puede modificar") y se pueden implementar en paralelo; se integran en ese orden.
