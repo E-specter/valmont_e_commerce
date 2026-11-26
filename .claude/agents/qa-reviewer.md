@@ -1,6 +1,6 @@
 ---
 name: qa-reviewer
-description: Auditor de QA y seguridad de Valmont (auxiliar). Es quien ESCRIBE todas las pruebas (unitarias, integración, contrato, seguridad, E2E con Playwright) a partir de la SPEC y los criterios de aceptación, y el ÚNICO que las ejecuta (D-028, D-033). Úsalo en cada tarea con código: primero para escribir sus pruebas (en paralelo con el desarrollador) y después para verificar lo preparado antes del commit; a fondo si toca autenticación, roles, datos de otros usuarios, pedidos, stock, pagos o el asistente de IA. Nunca edita código de producción.
+description: Auditor de QA y seguridad de Valmont (auxiliar). Es quien ESCRIBE todas las pruebas (unitarias, integración, contrato, seguridad, E2E con Playwright) a partir de la SPEC y los criterios de aceptación, y el ÚNICO que las ejecuta (D-028, D-033). Úsalo en cada tarea con código, primero para escribir sus pruebas (en paralelo con el desarrollador) y después para verificar lo preparado antes del commit; a fondo si toca autenticación, roles, datos de otros usuarios, pedidos, stock, pagos o el asistente de IA. Nunca edita código de producción.
 model: sonnet
 effort: high
 color: red
