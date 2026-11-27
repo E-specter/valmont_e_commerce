@@ -1,7 +1,7 @@
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Set
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Literal, Protocol
 from uuid import UUID, uuid4
 
@@ -399,3 +399,91 @@ class RemoveProductImage:
         product.ensure_image_can_be_removed(len(images))
         self._products.delete_image(image_id)
         return image.storage_path
+
+
+# --- Limpieza de archivos huérfanos de Storage (T-018f, D-047 D-H4) ---------------------------
+
+ORPHAN_GRACE = timedelta(hours=24)  # un archivo más joven puede estar a medio subir
+MAX_ORPHAN_DELETIONS = 50  # más que esto huele a un fallo de lectura, no a huérfanos
+
+
+@dataclass(frozen=True)
+class StoredFile:
+    path: str
+    created_at: datetime
+
+
+class ImageInventory(Protocol):
+    def list_files(self) -> Iterable[StoredFile]: ...
+
+
+class ImagePathReader(Protocol):
+    def referenced_paths(self) -> set[str]: ...
+
+
+@dataclass(frozen=True)
+class OrphanReport:
+    scanned: int
+    orphans: tuple[str, ...]
+    deleted: int
+    failed: int
+
+
+class OrphanLimitExceeded(Exception):
+    """Hay más huérfanos que el tope: no se borra nada hasta que una persona lo revise."""
+
+    def __init__(self, found: int, limit: int) -> None:
+        super().__init__(f"{found} huérfanos superan el tope de {limit}")
+        self.found, self.limit = found, limit
+
+
+def find_orphan_files(
+    files: Iterable[StoredFile],
+    referenced: Set[str],
+    now: datetime,
+    grace: timedelta = ORPHAN_GRACE,
+) -> list[StoredFile]:
+    cutoff = now - grace
+    return [f for f in files if f.path not in referenced and f.created_at < cutoff]
+
+
+class CleanupOrphanImages:
+    def __init__(
+        self,
+        inventory: ImageInventory,
+        reader: ImagePathReader,
+        storage: ImageStorage,
+        clock: Callable[[], datetime],
+    ) -> None:
+        self._inventory = inventory
+        self._reader = reader
+        self._storage = storage
+        self._clock = clock
+
+    def __call__(
+        self,
+        *,
+        apply: bool = False,
+        grace: timedelta = ORPHAN_GRACE,
+        max_deletions: int = MAX_ORPHAN_DELETIONS,
+    ) -> OrphanReport:
+        if (
+            grace < timedelta(0) or max_deletions < 0
+        ):  # una gracia negativa borraría lo recién subido
+            raise ValueError("grace y max_deletions no pueden ser negativos")
+        # Primero Storage y luego la BD: un archivo subido entre medias es más joven que la gracia.
+        files = list(self._inventory.list_files())
+        referenced = self._reader.referenced_paths()
+        orphans = [f.path for f in find_orphan_files(files, referenced, self._clock(), grace)]
+        if len(orphans) > max_deletions:
+            raise OrphanLimitExceeded(len(orphans), max_deletions)
+        deleted = failed = 0
+        if apply:
+            for path in orphans:
+                try:
+                    self._storage.delete(path)
+                    deleted += 1
+                except StorageUnavailable:
+                    failed += 1
+                    logger.warning("No se pudo borrar el huérfano %s.", path)
+        return OrphanReport(len(files), tuple(orphans), deleted, failed)

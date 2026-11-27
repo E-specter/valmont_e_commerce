@@ -11,6 +11,9 @@ Transversal: no es un módulo con SPEC propia. Cada paquete corrige hallazgos de
 | T-018b | Logs y fallos de infraestructura: `sqlalchemy.engine` en WARNING, sin `DETAIL` de PostgreSQL, `X-Request-ID` solo UUID, JWKS no-JSON → 503 | backend-dev + qa-reviewer | ninguna | DONE (a75e77c) |
 | T-018c | `Idempotency-Key` solo UUID, una definición en `shared/` (orders y payments) | backend-dev + qa-reviewer | **D-H1** (contrato, Leader + frontend-lead) | DONE (45ae4c1) |
 | T-018d | Texto de entrada: rechazar controles bidireccionales y caracteres invisibles; nombres sin parte visible | backend-dev + qa-reviewer | **D-H2** (cambio en 6 módulos, Leader) | PROPUESTO |
+| T-018e | Límites de longitud en el OpenAPI (solo documentación) | backend-dev + qa-reviewer | ninguna | READY |
+| T-018f | Limpieza de archivos huérfanos de Storage (`dry-run` por defecto) | backend-dev + qa-reviewer | ninguna | IN_REVIEW |
+
 | T-018e | Límites de longitud en el OpenAPI (solo documentación) | backend-dev + qa-reviewer | ninguna | DONE (45ae4c1) |
 | T-018f | Limpieza de archivos huérfanos de Storage (`dry-run` por defecto) | backend-dev + qa-reviewer | ninguna | READY |
 | T-018g | Copias de seguridad: 4 MENOR de T-103 en `deploy/scripts/` | backend-dev + qa-reviewer | **ficha de auditoría Docker y confirmación del usuario** (D-011) | BLOCKED |
@@ -361,6 +364,19 @@ Flujo de `AddProductImage`: `image_format(data)` → `optimizer.optimize(data)` 
 - Estado inicial: READY. Entrega: `git add backend/tests/payments/…`; mensaje `test(payments): dos pruebas sin intermitencia (T-018q)`.
 
 ## Traspasos
+### Traspaso T-018f — 2026-11-27 — backend-dev (IN_REVIEW)
+1. Tarea: T-018f, solo código (el temporizador es de T-018g/h, `deploy/`, ficha D-011). 2. Estado: implementado, sin probar por QA.
+3. Archivos: `modules/catalog/application.py` (solo añadido al final), `adapters/storage.py` (`list_files`), `adapters/persistence.py` (`referenced_paths`), `scripts/cleanup_orphan_images.py` (nuevo). `domain.py`, `ImageStorage`, `admin_http.py`, `main.py` y `tests/**` intactos.
+4. Firmas: las del paquete. Añadido: `OrphanLimitExceeded(found, limit)` (excepción de aplicación, la lanza el caso de uso si hay más huérfanos que el tope) y `main(argv) -> int` en el script.
+5. Riesgo del paquete verificado con el stack local (Storage v1.81.0, solo `POST …/object/list/products`): cada archivo devuelve `created_at` ISO (`2026-10-27T12:14:20.728Z`) y `id`; las carpetas traen `id: null` y todo `null`. Gracia aplicable. Un archivo sin `id` o sin `created_at` se ignora (nunca se borra sin fecha).
+6. Reglas: lista Storage, luego lee la BD; huérfano = sin fila y `created_at < now - grace` (límite exacto = no huérfano); más huérfanos que el tope → `OrphanLimitExceeded`, no borra nada; un borrado fallido suma `failed` y sigue; sin `--apply` no hay llamadas de borrado.
+7. Script: `uv run python -m valmont.scripts.cleanup_orphan_images [--apply] [--grace-hours N] [--max-deletions N] [--json]`. Salida: 0 correcto; 1 Storage no responde o algún borrado falló; 2 tope superado. `--json` = una línea `{mode, scanned, orphans, deleted, failed}`. Solo rutas UUID; no imprime la clave.
+8. Para la ficha del temporizador (Leader): comando `cd backend && uv run python -m valmont.scripts.cleanup_orphan_images --apply --json`; frecuencia propuesta diaria (p. ej. 03:30), con la gracia de 24 h; usuario: sin privilegios, el mismo del servicio backend; variables (de `backend/.env`): `DATABASE_URL` del rol `valmont_app` (solo SELECT sobre `product_images`), `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`; alerta si el código de salida es ≠ 0.
+9. Análisis estático: `uv run ruff format . → 291 files left unchanged`; `uv run ruff check . → All checks passed!`; importar `valmont.main` y el script → OK.
+10. Dry-run contra el Storage de desarrollo: `--json → {"mode":"dry-run","scanned":12,"orphans":[],"deleted":0,"failed":0}`, salida 0. `--apply` NO ejecutado.
+11. NO EJECUTADO: pruebas (D-028, D-033). Nota: el script exige que `get_image_storage()` devuelva `SupabaseImageStorage` (assert), por si QA lo sustituye.
+12. Commits: ninguno — preparado. Rutas: las 4 de código + este STATUS. Mensaje: `feat(catalog): limpieza de imágenes huérfanas de Storage con script en dry-run por defecto (T-018f)`.
+
 
 ### Traspaso backend-dev: T-018c y T-018e (IN_REVIEW)
 1. Tareas: T-018c (Idempotency-Key solo UUID) y T-018e (topes en el OpenAPI). Rama `t018ce`, base 93fb4e7.

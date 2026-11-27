@@ -376,6 +376,9 @@ class SqlProductRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    def referenced_paths(self) -> set[str]:
+        return set(self._session.scalars(select(ProductImageRow.storage_path)))
+
     def add(self, product: Product) -> None:
         _write(self._session, insert(ProductRow).values(**_columns(product)))
 
