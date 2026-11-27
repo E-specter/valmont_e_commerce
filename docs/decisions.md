@@ -51,6 +51,7 @@
 | D-042 | 2026-11-26 | Frontend: dependencias de pruebas (Vitest, happy-dom, Playwright, axe) y de sesión (`@supabase/ssr`, `supabase-js`), fuentes con la API de Astro y callback de Auth autorizado | APROBADA |
 | D-043 | 2026-11-27 | Pagos simulados: resultado por los 4 últimos dígitos (matiza D-041 P-4), hasta 5 rechazos, mensaje detallado en la demo, `card_last4` guardado, pago en una sola pantalla, sin vista de administración | APROBADA |
 | D-044 | 2026-11-27 | Revisión visual: foto del hero sustituida (marca ajena), Jaro solo en el wordmark, símbolo de la guía de marca, wordmark de cabecera más grande compatible con P-1 | APROBADA |
+| D-045 | 2026-11-27 | Fecha de nacimiento: obligatoria en el registro, fijable una vez, menores no se registran, clientes antiguos la completan antes de comprar; edad comprobada al crear el pedido | APROBADA |
 
 ---
 
@@ -522,4 +523,14 @@
   4. **Wordmark de cabecera:** más grande, hasta donde lo permitan los accesos de D-041 P-1 (búsqueda, carrito, cuenta, lista de deseos), sin desbordar en móvil.
 - **Sin pregunta, porque siguen el diseño:** damero de dos filas en la cabecera y el pie (D-01); barra de filtros alineada y plegable en móvil (D-05, D-11); pie de tarjeta homogéneo (D-10); ajustes menores D-03, D-06…D-09 y D-12…D-14.
 - **Consecuencias:** tareas de corrección T-133…T-137 en `docs/modules/ui/STATUS.md`.
+
+### D-045 — Fecha de nacimiento y mayoría de edad (APROBADA, 2026-11-27)
+- **Contexto:** ampliación de la SPEC de identity (T-113, §13) para RF01.07 y D-041 P-8.
+- **Decisiones del usuario:**
+  1. **P-IDENTITY-4:** los clientes existentes sin fecha la completan **antes de su primera compra**; mientras tanto navegan y usan su cuenta con normalidad.
+  2. **P-IDENTITY-5:** la fecha se fija **una sola vez**; una corrección la hace soporte o un administrador (R-IDENT-4).
+  3. **P-IDENTITY-6:** la fecha es **obligatoria en el registro**. Viaja en `user_metadata`, se guarda en el perfil al confirmar el correo (`/auth/callback`) y se borra de los metadatos de Auth.
+  4. **P-IDENTITY-7:** un **menor de 18 años no se registra**: el formulario lo impide y no se guarda su fecha.
+- **Decisión del Leader (P-IDENTITY-8):** la mayoría de edad se comprueba **solo al crear el pedido**, antes de preparar el carrito y reservar stock. Como la fecha no se puede cambiar libremente, comprobarla también al pagar no aporta nada. Orders recibe el puerto `EnsureAdult` y devuelve 409 `birth_date_required` o `underage`.
+- **Consecuencias:** SPEC de identity §13 aprobada; T-138 (backend de identity) READY; T-139 (orders exige la edad) tras T-138; T-131 (registro) se amplía a `/auth/callback`, a Mi cuenta (cliente sin fecha) y al checkout (los dos 409).
 
