@@ -130,6 +130,10 @@ class FakeAttempts:
         self.add_error = add_error
         self.lookups: list[tuple[UUID, str]] = []
         self.added: list[PaymentAttempt] = []
+        self.locks: list[tuple[UUID, str]] = []  # T-099: sin efectos ni entrada en `calls`
+
+    def lock_key(self, user_id: UUID, key: str) -> None:
+        self.locks.append((user_id, key))
 
     def _visible(self) -> list[PaymentAttempt]:
         return self.rows + ([self.late] if self.late and self.lookups else [])

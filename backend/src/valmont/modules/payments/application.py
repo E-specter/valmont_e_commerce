@@ -56,6 +56,11 @@ class PaymentAttemptRepository(Protocol):
         pedido ya tiene un `approved`. No hace commit."""
         ...
 
+    def lock_key(self, user_id: UUID, key: str) -> None:
+        """Bloqueo consultivo de transacción por (user_id, key): serializa las solicitudes con
+        la misma clave hasta el commit o rollback. Va antes de cualquier bloqueo de fila."""
+        ...
+
     def find_by_key(self, user_id: UUID, key: str) -> PaymentAttempt | None: ...
 
     def list_for_order(self, user_id: UUID, order_id: UUID) -> tuple[PaymentAttempt, ...]:
@@ -109,6 +114,8 @@ class PayOrder:
     def __call__(
         self, user_id: UUID, order_id: UUID, idempotency_key: str, method: PaymentMethod
     ) -> PaymentResult:
+        # T-099: primero el bloqueo de la clave, luego los de fila (pedido, reservas): orden fijo.
+        self._attempts.lock_key(user_id, idempotency_key)
         if replay := self._replay(user_id, order_id, idempotency_key):
             return replay
         order = self._get_payable(user_id, order_id)  # el importe sale solo de aquí (R2)
@@ -121,6 +128,7 @@ class PayOrder:
         attempt_id = uuid4()
         result = self._gateway.authorize(GatewayCharge(attempt_id, order.total_amount, method))
         failure = result.failure_code
+        confirmed = False
         if result.approved:
             outcome = self._confirm(user_id, order_id)
             if outcome is PaymentOutcome.EXPIRED:
@@ -129,6 +137,8 @@ class PayOrder:
                 if replay := self._replay(user_id, order_id, idempotency_key):
                     return replay
                 raise OrderAlreadyPaid
+            else:
+                confirmed = outcome is PaymentOutcome.PAID
         attempt = new_attempt(
             attempt_id=attempt_id,
             order_id=order_id,
@@ -141,6 +151,8 @@ class PayOrder:
         )
         saved = self._attempts.add(attempt)  # tras confirmar: sin KEY SHARE previo al bloqueo
         if saved is None:  # carrera con la misma clave (R3.3)
+            if confirmed:  # T-099: ya cobramos y confirmamos; nunca reutilizar un intento ajeno
+                raise IdempotencyKeyReused  # la ruta hace rollback y deshace la confirmación
             if replay := self._replay(user_id, order_id, idempotency_key):
                 return replay
             raise IdempotencyKeyReused

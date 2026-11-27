@@ -206,6 +206,20 @@ IDs reservados del módulo: T-090–T-099. En uso: T-090–T-098; **libre: T-099
 
 ## Traspasos
 
+#### Traspaso T-099 — 2026-11-27 — backend-dev
+
+1. Tarea: T-099, corrección de CRÍTICO-1 de T-096 (misma clave, tarjetas distintas: cobro confirmado con intento ajeno reproducido).
+2. Estado: IN_REVIEW (a la espera de QA).
+3. Hecho: (a) `PayOrder` toma `lock_key(user_id, key)` al principio, antes de `find_by_key` y de cualquier bloqueo de fila; (b) si `add` devuelve `None` tras haber confirmado `PAID` en esta petición, lanza `IdempotencyKeyReused` (409) y la ruta hace rollback (`_fail`): se deshacen confirmación, consumo y venta. Solo se reproduce si esta petición no confirmó.
+4. Archivos: `modules/payments/application.py`, `modules/payments/adapters/persistence.py`. `http.py` sin cambios (error existente).
+5. Firma nueva: `PaymentAttemptRepository.lock_key(user_id: UUID, key: str) -> None`. SQL: `pg_advisory_xact_lock(hashtextextended('payments:<user>:<key>', 0))`, parametrizado. Las demás firmas no cambian. AVISO a QA: los fakes de `PaymentAttemptRepository` en `backend/tests/payments/` necesitan `lock_key`.
+6. Por qué CRÍTICO-1 ya no ocurre: R y A con la misma clave se serializan en `lock_key`; A espera hasta que R confirma o revierte, luego `find_by_key` ve el intento de R y lo reproduce sin cobrar ni confirmar. Si el bloqueo fallara, A solo confirma `PAID` y luego `add` da `None`: se lanza 409 y rollback, nunca se responde `rejected` con el pedido pagado.
+7. Interbloqueos: el bloqueo consultivo es siempre el primero de la transacción y no se retiene a la espera de otro bloqueo consultivo; el orden posterior (pedido, reservas, stock) es el de T-094. Una petición con otra clave no lo toma. Se libera solo al terminar la transacción, también con rollback.
+8. Análisis estático: `uv run ruff format .` → 265 files left unchanged; `uv run ruff check .` → All checks passed!; `import valmont.main` → OK; comprobación de capas → vacía.
+9. NO EJECUTADO: pruebas (D-028, D-033). Pendiente de QA: `test_t096_races.py` (4 casos en rojo) y pruebas de `lock_key`.
+10. Riesgos: ninguno conocido. Sin migración, sin dependencias.
+12. Commit: ninguno — preparado. Mensaje propuesto: `fix(payments): serializar pagos con la misma clave y no reutilizar intentos tras cobrar (T-099)`.
+
 #### Traspaso T-095 — 2026-11-27 — backend-dev
 
 1. Tarea: T-095, `GetOrderPayments` y `GET /api/v1/payments/orders/{order_id}/attempts`.

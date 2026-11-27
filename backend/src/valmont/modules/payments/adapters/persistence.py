@@ -118,6 +118,12 @@ class SqlPaymentAttemptRepository:
             raise
         return None if created_at is None else replace(attempt, created_at=created_at)
 
+    def lock_key(self, user_id: UUID, key: str) -> None:
+        self._session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:k, 0))"),
+            {"k": f"payments:{user_id}:{key}"},
+        )
+
     def find_by_key(self, user_id: UUID, key: str) -> PaymentAttempt | None:
         row = self._session.scalars(
             select(PaymentAttemptRow).where(
