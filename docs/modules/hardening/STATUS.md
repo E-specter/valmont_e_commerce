@@ -1,5 +1,5 @@
 # hardening (T-018) — Estado
-> Fase: 5 (antes del lanzamiento) · Estado: PLAN PROPUESTO (paquetes listos para delegar; el Leader aprueba D-H1 y D-H2) · Última actualización: 2026-11-27 backend-lead
+> Fase: 5 (antes del lanzamiento) · Estado: PLAN PROPUESTO (paquetes listos para delegar; el Leader aprueba D-H1 y D-H2) · Última actualización: 2026-11-27 backend-lead (paquete T-018i)
 
 Transversal: no es un módulo con SPEC propia. Cada paquete corrige hallazgos de auditorías (T-016, T-080 R-14, T-096, T-103, T-104, T-126 N-9) y toca `shared/` o adaptadores de varios módulos. Orden de autoridad y contratos: `docs/modules.md` §4.4, §5, §6.
 
@@ -15,6 +15,7 @@ Transversal: no es un módulo con SPEC propia. Cada paquete corrige hallazgos de
 | T-018f | Limpieza de archivos huérfanos de Storage (`dry-run` por defecto) | backend-dev + qa-reviewer | ninguna | READY |
 | T-018g | Copias de seguridad: 4 MENOR de T-103 en `deploy/scripts/` | backend-dev + qa-reviewer | **ficha de auditoría Docker y confirmación del usuario** (D-011) | BLOCKED |
 | T-018h | Despliegue con dominio real: `security.allowedDomains` de Astro, cabeceras y 502 en Caddy, HSTS, `--forwarded-allow-ips`, comentarios de `compose.yml` (MENOR de T-104, ui N-9) | frontend-dev + backend-dev + qa-reviewer | dominio real y T-104 desplegada | BACKLOG |
+| T-018i | Imágenes de producto subidas: WebP optimizado y sin metadatos con Pillow `==13.0.0` (D-047 D-H3, D-048) | backend-dev + qa-reviewer | ninguna (D-048 aprobada); integrar después de T-018f | READY |
 | T-018q | QA: estabilizar las dos pruebas inestables de payments (QA de T-138) | qa-reviewer | ninguna | DONE (0d653d2) |
 
 IDs reservados del hardening: T-018a…T-018q (los de arriba); un `fix` de QA reutiliza el sufijo con número (`T-018a1`).
@@ -22,7 +23,8 @@ IDs reservados del hardening: T-018a…T-018q (los de arriba); un `fix` de QA re
 **Orden y paralelismo.** Archivos disjuntos entre sí:
 - Primera tanda, en paralelo: **T-018a ∥ T-018b ∥ T-018e ∥ T-018f ∥ T-018q** (`shared/hardening.py` + `main.py` · `shared/logs.py` + `shared/auth.py` · solo `adapters/*http.py` de catalog, identity, inventory y promotions · `catalog/` + `scripts/` · solo `backend/tests/payments/`).
 - Segunda tanda, tras decidir D-H1 y D-H2: **T-018c ∥ T-018d** (c: `shared/idempotency.py`, `orders/adapters/http.py`, `payments/adapters/http.py`; d: `shared/text.py`, seis `domain.py` y `orders/adapters/admin_http.py`). Disjuntos en producción; en pruebas, c cambia fixtures de `tests/orders` y `tests/payments` y d añade casos en los mismos directorios: si comparten rama, QA las hace en serie.
-- Coste: 9 paquetes. Para no lanzar 10 agentes a la vez, T-018a y T-018b pueden asignarse al mismo `backend-dev` en serie (archivos distintos, sin dependencia).
+- **T-018i** (WebP sin metadatos: `catalog/domain.py`, `application.py`, `adapters/admin_http.py`, `adapters/image_optimizer.py` nuevo, `scripts/seed_dev.py`, `pyproject.toml`, `uv.lock`): se **integra después de T-018f** (comparten `application.py`, en bloques distintos; f no toca `domain.py`, `admin_http.py` ni la semilla). Con T-018d (`catalog/domain.py`) y T-018e (`admin_http.py`) los hunks no se pisan, pero se integran en serie por fast-forward y el segundo rebasa. En paralelo con T-018c sin restricción (archivos y pruebas disjuntos).
+- Coste: 10 paquetes. Para no lanzar 10 agentes a la vez, T-018a y T-018b pueden asignarse al mismo `backend-dev` en serie (archivos distintos, sin dependencia).
 - T-018g y T-018h no empiezan sin su condición.
 
 ## Decisiones pendientes (para el Leader o el usuario)
@@ -41,6 +43,7 @@ IDs reservados del hardening: T-018a…T-018q (los de arriba); un `fix` de QA re
 | 413 `payload_too_large` (nuevo, cualquier ruta con cuerpo) | compatible: código de error nuevo en el formato común | `frontend/src/pages/bff/[...path].ts` ya limita su propio cuerpo y reenvía el estado | documentar en `modules.md` §4.4 al integrar T-018a |
 | `Cache-Control: no-store` y `X-Content-Type-Options: nosniff` | compatible | ninguno | ninguna |
 | La subida de imagen sigue en 413 `file_too_large` (hasta 6 MiB; por encima, `payload_too_large`) | compatible: el criterio de T-029 (más de 5 MiB → 413) se cumple en ambos casos | pantalla de imágenes del backoffice (pendiente de T-140) | el frontend traduce por **estado 413** y, si distingue, por `code` ∈ {`file_too_large`, `payload_too_large`} |
+| `POST /admin/products/{id}/images`: se guarda WebP (`.webp`, `image/webp`) y hay tres 422 nuevos: `invalid_image`, `image_dimensions_exceeded`, `animated_image` (T-018i) | compatible: la respuesta `{id, url, alt}` no cambia de forma; códigos de error nuevos en el formato común; 413 y 415 como hoy | pantalla de imágenes del backoffice (pendiente de T-140): usa la `url` tal cual y traduce los tres códigos | actualizar SPEC de catalog §7 y §9 al integrar T-018i |
 | `X-Request-ID` del cliente solo se reutiliza si es UUID | compatible: otro valor se sustituye (ya ocurría con los inválidos) | ninguno (el frontend no lo envía) | actualizar el criterio de T-007 en `tasks.md` (línea de `request_id_middleware`) |
 | `Idempotency-Key`: 422 si no es UUID (orders y payments) | **restricción del request** (cuenta como incompatible en la skill) | ninguno desplegado; checkout T-082 y pago T-098 aún no existen | **D-H1.** Marcado y escalado; no se implementa sin su visto bueno |
 | Más 422 por `Cf` y rellenos invisibles | compatible en forma (mismo `validation_error`), más estricto | formularios de registro, perfil y entrega | D-H2; frontend-lead lo anota en `ui/STATUS.md` N-10 |
@@ -247,6 +250,106 @@ Lista de revisión de la skill: importes del servidor (sin cambio) · identidad 
   - Nota para esta tarea: el `no-store` y el límite de cuerpo de T-018a ya cubren la API; Caddy conserva su `max_size 6MiB`.
 - Todo cambio en `deploy/` exige ficha de auditoría (D-011).
 
+### T-018i — Imágenes de producto: WebP optimizado y sin metadatos (D-047 D-H3, D-048)
+- Objetivo: toda imagen que sube el administrador se decodifica con Pillow, se orienta, se acota a 2000 px, se pasa a sRGB y se guarda en Storage como **WebP sin ningún metadato**; el archivo original nunca se guarda. Cierra la fuga de EXIF/GPS y reduce el peso de la ficha.
+- Responsable: backend-dev (pruebas: qa-reviewer) · Módulo: catalog · Requisitos: RF06.03, RNF10 · IDs: T-029 (subida), D-019, D-047, D-048
+- Leer: `catalog/domain.py` líneas 20-30 y 68-95 (`IMAGE_MAX_BYTES`, `ImageTooLarge`, `UnsupportedImage`, `image_format`); `catalog/application.py` líneas 96-103 (`ImageStorage`) y 330-365 (`AddProductImage`); `catalog/adapters/admin_http.py` líneas 155-175 (`_domain_errors`) y 575-650 (`get_image_storage`, `_IMAGE_ERRORS`, `upload_image`); `scripts/seed_dev.py` líneas 190-205, 255-262 y 290; `tests/catalog/catalog_helpers.py` (`tiny_png`, `InMemoryStorage`); `docs/modules/catalog/SPEC.md` §7 (fila `POST …/images`) y §9; `docs/decisions.md` D-019, D-047, D-048; Pillow por context7 (`/websites/pillow_readthedocs_io_en_stable`: WebP, `ImageOps.exif_transpose`, `Image.thumbnail`, `ImageCms.profileToProfile`, MPO).
+- Contratos aplicables: `POST /api/v1/admin/products/{id}/images` (SPEC de catalog §7). Cambio **compatible** (tabla "Contratos"): la respuesta `{id, url, alt}` no cambia de forma (la `url` termina en `.webp`) y se añaden tres códigos 422.
+- Dependencias: D-048 (aprobada). Pillow `==13.0.0`. Sin tocar `deploy/` ni el `Dockerfile`.
+
+**Dónde va la conversión.** Puerto `ImageOptimizer` en `application.py` (junto a `ImageStorage`: en este módulo los puertos viven ahí y `domain.py` no tiene ninguno) y adaptador Pillow en `adapters/image_optimizer.py`. `domain.py` y `application.py` **no importan `PIL`**; solo el adaptador y los compositores (`admin_http.py`, `scripts/seed_dev.py`, que ya importan adaptadores). La política (tope de píxeles, lado máximo, errores) es del dominio; los parámetros del codificador (calidad, `method`) son del adaptador.
+
+**Valores elegidos.**
+
+| Parámetro | Valor | Motivo |
+|---|---|---|
+| Entrada | JPEG, PNG, WebP: `image_format` (firma) y `Image.open(..., formats=("JPEG","PNG","WEBP"))` | D-019; GIF, TIFF, BMP, EPS… → 415 antes de llegar a Pillow |
+| Salida | WebP con pérdida, `quality=82`, `method=4`, `alpha_quality=100` | 80-85 comprime sin artefactos visibles en un reloj; `method=6` ahorra ~3 % a costa de ~3× de CPU en una subida síncrona |
+| Lado máximo | **2000 px** (`IMAGE_MAX_SIDE`): `thumbnail((2000, 2000), LANCZOS, reducing_gap=2.0)`; reduce, **nunca amplía** | cubre el zoom de la ficha; peso típico 150-400 KiB |
+| Píxeles máximos | **25 000 000** (`IMAGE_MAX_PIXELS`, 5000×5000), sobre `im.size` **antes de `load()`** (solo cabecera) | un PNG de 5 MiB puede declarar 10⁹ píxeles. 25 MP en RGBA son 100 MB; con la copia de `exif_transpose` el pico queda en ~200-300 MB. Comprobación propia; **no** se toca `Image.MAX_IMAGE_PIXELS` (global del proceso). Un `Image.DecompressionBombError` de `open` (más de ~178 MP) se trata igual |
+| Orientación | `ImageOps.exif_transpose(im)` antes de descartar nada | un JPEG con orientación 6 sale girado y sin la etiqueta |
+| Color | con ICC no sRGB: `ImageCms.profileToProfile(…, sRGB)` dentro de `try` (perfil roto → se asume sRGB, no es error); CMYK sin perfil → `convert("RGB")`; sin ICC → sRGB. **El ICC no se escribe** | un Display P3 o AdobeRGB se vería apagado si solo se descartara el perfil (ver R-8) |
+| Transparencia | modo con alfa (`RGBA`, `LA`, `PA`) o `"transparency"` en `im.info` → `RGBA`; si no, `RGB` | los recortes PNG sobre fondo transparente se conservan |
+| Animadas | PNG (APNG) o WebP animado → **422 `animated_image`**; un GIF, animado o no, ya es 415 por su firma | una foto de producto no se anima; quedarse con el primer fotograma en silencio taparía un error del administrador. **Excepción:** un JPEG de móvil puede abrirse como `MPO` con `n_frames > 1`; el rechazo por animación solo vale si el formato NO es `JPEG`/`MPO`, y de un MPO se usa el primer fotograma (backend-dev lo verifica en la versión instalada) |
+| Salida > 5 MiB | `ImageTooLarge` (413 `file_too_large`) | el bucket (D-019) la rechazaría con un 503 engañoso |
+
+**Pillow con datos no confiables.**
+1. Puertas previas, en orden: `image_format(data)` (413 por bytes, 415 por firma; **se conserva**, es la puerta barata) → `optimizer.optimize(data)`.
+2. En el adaptador: `Image.open(BytesIO(data), formats=…)` → `verify()` → **reabrir** (`verify` inutiliza el objeto) → comprobar formato, `im.size` y animación → `load()`. `ImageFile.LOAD_TRUNCATED_IMAGES` queda en `False`: una imagen truncada es 422.
+3. Se capturan `UnidentifiedImageError`, `OSError`, `SyntaxError`, `ValueError`, `EOFError`, `Image.DecompressionBombError` y `ImageCms.PyCMSError` → `InvalidImage` o `ImageDimensionsExceeded`. Ni el mensaje ni el log llevan el texto de Pillow ni los bytes.
+4. **La salida solo recibe píxeles:** se copia a una imagen nueva (sin `info`) y `save(buf, "WEBP", quality=…, method=…)` sin `exif=`, `icc_profile=` ni `xmp=`, para que un cambio futuro de Pillow no arrastre metadatos desde `im.info`. No se guarda ningún nombre de archivo.
+5. Tiempo y memoria acotados por construcción: entrada ≤ 5 MiB y ≤ 25 MP, salida ≤ 2000 px, `method=4`. La ruta es síncrona (`def`), corre en el pool de hilos sin bloquear el bucle, y la conversión ocurre **antes** de `_lock(product)`: el bloqueo de BD no espera a la CPU. Pillow no ofrece tope de tiempo; solo sube el administrador (R-7).
+6. Atajo conocido: sin `Image.draft()` para JPEG; si el pico de memoria importa en producción, se añade sin cambiar el contrato.
+
+**Firmas públicas.**
+```python
+# modules/catalog/domain.py (añadir)
+IMAGE_MAX_PIXELS = 25_000_000
+IMAGE_MAX_SIDE = 2000
+IMAGE_EXTENSION = "webp"                      # ruta de Storage: <product_id>/<image_id>.webp
+class InvalidImage(Exception): ...            # no se pudo decodificar, truncada o corrupta: 422 invalid_image
+class ImageDimensionsExceeded(Exception): ... # más de IMAGE_MAX_PIXELS: 422 image_dimensions_exceeded
+class AnimatedImage(Exception): ...           # PNG o WebP animado: 422 animated_image
+# modules/catalog/application.py (añadir junto a ImageStorage)
+@dataclass(frozen=True)
+class OptimizedImage: data: bytes; width: int; height: int; content_type: str = "image/webp"
+class ImageOptimizer(Protocol):
+    def optimize(self, data: bytes) -> OptimizedImage:
+        """InvalidImage, ImageDimensionsExceeded o AnimatedImage. La salida no lleva metadatos."""
+class AddProductImage:
+    def __init__(self, products: ProductRepository, storage: ImageStorage, optimizer: ImageOptimizer) -> None
+    def __call__(self, product_id: UUID, data: bytes, alt: str) -> ProductImage   # misma firma
+# modules/catalog/adapters/image_optimizer.py (nuevo)
+class PillowImageOptimizer:  def optimize(self, data: bytes) -> OptimizedImage
+# modules/catalog/adapters/admin_http.py (añadir)
+def get_image_optimizer() -> ImageOptimizer          # PillowImageOptimizer(); sin estado
+# scripts/seed_dev.py
+def seed(session: Session, storage: ImageStorage, optimizer: ImageOptimizer) -> dict[str, int]
+```
+Flujo de `AddProductImage`: `image_format(data)` → `optimizer.optimize(data)` → si `len(optimized.data) > IMAGE_MAX_BYTES`, `ImageTooLarge` → `_lock` → posición → `storage_path = f"{product_id}/{image_id}.{IMAGE_EXTENSION}"` → `storage.put(path, optimized.data, optimized.content_type)` → `add_image` (con `discard_file` si falla, como hoy). Se sube **solo** `optimized.data`.
+`_domain_errors`: `InvalidImage` → `AppError("invalid_image", …, 422)`, `ImageDimensionsExceeded` → `"image_dimensions_exceeded"`, `AnimatedImage` → `"animated_image"`, con mensajes en español. `_IMAGE_ERRORS` documenta los tres 422 (`ErrorOut`). El 413, el 415 y `_BODY_MAX` no cambian.
+
+**Dependencia.** `cd backend && uv add pillow==13.0.0` (solo cambian `pyproject.toml` y `uv.lock`).
+- **13.0.0 y no 12.3.0:** publicada el 2026-10-16 (6 semanas); PyPI lista **cero** vulnerabilidades para 13.0.0 y unas 55 para 12.3.0 (todas corregidas en 13.0.0). Pillow procesa datos no confiables: solo vale la última estable. Requiere Python ≥ 3.11 (el proyecto, 3.14).
+- **Docker sin cambios:** hay ruedas `cp314` `manylinux_2_27/2_28` para x86_64 y aarch64 (y `win_amd64` para desarrollo) con libwebp, libjpeg, zlib y lcms2 incluidas; `python:3.14.7-slim-trixie` + `uv sync --frozen` las instala sin paquetes del sistema. **No se toca `Dockerfile` ni `deploy/`: sin puerta D-011.** QA lo confirma con `uv sync --frozen --no-dev` y `python -c "from PIL import features; assert features.check('webp') and features.check('littlecms2')"`; el `docker build` lo hará el Leader en la revisión (D-034).
+- Licencia HPND (permisiva).
+
+**Contrato y datos existentes.**
+- `201 {id, url, alt}` igual; `url` = `<STORAGE_PUBLIC_URL>/storage/v1/object/public/products/<product_id>/<image_id>.webp`; tipo en Storage `image/webp`. No se añaden `width`/`height` al API (no hay columna: exigiría migración); quedan en `OptimizedImage` por si T-140 los necesita.
+- **Las imágenes ya subidas no se migran;** solo las nuevas. No hay producción con datos reales (T-018h exige dominio y T-104 desplegada); las de desarrollo son los PNG de la semilla (generados, sin metadatos) y de pruebas. Un script de reconversión sería una tarea aparte (tocaría filas de `product_images`).
+- La semilla sube PNG lisos de 400×400: pasan por el optimizador y quedan en `.webp`; `placeholder_png` no cambia; `main()` crea `PillowImageOptimizer()`.
+
+**Coordinación de archivos.**
+- Puede modificar: `catalog/domain.py` (solo añadir), `catalog/application.py` (añadir `OptimizedImage` e `ImageOptimizer`; modificar **solo** `AddProductImage`), `catalog/adapters/image_optimizer.py` (nuevo), `catalog/adapters/admin_http.py` (solo `_domain_errors`, `_IMAGE_ERRORS`, `get_image_optimizer`, `upload_image` y su dependencia), `scripts/seed_dev.py` (solo `seed` y `main`), `backend/pyproject.toml`, `backend/uv.lock`; tras el APROBADO de QA, `docs/modules/catalog/SPEC.md` §7 (errores de la fila de `POST …/images`) y §9 (tubería de imágenes).
+- Protegido: `ImageStorage` (sin métodos nuevos), `persistence.py`, `adapters/storage.py`, `adapters/http.py`, migraciones, `Dockerfile`, `deploy/`, `frontend/`, `backend/tests/**`.
+- Orden: **después de T-018f** (f solo añade bloques en `application.py` y toca `storage.py`, `persistence.py` y `scripts/cleanup_orphan_images.py`, que i no toca; la ruta `<product_id>/<image_id>.<ext>` de f vale con `.webp`). Con T-018d (`catalog/domain.py`) y T-018e (`admin_http.py`) hunks distintos pero integración en serie. **En paralelo con T-018c** sin restricción.
+- Escalar si: `ImageCms`, `verify()` o MPO no se comportan como aquí con la versión instalada, o el pico de memoria con 25 MP es excesivo en el stack local: se propone un tope menor, no se improvisa.
+
+- Criterios de aceptación: (1) un JPEG con EXIF GPS y orientación 6 se guarda girado y sin una etiqueta; (2) la salida es `image/webp`, `.webp`, ≤ 2000 px y ≤ 5 MiB; (3) el PNG con transparencia conserva el alfa; (4) corrupta, bomba de píxeles y animada dan 422 con su código y nada llega a Storage ni a la BD; (5) 413 y 415 siguen como hoy; (6) la semilla funciona y `domain.py`/`application.py` no importan `PIL`.
+- Pruebas obligatorias (qa-reviewer: `backend/tests/catalog/test_image_optimizer.py` nuevo y casos en `test_application_images.py`, `test_images_http.py`, `test_seed_dev.py`; las imágenes se **generan con Pillow en la prueba**, ninguna foto real; puertas habituales):
+  1. JPEG con EXIF (GPS, `Make`, orientación 6, comentario) y XMP/ICC: sale con los lados intercambiados y sin metadatos.
+  2. **Ausencia de metadatos, independiente de Pillow:** recorrer los fragmentos RIFF de la salida y exigir que solo existan `VP8X`, `VP8 `, `VP8L` y `ALPH` (ningún `EXIF`, `XMP `, `ICCP`); se aplica a las salidas de 1-4, 8, 9 y 11. Además `getexif()` vacío y sin `icc_profile`/`xmp` en `info` al reabrir.
+  3. PNG RGBA: conserva el alfa (un píxel transparente y uno opaco).
+  4. WebP ya optimizado (con EXIF añadido): se recodifica sin metadatos, ≤ 5 MiB y ≤ 2000 px (no se exige que sea menor).
+  5. Imagen de ~5 MiB exactos: pasa; 5 MiB + 1 byte → 413 `file_too_large` sin llamar al optimizador.
+  6. Corrupto (cabecera JPEG válida + basura; PNG truncado): 422 `invalid_image`, sin llamada a Storage.
+  7. Bomba de píxeles: PNG de 5000×6000 de un color (pocos KiB) → 422 `image_dimensions_exceeded`, rechazado **sin decodificar** (sin `load()`); 5000×5000 exacto pasa.
+  8. GIF animado → 415; APNG animado y WebP animado → 422 `animated_image`; **JPEG MPO de dos imágenes** → aceptado con el primer fotograma.
+  9. Grande (4000×3000 con ruido): lado mayor 2000 y proporción conservada; una de 800×600 no se amplía.
+  10. Tamaño: JPEG calidad 95, 3000×2000 con degradado y ruido → salida menor que la entrada.
+  11. ICC no sRGB (Display P3 o similar): color convertido y sin `ICCP`; un ICC corrupto no rompe (se asume sRGB).
+  12. Capas: `domain.py` y `application.py` de catalog sin `import PIL`/`from PIL` (AST); solo `adapters/image_optimizer.py` lo importa (más los dos compositores).
+  13. `AddProductImage` con un optimizador falso: se sube `optimized.data` (no el original) con `image/webp` y ruta `.webp`; el original no llega a `storage.put`; un error del optimizador no deja nada en Storage ni en BD; el optimizador corre antes de `_lock`; salida > 5 MiB → `ImageTooLarge`.
+  14. HTTP: 201 con `url` `.webp`; los tres 422 con su `code` y la forma común; 413/415 sin cambios; 401/403 como hoy.
+  15. Semilla: `seed(...)` con el optimizador real sube `.webp` para los 12 relojes y sigue idempotente; las suites existentes de imágenes solo cambian en lo que cambia (`.png` → `.webp`, `image/png` → `image/webp`, tercer argumento).
+  16. Integración (stack local): subir un JPEG con GPS por HTTP real, descargar la URL pública y comprobar `Content-Type: image/webp` y que no hay metadatos.
+  17. Dependencia: `features.check('webp')` y `features.check('littlecms2')`; `uv sync --frozen --no-dev` limpio.
+- Revisión manual (usuario, stack local autorizado por D-034): subir una foto de móvil con GPS en vertical y un PNG con fondo transparente; abrir la URL pública: vertical, colores correctos, transparencia, `.webp`; `exiftool` o «Propiedades» no muestran ubicación ni cámara.
+- Seguridad: el original no se guarda ni se registra; los logs no llevan bytes ni mensajes de Pillow; ningún objeto nuevo del bucket lleva metadatos; solo los formatos permitidos llegan al decodificador; entrada, píxeles y salida acotados. La clave de servicio sigue solo en `SupabaseImageStorage`.
+- Estado inicial: **READY**.
+- Entrega: `git add backend/src/valmont/modules/catalog/domain.py backend/src/valmont/modules/catalog/application.py backend/src/valmont/modules/catalog/adapters/image_optimizer.py backend/src/valmont/modules/catalog/adapters/admin_http.py backend/src/valmont/scripts/seed_dev.py backend/pyproject.toml backend/uv.lock`; mensaje `feat(catalog): imágenes de producto a WebP optimizado sin metadatos con Pillow (T-018i)`. Las pruebas de QA van en su propio `test(catalog): …`.
+- IDs reservados: ninguno (un `fix` de QA usa `T-018i1`).
+
 ### T-018q — QA: dos pruebas inestables de payments
 - Objetivo: que ninguna de las dos falle de forma intermitente, sin debilitar lo que comprueban. Solo escribe `backend/tests/payments/`; no toca producción.
 - Responsable: qa-reviewer · Requisitos: RNF10, RN-11 · IDs: QA de T-138
@@ -272,6 +375,9 @@ Lista de revisión de la skill: importes del servidor (sin cambio) · identidad 
 11. Sin dependencias, migraciones ni cambios de contrato. Falta anotar el 413 en `modules.md` §4.4 (Leader, al integrar).
 12. Commits: ninguno, preparado (`git add` de los 4 archivos). Mensajes: `feat(shared): cabeceras de seguridad y límite de cuerpo (T-018a)` y `fix(shared): logs sin datos sensibles y JWKS no-JSON como 503 (T-018b)`.
 
+### Traspaso del paquete T-018i — 2026-11-27 — backend-lead (READY)
+Paquete escrito, sin código. Verificado: PyPI (`pillow` 13.0.0 publicada el 2026-10-16, sin vulnerabilidades listadas; 12.3.0 con unas 55 corregidas en 13.0.0; ruedas `cp314` manylinux x86_64/aarch64 y win_amd64); el flujo actual de subida (`AddProductImage`, `image_format`, `SupabaseImageStorage`, `upload_image`, semilla) y la documentación de Pillow por context7. No se ejecutó nada (D-028, D-033). Valores: WebP `quality=82`, `method=4`, lado máximo 2000 px, 25 MP, tres 422 nuevos. Orden: después de T-018f; en paralelo con T-018c.
+
 ### Traspaso del plan T-018 — 2026-11-27 — backend-lead
 Plan y paquetes escritos; sin código. Resumen en el traspaso al Leader (respuesta de la tarea). Verificado: se recorrió el OpenAPI actual con `app.openapi()` (43 campos de cuerpo y 8 parámetros sin tope; la lista de T-018e); se leyó `jwt/jwks_client.py` de la versión instalada (el `JSONDecodeError` no se envuelve: hoy da 401); no se ejecutó ninguna prueba (D-028, D-033).
 
@@ -283,9 +389,12 @@ Plan y paquetes escritos; sin código. Resumen en el traspaso al Leader (respues
 - **R-4 (limitador de frecuencia):** el hardening **no** incluye limitador de tasa (R-4 de payments lo cita junto al cuerpo). Sigue sin tarea; propongo decidirlo con el despliegue (Caddy o capa propia) en T-018h.
 - **R-5 (no verificado):** el formato exacto de la respuesta de listado de Storage (T-018f) y que `httpcore` a DEBUG vuelque cabeceras (T-018b, preventivo).
 - **R-6 (tasks.md):** la fila de T-018 mezclaba backend, despliegue y QA; se mantiene como paraguas y apunta a este STATUS.
+- **R-7 (T-018i):** Pillow no tiene tope propio de CPU ni de memoria; se acotan por entrada (≤ 5 MiB y ≤ 25 MP), por salida (≤ 2000 px) y porque solo sube el administrador. Si se abriera a más actores o el pico de memoria preocupara, se añade `Image.draft()` o un proceso aparte con límites, sin cambiar el contrato. Caso de borde más probable de un falso rechazo: un JPEG de móvil que Pillow abre como `MPO` con varios fotogramas (prueba obligatoria 8).
+- **R-8 (T-018i):** la conversión a sRGB ejecuta lcms2 sobre un perfil ICC no confiable (superficie pequeña, acotada por los 5 MiB y por 13.0.0 sin vulnerabilidades conocidas en PyPI a 2026-11-27). Alternativa con cero superficie: descartar el ICC y asumir sRGB (colores apagados con Display P3); lo decide el Leader si lo prefiere.
 
 ## Decisiones del usuario (D-047, 2026-11-27)
 - D-H1 = A (solo UUID) → **T-018c READY**. D-H2 = A (todos los módulos) → **T-018d READY**. D-H3 = 256 KiB.
-- **T-018i (nueva, BACKLOG hasta aprobar la dependencia):** las imágenes de producto subidas se convierten a WebP optimizado en el servidor antes de guardarse en Storage (D-H3 del usuario). Necesita una librería de imágenes.
+- **T-018i (WebP, D-047 D-H3 + D-048 Pillow aprobado, READY):** las imágenes de producto subidas se convierten en el servidor a WebP optimizado (calidad 82, lado máximo 2000 px, sRGB) y **sin ningún metadato** (EXIF, GPS, XMP, IPTC, ICC, comentarios) antes de guardarse en Storage; Pillow `==13.0.0`. Paquete en «T-018i» de este archivo; se integra después de T-018f; las imágenes ya subidas no se migran.
 - D-H4 = B: además del script manual (T-018f), un temporizador en `deploy/`; se aplica en T-018g/h con ficha de auditoría y confirmación del usuario (D-011).
 - **T-018r (nueva, READY, qa-reviewer):** aislamiento de la BD de pruebas. `tests/identity/test_birth_date_migration.py`, `tests/payments/test_migration.py` y el resto de pruebas de migración bajan y suben `valmont_test`; con varias ejecuciones de integración a la vez (agentes en paralelo) provocan `UndefinedColumn`/`UndefinedTable`, `DeadlockDetected` y destinos de downgrade inválidos. Corrección propuesta: las pruebas de migración usan una BD propia creada y borrada por la sesión de pruebas (p. ej. `valmont_test_migrations`), sin tocar la compartida. Incluye: datos sobrantes `lectura-*` que rompen `tests/catalog/test_http_db.py::test_categories_and_attributes_show_only_active_values_by_position`, y la prueba de tiempos comparados de `tests/payments/test_t096_journey_and_attacks.py` (~línea 276), inestable bajo carga.
+- **R-8 (decisión del Leader, 2026-11-27):** se mantiene la conversión a sRGB con `ImageCms` (lcms2 incluido en la rueda de Pillow): solo el administrador sube imágenes y la entrada está acotada (5 MiB y 25 MP); un perfil ICC roto se asume sRGB.
