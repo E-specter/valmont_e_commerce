@@ -14,6 +14,7 @@
 | docs/design_ui/DESIGN.md | Doc | Principios, tokens provisionales, componentes, flujo Figma MCP (D-031) | — | frontend-lead | 2026-11-26 |
 | docs/design_ui/BRIEF.md | Doc | brief técnico de diseño y marca (T-110, hecho)| — | frontend-lead | 2026-11-26 |
 | docs/design_ui/VIEWS.md | Doc | inventario frame → ruta → componentes → datos/RF → estados (T-111, hecho; D-041)| — | frontend-lead | 2026-11-26 |
+| docs/design_ui/REVIEW-2026-11-27.md | Doc | Revisión visual en lote del hito tienda navegable frente a Figma (RT-10); base de T-133…T-137 | — | frontend-lead | 2026-11-27 |
 | .claude/settings.json | Config | Plugins del proyecto (D-035) | — | claude-leader (T-108) | 2026-11-26 |
 | .mcp.json | Config | MCP astro-docs y supabase-local (D-035) | — | claude-leader (T-108) | 2026-11-26 |
 | skills-lock.json | Config | Lock de skills de terceros (`npm run skills:install`) | — | claude-leader (T-108) | 2026-11-26 |

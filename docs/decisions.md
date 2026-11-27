@@ -50,6 +50,7 @@
 | D-041 | 2026-11-26 | Interfaz: respuestas P-1…P-9 (cabecera, filtros estáticos, precio es-PE con D-037, pago simulado sin PAN, cookie httpOnly, estados agrupados solo en la vista, miniaturas del lector compartido, fecha de nacimiento +18, contenido de demo) | APROBADA |
 | D-042 | 2026-11-26 | Frontend: dependencias de pruebas (Vitest, happy-dom, Playwright, axe) y de sesión (`@supabase/ssr`, `supabase-js`), fuentes con la API de Astro y callback de Auth autorizado | APROBADA |
 | D-043 | 2026-11-27 | Pagos simulados: resultado por los 4 últimos dígitos (matiza D-041 P-4), hasta 5 rechazos, mensaje detallado en la demo, `card_last4` guardado, pago en una sola pantalla, sin vista de administración | APROBADA |
+| D-044 | 2026-11-27 | Revisión visual: foto del hero sustituida (marca ajena), Jaro solo en el wordmark, símbolo de la guía de marca, wordmark de cabecera más grande compatible con P-1 | APROBADA |
 
 ---
 
@@ -511,4 +512,14 @@
   6. **P-6, administración:** sin vista de intentos en el MVP. El detalle del pedido ya muestra el pago, el reembolso y el historial.
 - **Alternativas descartadas:** escenario elegido en desarrollo y resultado al azar (P-1); sin tope o un solo reintento (P-2); siempre genérico (P-3); no guardar `card_last4` (P-4); dos pasos (P-5); `GET` de administración (P-6).
 - **Consecuencias:** SPEC de payments aprobada; RF05.01…RF05.04 aprobados; T-091 y T-092 READY; E-P2 registrada en `modules.md` §3; la pantalla T-082b de ui es T-098 de payments.
+
+### D-044 — Revisión visual del hito "tienda navegable" (APROBADA, 2026-11-27)
+- **Contexto:** revisión visual en lote (RT-10) de frontend-lead frente a Figma: `docs/design_ui/REVIEW-2026-11-27.md`. Las capturas quedaron fuera del repo.
+- **Decisiones del usuario:**
+  1. **Foto del hero:** se **sustituye ya**. La de Figma muestra la marca CITIZEN y un botón impreso en la imagen que no funciona. Hasta tener una foto propia sin marcas ajenas va un bloque de la marca (color, damero y símbolo).
+  2. **Jaro solo en el wordmark:** el logotipo VALMONT conserva Jaro. Botones, contacto y textos que usaban Jaro pasan a otra familia del brief (Phudu para títulos y llamadas, Geist para UI), porque Jaro dibuja la V como U ("UER").
+  3. **Símbolo:** el de la guía de marca (`125:13047`), el mismo en todas partes.
+  4. **Wordmark de cabecera:** más grande, hasta donde lo permitan los accesos de D-041 P-1 (búsqueda, carrito, cuenta, lista de deseos), sin desbordar en móvil.
+- **Sin pregunta, porque siguen el diseño:** damero de dos filas en la cabecera y el pie (D-01); barra de filtros alineada y plegable en móvil (D-05, D-11); pie de tarjeta homogéneo (D-10); ajustes menores D-03, D-06…D-09 y D-12…D-14.
+- **Consecuencias:** tareas de corrección T-133…T-137 en `docs/modules/ui/STATUS.md`.
 

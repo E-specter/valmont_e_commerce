@@ -25,6 +25,11 @@ Rango reservado del módulo: **T-116–T-139**. En uso: T-116–T-131. Libres: *
 | T-129 | Cuenta `/cuenta`: perfil y cierre de sesión | frontend-dev + qa-reviewer | T-119, T-126 | BACKLOG |
 | T-131 | Fecha de nacimiento en el registro (+18) | frontend-dev + qa-reviewer | T-113 (identity, sin hacer), T-128 | BLOCKED (T-113) |
 | T-132 | fix: orden de capas CSS declarado en `BaseLayout` (en producción `components` quedaba debajo de `reset`) y textos largos en migas, `BuyBox` | frontend-dev + qa-reviewer | T-116 | DONE (73f2459) |
+| T-133 | fix visual A: cabecera y pie: damero de dos filas, wordmark más grande compatible con P-1, pie en móvil y contacto sin Jaro (D-01, D-02, D-09, D-14; D-044) | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | READY |
+| T-134 | fix visual B: barra de filtros alineada en escritorio y plegable en móvil, "Limpiar filtros" de 44 px (D-05, D-11) | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | READY |
+| T-135 | fix visual C: pie de tarjeta homogéneo en una fila (divisor, precio y "Ver detalles" alineados) (D-10) | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | READY |
+| T-136 | fix visual D: Jaro solo en el wordmark; botones y enlaces en la familia del brief (D-04; D-044) | frontend-dev + qa-reviewer | T-133 (pie) | BACKLOG |
+| T-137 | fix visual E: foto del hero sustituida por un bloque de marca (D-044) y ajustes menores D-03, D-06, D-07, D-08, D-12, D-13 | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | READY |
 
 ### Orden y paralelismo (rutas disjuntas)
 
