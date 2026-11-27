@@ -30,7 +30,8 @@ Estrategia por niveles: `docs/planning.md` ("Estrategia de pruebas"). Casos E2E 
 | Frontend | Tipos y diagnóstico Astro | `cd frontend && npm run check` | activa |
 | Frontend | Build | `cd frontend && npm run build` | activa |
 | Frontend | Lint | — | no configurada |
-| E2E | Flujos de punta a punta | — | no configurada (Playwright, plugin de D-035; la escribe y ejecuta QA, Fase 3) |
+| Frontend | Pruebas unitarias, de componente (Container API, entorno `node`) y de isla (`happy-dom`) | `cd frontend && npm test` (Vitest; en `frontend/tests/**`) | activa desde T-130 |
+| E2E | Flujos de punta a punta y accesibilidad (axe, WCAG 2.2 AA), en 1280 y 375 | `cd frontend && npm run test:e2e` (Playwright, Chromium; en `frontend/e2e/**`; reutiliza el servidor en :4321 o levanta `astro dev`; en un worktree, `E2E_PORT=4322` para no reutilizar el de `main`; requiere `npx playwright install chromium` una vez y, para los flujos con correo, `npm run db:start`) | activa desde T-130 |
 | Seguridad | Secretos en el código | `git diff --cached \| grep -inE "(api[_-]?key\|secret\|password\|token)[\"' ]*[:=] *[\"'][^\"']{8,}[\"']"` (debe salir vacío; solo detecta valores literales entre comillas, así que `password: str` no da falso positivo) | activa |
 | Seguridad | `.env.example` sin valores secretos | `grep -nE "^[A-Z_]*(KEY\|SECRET\|PASSWORD\|TOKEN)[A-Z_]*=.+" backend/.env.example` (debe salir vacío) | activa |
 | Docs | Requisitos citados existen | `grep -c "^\| RFnn.mm \|" docs/requirements.md` debe dar 1 por cada ID citado (busca la fila que lo define, no una mención) | activa |
@@ -45,7 +46,7 @@ En la tabla, `\|` es un `|` escapado: en la terminal se escribe sin la barra inv
 | Endpoint | lo anterior + pruebas HTTP + skill `api-contract-review` |
 | Migración o esquema | skill `database-migration-review` + migraciones reversibles + `pytest -m integration` |
 | Repositorio o endpoint que toca la BD | unitarias + `pytest -m integration` |
-| Página o componente | check, build, lista `docs/design_ui/DESIGN.md` §9 |
+| Página o componente | check, build, `npm test`, `npm run test:e2e` (con axe), lista `docs/design_ui/DESIGN.md` §9 |
 | Cualquier cambio de código | `qa-reviewer` ejecuta las puertas sobre lo preparado (D-028) |
 | Autenticación, roles, datos de otro usuario, stock, pedidos, pagos o asistente | lo que corresponda + revisión de seguridad a fondo de `qa-reviewer` |
 | Solo documentación | IDs citados existen; `_registry.md` al día |

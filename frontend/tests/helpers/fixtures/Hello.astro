@@ -1,0 +1,11 @@
+---
+interface Props {
+  name: string;
+}
+const { name } = Astro.props;
+---
+
+<section data-testid="hello">
+  <h1>Hola, {name}</h1>
+  <slot />
+</section>
