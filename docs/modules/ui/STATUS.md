@@ -685,6 +685,19 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-124 (implementación) — 2026-11-27 — frontend-dev
+1. Tarea: T-124 · 2. Estado: IN_REVIEW (listo para QA).
+3. Hecho: `/relojes` SSR con migas, `PageTitle` + "{total} modelos" (`role="status"`), `FeaturedBanner`, `FilterBar` (form GET con "Aplicar"), `ActiveFilters`, `ProductGrid` (h2 por tarjeta) y `Pagination`; estados vacío, 422, error/5xx (502 + "Reintentar"), rango de precio invertido (sin petición) y URL inválida (Notice, valores ignorados). Página > última: 302 a la última.
+4. Archivos: `frontend/src/pages/relojes/index.astro`, `frontend/src/components/catalog/{FilterBar,ActiveFilters,FeaturedBanner}.astro`, `frontend/src/lib/catalog/query.ts`, `frontend/src/data/featured.ts`, esta STATUS.
+5. Estático: `npm run check -> 0 errors, 0 warnings, 0 hints (94 files)`. Comprobado con curl en dev (no es evidencia): /relojes 200 "12 modelos"; rango invertido 200 + Notice; sort/page/precio inválidos 200 + Notice; page=99 302. NO EJECUTADO: build y pruebas (D-033).
+6. Contrato: sin cambios. N-3 resuelto en `parseCatalogQuery` (lista cerrada, slugs `^[a-z0-9][a-z0-9_-]{0,63}$`, soles enteros <= 1e8, `relevance` sin `q` se descarta por el 422 de CATALOG-R8). `lib/api/catalog.ts` (protegido) no se tocó: `listProducts` sigue reenviando `{...f}`, pero `filters` ya viene limpio.
+7. Decisiones: chips de precio "Desde/Hasta S/ X" con `formatMoney({amount: soles*100})` (solo presentación); chip `q` "Búsqueda: ..." (al quitarlo se elimina `sort=relevance`); `q` viaja en un hidden del form; selects nativos con tokens (no hay `Select` en ui/); orden "Relevancia" solo con `q`; "Complicación" y vista cuadrícula/lista fuera del form, inertes (`aria-disabled`/`aria-hidden`); banner sin foto (BRIEF §9), `data-demo-content`; 422 responde 200 con Notice, 5xx/red 502; Cache-Control público solo en éxito, `no-store` en errores. Imágenes LCP (3 primeras): las marca `ProductGrid`.
+8. Seguridad: sin `set:html`; valores de URL validados y escapados por Astro; sin parámetros desconocidos hacia la API.
+9. Figma (una vez cada uno): `51:357` y `51:345`. Desviaciones: Figma usa desplegables en fila y conmutador de stock; aquí cuadrícula con etiquetas visibles, precio en dos campos y "Solo disponibles" como casilla. Sin captura contrastada (RT-10, frontend-lead).
+10. Para QA: Container API de `FilterBar`/`ActiveFilters`; unitarias de query.ts; E2E con `SUPABASE_ANON_KEY` definida (la ruta importa `astro:env/server`).
+13. Corrección tras QA: H-1 bloque `<style is:inline>@layer ...</style>` en `BaseLayout.astro`; H-2 `Limpiar todo` con min 44 px; H-3 `q` sin caracteres de control antes de recortar. `npm run check` sin errores.
+12. Commit: ninguno, preparado. Mensaje: `feat(ui): catálogo de relojes con filtros por URL y paginación (T-124)`.
+
 #### Traspaso T-125 (implementación) — 2026-11-27 — frontend-dev
 1. Tarea: T-125 · 2. Estado: IN_REVIEW (listo para QA).
 3. Hecho: ficha `/relojes/[slug]` (SSR, `Cache-Control: public, max-age=30, stale-while-revalidate=60`), `ProductGallery`, `BuyBox`, `specRows` y `404.astro`. Firmas del paquete sin cambios. Producto inexistente o despublicado: `Astro.rewrite('/404')` con estado 404 real; `slug` vacío, `.` o `..` también a 404 sin llamar a la API (N-2). Error 5xx o red: estado 502, `Cache-Control: no-store`, `Notice` "No pudimos cargar este reloj" con "Reintentar" (enlace a la misma URL) y `h1` "Reloj no disponible".

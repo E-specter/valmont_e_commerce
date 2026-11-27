@@ -1,0 +1,187 @@
+---
+// Filtros del catálogo: un <form method="get"> sin JavaScript (VIEWS §8, D-014); la URL es la fuente
+// de verdad. Sin envío automático al cambiar (WCAG 3.2.2). Los controles sin contrato (D-041 P-2)
+// van fuera del formulario, inertes y fuera del orden de tabulación.
+import Button from '../ui/Button.astro';
+import Checkbox from '../ui/Checkbox.astro';
+import Field from '../ui/Field.astro';
+import Icon from '../ui/Icon.astro';
+import TextLink from '../ui/TextLink.astro';
+import type { AttributeValue, Category } from '../../lib/api/catalog';
+import type { CatalogQuery } from '../../lib/catalog/query';
+
+interface Props {
+  categories: Category[];
+  movements: AttributeValue[];
+  materials: AttributeValue[];
+  query: CatalogQuery;
+  action?: string;
+}
+const { categories, movements, materials, query, action = '/relojes' } = Astro.props;
+
+const selects = [
+  { id: 'f-category', name: 'category', label: 'Colección', all: 'Todas', value: query.category, options: categories.map((c) => [c.slug, c.name]) },
+  { id: 'f-movement', name: 'movement', label: 'Movimiento', all: 'Todos', value: query.movement, options: movements.map((m) => [m.code, m.label]) },
+  { id: 'f-material', name: 'case_material', label: 'Material de caja', all: 'Todos', value: query.case_material, options: materials.map((m) => [m.code, m.label]) },
+];
+const sorts: [string, string][] = [
+  ['', 'Más recientes'],
+  ['price_asc', 'Precio: de menor a mayor'],
+  ['price_desc', 'Precio: de mayor a menor'],
+  ...(query.q ? ([['relevance', 'Relevancia']] as [string, string][]) : []),
+];
+// Con búsqueda el orden por defecto del servidor es relevancia; sin `sort` en la URL se marca la primera opción.
+const sortValue = query.sort ?? (query.q ? 'relevance' : '');
+---
+
+<div class="filterbar">
+  <form method="get" action={action} class="form">
+    <fieldset>
+      <legend>Filtrar y ordenar</legend>
+      {query.q && <input type="hidden" name="q" value={query.q} />}
+      {
+        selects.map((s) => (
+          <div class="field">
+            <label for={s.id}>{s.label}</label>
+            <div class="select">
+              <select id={s.id} name={s.name}>
+                <option value="">{s.all}</option>
+                {s.options.map(([v, l]) => (
+                  <option value={v} selected={v === s.value}>
+                    {l}
+                  </option>
+                ))}
+                {s.value && !s.options.some(([v]) => v === s.value) && <option value={s.value} selected>{s.value}</option>}
+              </select>
+              <Icon name="chevron-down" size={16} />
+            </div>
+          </div>
+        ))
+      }
+      <Field id="f-price-min" name="price_min" label="Precio desde (S/)" type="number" inputmode="numeric" min={0} value={query.price_min_soles?.toString()} />
+      <Field id="f-price-max" name="price_max" label="Precio hasta (S/)" type="number" inputmode="numeric" min={0} value={query.price_max_soles?.toString()} />
+      <div class="field">
+        <label for="f-sort">Ordenar por</label>
+        <div class="select">
+          <select id="f-sort" name="sort">
+            {sorts.map(([v, l]) => <option value={v} selected={v === sortValue}>{l}</option>)}
+          </select>
+          <Icon name="chevron-down" size={16} />
+        </div>
+      </div>
+      <Checkbox id="f-available" name="available" value="1" label="Solo disponibles" checked={query.available} />
+      <div class="actions">
+        <Button type="submit" variant="dark">Aplicar</Button>
+        <TextLink href={action}>Limpiar filtros</TextLink>
+      </div>
+    </fieldset>
+  </form>
+
+  <div class="static" data-demo-content>
+    <div class="fake" aria-disabled="true">
+      <span>Complicación</span>
+      <Icon name="chevron-down" size={16} />
+    </div>
+    <div class="view" aria-hidden="true">
+      <Icon name="grid" size={20} />
+      <Icon name="list" size={20} />
+    </div>
+  </div>
+</div>
+
+<style>
+  @layer components {
+    .filterbar {
+      display: grid;
+      gap: var(--space-16);
+      padding-block: var(--space-24);
+      border-block: 1px solid var(--stroke-default);
+    }
+    fieldset {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+      align-items: end;
+      gap: var(--space-16);
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+    legend {
+      padding: 0;
+      margin-block-end: var(--space-12);
+      font-family: var(--font-editorial);
+      font-size: var(--text-caption);
+      letter-spacing: var(--tracking-caption);
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    .field {
+      display: grid;
+      gap: var(--space-8);
+    }
+    label {
+      font-size: var(--text-caption);
+      font-weight: var(--weight-bold);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .select {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .select :global(.icon) {
+      position: absolute;
+      inset-inline-end: var(--space-12);
+      pointer-events: none;
+    }
+    select {
+      inline-size: 100%;
+      min-height: var(--touch-target);
+      padding: var(--space-12) var(--space-48) var(--space-12) var(--space-16);
+      border: 1px solid var(--stroke-control);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      font-size: var(--text-body-ui);
+      appearance: none;
+    }
+    select:hover {
+      border-color: var(--stroke-strong);
+    }
+    select:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-16);
+    }
+    .static {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-16);
+    }
+    .fake {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-8);
+      padding: var(--space-8) var(--space-16);
+      border: 1px dashed var(--stroke-control);
+      border-radius: var(--radius-md);
+      font-family: var(--font-editorial);
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    .view {
+      display: flex;
+      gap: var(--space-8);
+      color: var(--text-secondary);
+    }
+  }
+</style>

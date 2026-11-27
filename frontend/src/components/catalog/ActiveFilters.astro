@@ -1,0 +1,58 @@
+---
+import Chip from '../ui/Chip.astro';
+import TextLink from '../ui/TextLink.astro';
+
+interface Props {
+  chips: { label: string; removeHref: string }[];
+  clearHref: string;
+}
+const { chips, clearHref } = Astro.props;
+---
+
+{
+  chips.length > 0 && (
+    <div class="active">
+      <p class="lead" id="activos">
+        Filtros activos:
+      </p>
+      <ul aria-labelledby="activos">
+        {
+          chips.map((c) => (
+            <li>
+              <Chip as="span" tone="forest" label={c.label} removeHref={c.removeHref} />
+            </li>
+          ))
+        }
+      </ul>
+      <TextLink href={clearHref}>Limpiar todo</TextLink>
+    </div>
+  )
+}
+
+<style>
+  @layer components {
+    .active {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-8) var(--space-12);
+    }
+    .active :global(.textlink) {
+      display: inline-flex;
+      align-items: center;
+      min-block-size: var(--touch-target);
+    }
+    .lead {
+      font-family: var(--font-editorial);
+      font-size: var(--text-caption);
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    ul {
+      display: contents;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+  }
+</style>

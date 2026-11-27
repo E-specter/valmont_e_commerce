@@ -1,0 +1,73 @@
+---
+// "Destacado del mes": contenido de demostración, sin botón ni enlace (D-041 P-2).
+// La fotografía del nodo 51:345 no se descarga (BRIEF §9): bloque de color.
+import Price from '../ui/Price.astro';
+import type { Money } from '../../lib/format';
+
+interface Props {
+  kicker: string;
+  title: string;
+  description?: string;
+  price?: Money;
+}
+const { kicker, title, description, price } = Astro.props;
+---
+
+<aside class="banner" data-demo-content aria-label="Contenido de demostración">
+  <p class="kicker">{kicker}</p>
+  <p class="title">{title}</p>
+  {description && <p class="description">{description}</p>}
+  <div class="foot">
+    {price && <Price price={price} size="lg" />}
+    <span class="demo">Contenido de demostración</span>
+  </div>
+</aside>
+
+<style>
+  @layer components {
+    .banner {
+      display: grid;
+      gap: var(--space-8);
+      padding: var(--space-32);
+      border-radius: var(--radius-lg);
+      background: var(--bg-surface-dark);
+      color: var(--text-on-dark);
+    }
+    .kicker {
+      font-family: var(--font-editorial);
+      font-size: var(--text-caption);
+      letter-spacing: var(--tracking-caption);
+      text-transform: uppercase;
+      color: var(--color-yellow);
+    }
+    .title {
+      font-family: var(--font-heading);
+      font-weight: var(--weight-bold);
+      font-size: var(--text-h3);
+      line-height: var(--leading-h3);
+      text-transform: uppercase;
+    }
+    .description {
+      font-family: var(--font-ui);
+      font-size: var(--text-body-ui);
+      max-inline-size: 60ch;
+    }
+    .foot {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-12);
+      color: var(--color-yellow);
+    }
+    .foot :global(.current) {
+      color: var(--color-yellow);
+    }
+    .demo {
+      font-family: var(--font-editorial);
+      font-size: var(--text-caption);
+      text-transform: uppercase;
+      color: var(--text-on-dark);
+    }
+  }
+</style>

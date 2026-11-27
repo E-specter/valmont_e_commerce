@@ -322,16 +322,21 @@ test.describe('404: inexistente, despublicado y rutas peligrosas', () => {
     await expect(page.locator('main#contenido')).toHaveCount(ONE);
   });
 
-  test('N-2: "." y "%2E" dan 404 sin llamar a la API; ".." y "%2E%2E" tampoco la llaman ni dan 500; "a%2Fb" y "%00" dan 404', async ({ env }) => {
+  test('N-2: "." y "%2E" dan el listado o 404, nunca una ficha ni un 500; ".." y "%2E%2E" tampoco piden fichas ni dan 500; "a%2Fb" y "%00" dan 404', async ({ env }) => {
     env.stub.apiHits.splice(NONE);
     const strict = await sequence(['/relojes/.', '/relojes/%2E', '/relojes/%2e'], (path) => rawGet(env.site.origin, path));
     // WHATWG URL quita los segmentos "." y "%2E" antes de enrutar: la página no llega a verlos (su guarda se prueba en
-    // tests/components/product-page.test.ts). Hoy no existe /relojes/ y da 404; con el listado (T-124) el resultado será el listado:
-    // lo que importa es que NUNCA sea una ficha de producto ni un 5xx.
-    strict.forEach((r) => expect(r.status === NOT_FOUND || (r.status === OK && !r.body.includes('IGV incluido'))).toBe(true));
+    // tests/components/product-page.test.ts). Con el listado de T-124 el resultado es el listado de /relojes/ (o un 404):
+    // lo que importa es que NUNCA sea una ficha de producto ni un error no controlado. Este stub no sirve el listado, así que
+    // el listado responde su 502 controlado ("No pudimos cargar los relojes"); un 500 nunca es válido.
+    strict.forEach((r) => {
+      expect(r.body.includes('IGV incluido'), 'no debe ser una ficha de producto').toBe(false);
+      const controlled = r.status === NOT_FOUND || r.status === OK || (r.status === BAD_GATEWAY && r.body.includes('No pudimos cargar los relojes'));
+      expect(controlled, `estado ${r.status} para una ruta con punto`).toBe(true);
+    });
     const dots = await sequence(['/relojes/..', '/relojes/%2E%2E', '/relojes/%2e%2e'], (path) => rawGet(env.site.origin, path));
     dots.forEach((r) => expect(r.status).toBeLessThan(SERVER_ERROR));
-    expect(env.stub.apiHits.filter((h) => h.startsWith('/api/v1/catalog/products')), 'la API recibió una petición de producto').toEqual([]);
+    expect(env.stub.apiHits.filter((h) => h.startsWith('/api/v1/catalog/products/')), 'la API recibió una petición de ficha de producto').toEqual([]);
     // Otros slugs raros sí llegan a la API (codificados, sin poder salir de su ruta) y su 404 se muestra igual.
     const odd = await sequence(['/relojes/a%2Fb', '/relojes/%00', '/relojes/%3Cscript%3E'], (path) => rawGet(env.site.origin, path));
     expect(odd.map((r) => r.status)).toEqual(odd.map(() => NOT_FOUND));
