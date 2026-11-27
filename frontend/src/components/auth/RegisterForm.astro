@@ -1,0 +1,121 @@
+---
+import PageTitle from '../layout/PageTitle.astro';
+import Button from '../ui/Button.astro';
+import Checkbox from '../ui/Checkbox.astro';
+import Checkerboard from '../ui/Checkerboard.astro';
+import Field from '../ui/Field.astro';
+import IconButton from '../ui/IconButton.astro';
+import Notice from '../ui/Notice.astro';
+import TextLink from '../ui/TextLink.astro';
+import { SERVICE_UNAVAILABLE_MESSAGE } from '../../lib/auth-messages';
+import { PRIVACY_VERSION } from '../../lib/site';
+
+interface Props {
+  values?: { full_name?: string; email?: string; birth_date?: string };
+  errors?: {
+    form?: string;
+    full_name?: string;
+    email?: string;
+    password?: string;
+    password_confirm?: string;
+    accept_terms?: string;
+    birth_date?: string;
+  };
+  next?: string;
+  /** Fecha de hoy (YYYY-MM-DD) para el atributo `max` del campo de fecha; la calcula el servidor. */
+  maxDate?: string;
+  /** Correo de confirmación enviado: sustituye al formulario por el aviso. */
+  sent?: boolean;
+}
+const { values = {}, errors = {}, next, maxDate, sent = false } = Astro.props;
+// `next` ya llega validado por la página (safeNext); aquí solo se codifica.
+const loginHref = next ? `/ingresar?next=${encodeURIComponent(next)}` : '/ingresar';
+const retryHref = next ? `/registro?next=${encodeURIComponent(next)}` : '/registro';
+const hasErrors = Object.values(errors).some(Boolean);
+---
+
+<section class="auth-form">
+  {
+    sent ? (
+      <>
+        <PageTitle tone="dark" kicker="Cuenta Valmont" title="Revisa tu correo" />
+        <Notice tone="success" tabindex="-1" autofocus>
+          <p>Te enviamos un enlace para confirmar tu cuenta. Ábrelo para terminar el registro.</p>
+        </Notice>
+        <p class="register"><TextLink tone="ivory" href={loginHref}>Ir a ingresar</TextLink></p>
+      </>
+    ) : (
+      <>
+        <PageTitle
+          tone="dark"
+          kicker="Portal de autenticación segura"
+          title="Crear cuenta"
+          description="Únete a Valmont para comprar, seguir tus pedidos y guardar tu lista de deseos."
+        />
+        <form method="post" action="/registro" novalidate>
+          {next && <input type="hidden" name="next" value={next} />}
+          {hasErrors && (
+            <Notice tone="error" tabindex="-1" autofocus>
+              <p>{errors.form ?? 'Revisa los campos marcados.'}</p>
+              {errors.form === SERVICE_UNAVAILABLE_MESSAGE && (
+                <Button slot="actions" href={retryHref} variant="secondary">
+                  Reintentar
+                </Button>
+              )}
+            </Notice>
+          )}
+          <Field id="full_name" name="full_name" label="Nombre completo" iconLeft="user" autocomplete="name" maxlength={120} required value={values.full_name} tone="dark" error={errors.full_name} />
+          <Field id="email" name="email" type="email" label="Correo electrónico" iconLeft="mail" autocomplete="email" inputmode="email" maxlength={320} required value={values.email} tone="dark" error={errors.email} />
+          <div class="pair">
+            <Field id="password" name="password" type="password" label="Contraseña" iconLeft="lock" autocomplete="new-password" minlength={6} maxlength={1024} required tone="dark" error={errors.password}>
+              <IconButton slot="action" variant="plain" icon="eye" label="Mostrar contraseña" pressed={false} data-password-toggle aria-controls="password" />
+            </Field>
+            <Field id="password_confirm" name="password_confirm" type="password" label="Repetir contraseña" iconLeft="lock" autocomplete="new-password" maxlength={1024} required tone="dark" error={errors.password_confirm}>
+              <IconButton slot="action" variant="plain" icon="eye" label="Mostrar contraseña" pressed={false} data-password-toggle aria-controls="password_confirm" />
+            </Field>
+          </div>
+          <Field id="birth_date" name="birth_date" type="date" label="Fecha de nacimiento" iconLeft="calendar" autocomplete="bday" required value={values.birth_date} hint="Debes tener 18 años o más" tone="dark" error={errors.birth_date} max={maxDate} />
+                      <Checkbox id="accept_terms" tone="dark" name="accept_terms" required error={errors.accept_terms}>
+              Acepto los <a href="/terminos">términos</a> y la <a href="/privacidad">política de privacidad</a> (versión {PRIVACY_VERSION}).
+            </Checkbox>
+          <Button type="submit" variant="mint" size="lg" fullWidth>Crear cuenta</Button>
+          <p class="register">¿Ya tienes cuenta? <TextLink tone="ivory" href={loginHref}>Ingresar</TextLink></p>
+        </form>
+      </>
+    )
+  }
+  <Checkerboard palette="auth" cell={16} />
+</section>
+
+<script>
+  import { initPasswordToggle } from '../../islands/password-toggle';
+  initPasswordToggle();
+</script>
+
+<style>
+  @layer components {
+    form {
+      display: grid;
+      gap: var(--space-24);
+      padding-block-end: var(--space-32);
+    }
+    .pair {
+      display: grid;
+      gap: var(--space-24);
+    }
+    @media (min-width: 800px) {
+      .pair {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    /* Sin JavaScript el botón del ojo no hace nada: solo se muestra cuando la isla lo activa. */
+    form :global([data-password-toggle]:not([data-ready])) {
+      display: none;
+    }
+    .register {
+      margin: 0;
+      color: var(--text-on-dark);
+      text-align: center;
+    }
+  }
+</style>

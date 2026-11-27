@@ -1,0 +1,159 @@
+---
+import Icon from '../../../../src/components/ui/Icon.astro';
+import type { IconName } from '../../../../src/components/ui/icons';
+
+interface Props {
+  id: string;
+  name: string;
+  label: string;
+  type?: 'text' | 'email' | 'password' | 'tel' | 'date' | 'search' | 'number';
+  value?: string;
+  placeholder?: string;
+  autocomplete?: string;
+  inputmode?: string;
+  required?: boolean;
+  disabled?: boolean;
+  readonly?: boolean;
+  error?: string;
+  hint?: string;
+  iconLeft?: IconName;
+  minlength?: number;
+  maxlength?: number;
+  min?: number;
+  max?: number;
+  pattern?: string;
+  tone?: 'light' | 'dark';
+}
+const { id, name, label, type = 'text', error, hint, iconLeft, required, disabled, readonly, tone = 'light', ...input } = Astro.props;
+const hintId = hint ? `${id}-hint` : undefined;
+const errorId = error ? `${id}-error` : undefined;
+const describedby = [hintId, errorId].filter(Boolean).join(' ') || undefined;
+const hasAction = Astro.slots.has('action');
+---
+
+<div class="field" data-tone={tone} data-invalid={error ? '' : undefined}>
+  <label for={id}>{label}{required && <span aria-hidden="true"> *</span>}</label>
+  <div class="box" data-icon={iconLeft ? '' : undefined} data-action={hasAction ? '' : undefined}>
+    {iconLeft && <Icon name={iconLeft} size={20} />}
+    <input
+      id={id}
+      name={name}
+      type={type}
+      required={required}
+      disabled={disabled}
+      readonly={readonly}
+      aria-invalid={error ? 'true' : undefined}
+      aria-describedby={describedby}
+      {...(input as Record<string, unknown>)}
+    />
+    {hasAction && <div class="action"><slot name="action" /></div>}
+  </div>
+  {hint && <p class="hint" id={hintId}>{hint}</p>}
+  {
+    error && (
+      <p class="error" id={errorId}>
+        <Icon name="alert-triangle" size={16} />
+        <span>{error}</span>
+      </p>
+    )
+  }
+</div>
+
+<style>
+  @layer components {
+    .field {
+      display: grid;
+      gap: var(--space-8);
+    }
+    label {
+      font-size: var(--text-caption);
+      font-weight: var(--weight-bold);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .box {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .box > :global(.icon) {
+      position: absolute;
+      inset-inline-start: var(--space-12);
+      color: var(--text-secondary);
+      pointer-events: none;
+    }
+    .action {
+      position: absolute;
+      inset-inline-end: var(--space-4);
+      display: flex;
+    }
+    input {
+      inline-size: 100%;
+      min-height: var(--touch-target);
+      padding: var(--space-12) var(--space-16);
+      border: 1px solid var(--stroke-control);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font-size: var(--text-body-ui);
+      line-height: var(--leading-body-ui);
+      transition: border-color var(--dur-state) var(--ease);
+    }
+    .box[data-icon] input {
+      padding-inline-start: calc(var(--space-12) + var(--space-24) + var(--space-8));
+    }
+    .box[data-action] input {
+      padding-inline-end: calc(var(--touch-target) + var(--space-8));
+    }
+    input::placeholder {
+      color: var(--text-secondary);
+    }
+    /* .is-hover / .is-focus: solo los usa /dev/ui-a para fijar el estado */
+    input:is(:hover, .is-hover) {
+      border-color: var(--stroke-strong);
+    }
+    input:is(:focus, .is-focus) {
+      border-color: var(--color-ink);
+      box-shadow: 0 0 0 1px var(--color-ink);
+    }
+    input:focus-visible,
+    input.is-focus {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    input[aria-invalid='true'] {
+      border-color: var(--color-red-strong);
+      box-shadow: 0 0 0 1px var(--color-red-strong);
+    }
+    input[readonly] {
+      background: transparent;
+      border-style: dotted;
+    }
+    /* Deshabilitado: borde discontinuo + fondo atenuado + cursor (no solo color) */
+    input:disabled {
+      border-style: dashed;
+      background: var(--color-ivory);
+      color: var(--text-secondary);
+      cursor: not-allowed;
+    }
+    .hint {
+      color: var(--text-secondary);
+      font-size: var(--text-caption);
+    }
+    /* Sobre fondo oscuro (forest): textos de ayuda y error en marfil/rojo suave */
+    .field[data-tone='dark'] :is(.hint, .error) {
+      color: var(--color-red-soft);
+    }
+    .field[data-tone='dark'] .hint {
+      color: var(--text-on-dark);
+    }
+    .error {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-8);
+      color: var(--color-red-strong);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-medium);
+    }
+  }
+</style>

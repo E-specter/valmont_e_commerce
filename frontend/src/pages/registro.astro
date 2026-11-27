@@ -1,0 +1,108 @@
+---
+import RegisterForm from '../components/auth/RegisterForm.astro';
+import AuthSplit from '../components/auth/AuthSplit.astro';
+import WatchmakerArtwork from '../components/auth/WatchmakerArtwork.astro';
+import { serverTransport } from '../lib/api/server';
+import { SERVICE_UNAVAILABLE_MESSAGE } from '../lib/auth-messages';
+import { PRIVACY_VERSION } from '../lib/site';
+import { mapAuthError } from '../lib/server/auth-errors';
+import { safeNext } from '../lib/server/guard';
+import { limaToday, validateRegister } from '../lib/server/register';
+
+export const prerender = false;
+
+const { request, url, locals } = Astro;
+
+const NO_STORE = 'private, no-store';
+Astro.response.headers.set('Cache-Control', NO_STORE);
+const FALLBACK = '/cuenta';
+const MSG_WEAK_PHRASE = 'La contraseña debe tener al menos 6 caracteres';
+const MSG_REVIEW = 'Revisa los campos marcados.';
+
+let next = safeNext(url.searchParams.get('next'), FALLBACK);
+let values: { full_name?: string; email?: string; birth_date?: string } = {};
+let errors: Record<string, string> = {};
+let sent = false;
+const today = limaToday();
+
+// Astro.redirect() descarta las cabeceras: la respuesta se arma a mano.
+const see = (to: string) => new Response(null, { status: 303, headers: { Location: to, 'Cache-Control': NO_STORE } });
+
+if (locals.session) return see(next);
+
+if (request.method === 'POST') {
+  if (request.headers.get('origin') !== url.origin) return new Response(null, { status: 403 });
+
+  let data: FormData;
+  try {
+    data = await request.formData();
+  } catch {
+    return new Response(null, { status: 415, headers: { 'Cache-Control': NO_STORE } });
+  }
+  const str = (k: string) => (typeof data.get(k) === 'string' ? (data.get(k) as string) : '');
+  next = safeNext(str('next') || url.searchParams.get('next'), FALLBACK);
+  const input = {
+    full_name: str('full_name').trim(),
+    email: str('email').trim().slice(0, 320),
+    password: str('password'),
+    password_confirm: str('password_confirm'),
+    accept_terms: str('accept_terms') !== '',
+    birth_date: str('birth_date').trim(),
+  };
+  values = { full_name: input.full_name, email: input.email, birth_date: input.birth_date };
+
+  const result = validateRegister(input, today);
+  if (!result.ok) {
+    // Un menor se rechaza aquí, antes de signUp: la fecha no sale del servidor de la página.
+    errors = { ...result.errors, form: MSG_REVIEW };
+    Astro.response.status = 422;
+  } else {
+    try {
+      const { data: res, error } = await locals.supabase.auth.signUp({
+        email: input.email,
+        password: input.password,
+        options: {
+          emailRedirectTo: `${url.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          data: { full_name: input.full_name, accept_privacy_version: PRIVACY_VERSION, birth_date: input.birth_date },
+        },
+      });
+      // Cuenta ya registrada: mismo estado de éxito que un alta nueva (sin enumeración de cuentas).
+      if (error?.code === 'user_already_exists' || error?.code === 'email_exists') {
+        sent = true;
+        values = {};
+      } else if (error) {
+        if (error.code === 'weak_password') {
+          errors = { password: MSG_WEAK_PHRASE, form: MSG_REVIEW };
+          Astro.response.status = 422;
+        } else {
+          const mapped = mapAuthError(error);
+          Astro.response.status = mapped.status;
+          errors = { form: mapped.message };
+        }
+      } else if (res.session) {
+        // Confirmación desactivada: se guarda el perfil aquí (mejor esfuerzo) y se entra.
+        await serverTransport({ accessToken: res.session.access_token })({
+          method: 'PATCH',
+          path: '/identity/me',
+          body: { full_name: input.full_name, accept_privacy_version: PRIVACY_VERSION, birth_date: input.birth_date },
+        }).catch(() => undefined);
+        // La fecha es un dato personal: fuera de los metadatos de Auth (mejor esfuerzo).
+        await locals.supabase.auth.updateUser({ data: { birth_date: null } }).catch(() => undefined);
+        return see(next);
+      } else {
+        // Correo nuevo o ya registrado: mismo estado, sin revelar si la cuenta existe.
+        sent = true;
+        values = {};
+      }
+    } catch {
+      Astro.response.status = 503;
+      errors = { form: SERVICE_UNAVAILABLE_MESSAGE };
+    }
+  }
+}
+---
+
+<AuthSplit variant="register">
+  <WatchmakerArtwork slot="art" variant="mainspring" />
+  <RegisterForm values={values} errors={errors} next={next} maxDate={today} sent={sent} />
+</AuthSplit>

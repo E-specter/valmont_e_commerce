@@ -10,14 +10,15 @@ interface Props {
   required?: boolean;
   disabled?: boolean;
   error?: string;
+  tone?: 'light' | 'dark';
 }
-const { id, name, label, value = 'on', checked, required, disabled, error } = Astro.props;
+const { id, name, label, value = 'on', checked, required, disabled, error, tone = 'light' } = Astro.props;
 const hasSlot = Astro.slots.has('default');
 if (!label && !hasSlot) throw new Error('Checkbox requiere `label` o contenido en el slot.');
 const errorId = error ? `${id}-error` : undefined;
 ---
 
-<div class="checkbox" data-disabled={disabled ? '' : undefined}>
+<div class="checkbox" data-tone={tone} data-disabled={disabled ? '' : undefined}>
   <label class="row" for={id}>
     <span class="control">
       <input
@@ -117,6 +118,29 @@ const errorId = error ? `${id}-error` : undefined;
       color: var(--color-red-strong);
       font-size: var(--text-caption);
       font-weight: var(--weight-medium);
+    }
+    /* Sobre forest: texto marfil, borde menta (≥3:1), error rojo suave */
+    .checkbox[data-tone='dark'] {
+      color: var(--text-on-dark);
+    }
+    .checkbox[data-tone='dark'] input {
+      border-color: var(--color-mint);
+      background: transparent;
+    }
+    .checkbox[data-tone='dark'] input:checked {
+      background: var(--color-mint);
+    }
+    .checkbox[data-tone='dark'] .control :global(svg) {
+      color: var(--color-forest);
+    }
+    .checkbox[data-tone='dark'] .row:hover input:not(:disabled) {
+      background: var(--color-forest-mid);
+    }
+    .checkbox[data-tone='dark'] .row:hover input:checked:not(:disabled) {
+      background: var(--color-mint);
+    }
+    .checkbox[data-tone='dark'] .error {
+      color: var(--color-red-soft);
     }
     /* Deshabilitado: atenuado + borde discontinuo + cursor (no solo color) */
     .checkbox[data-disabled] .row {

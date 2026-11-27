@@ -691,6 +691,20 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-128 + T-131 (registro con fecha de nacimiento) — 2026-11-27 — frontend-dev
+1. Tarea: T-128 + T-131 (D-045, N-8). Estado: IN_REVIEW (pendiente de QA).
+2. Hecho: `/registro` SSR (`registro.astro`, `RegisterForm.astro`, `lib/server/register.ts`) y `/auth/callback` ampliado.
+3. `validateRegister(input, today?)`, `limaToday(now?)`, `isAdult(birth, today)` (regla del 29-feb: tupla mes/día, SPEC identity §13.3). Errores por campo: formato, futura, 1900, más de 120 años, menor ("Debes tener 18 años o más").
+4. POST: Origin 403, `formData()` en try (415), 303 con `no-store`, `next` por `safeNext`. Menor o dato inválido: 422 **antes** de `signUp`; la fecha no sale de la página.
+5. `signUp` con `data: { full_name, accept_privacy_version, birth_date }`. Sin sesión: éxito (`sent`) igual para correo nuevo o repetido. Con sesión: `PATCH /identity/me` de mejor esfuerzo y 303.
+6. `callback.ts`: añade `birth_date` (si cumple `YYYY-MM-DD`) al PATCH y luego `auth.updateUser({ data: { birth_date: null } })`, ambos de mejor esfuerzo, sin consola.
+7. `RegisterForm`: props aditivas `next`, `maxDate` (hoy en Lima, para `max`) y `sent`; no importa de `lib/server`.
+8. Desviaciones: (a) sin consulta a Figma: la skill exigía fileKey, que no consta en `docs/`; se siguió VIEWS §4.4 (no se gastó cuota); revisar posición del arte y la fecha en la captura. (b) `Field.max` está tipado `number` y `ui/` es ajeno: se pasa `max` de fecha con un cast `as object` en el componente. (c) `Checkbox` no tiene `tone="dark"`: color de texto y error ajustados desde `RegisterForm` con `:global`; el borde de la casilla sobre forest no se tocó (revisar contraste en QA/frontend-lead).
+9. Análisis estático: `npm run check` → 0 errors, 0 warnings, 0 hints.
+10. NO EJECUTADO: pruebas y build (D-028, D-033).
+11. Para QA: unitarias de `validateRegister`/`isAdult` (18 hoy, mañana, 29-feb, 120/121 años), Container API de `RegisterForm`, E2E (menor rechazado sin llamar a Auth; mayor: Mailpit, callback, `GET /identity/me` con `birth_date` y metadatos sin la fecha; correo repetido), axe, capturas 1440 y 375.
+12. Commit: ninguno, preparado. Mensaje: `feat(ui): pantalla de registro con fecha de nacimiento y consentimiento (T-128)`.
+
 #### Traspaso T-129 — 2026-11-27 — frontend-dev
 1. Tarea: T-129 `/cuenta` (perfil, fecha de nacimiento D-045/N-8, cierre de sesión). Estado: IN_REVIEW.
 2. Hecho: `pages/cuenta/index.astro` (SSR, `no-store`), `components/account/ProfileForm.astro`, `lib/api/identity.ts` (`Profile.birth_date`, `updateProfile` con `birth_date?`). Transporte `apiFor(locals)`; sin `fetch` nuevo; sin dependencias.
