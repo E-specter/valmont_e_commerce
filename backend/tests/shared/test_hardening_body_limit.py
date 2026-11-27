@@ -243,7 +243,9 @@ def test_a_five_mib_image_still_uploads_with_201_and_the_hardened_headers(world:
 
     assert response.status_code == 201, response.text
     assert_hardened(response)
-    assert len(next(iter(world.storage.files.values()))[0]) == IMAGE_MAX_BYTES
+    # T-018i: Storage recibe el WebP optimizado, no los 5 MiB de relleno de la subida.
+    [(data, content_type)] = world.storage.files.values()
+    assert content_type == "image/webp" and data[8:12] == b"WEBP" and len(data) < IMAGE_MAX_BYTES
 
 
 def test_one_byte_over_five_mib_is_file_too_large_from_catalog(world: World) -> None:

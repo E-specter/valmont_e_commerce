@@ -43,12 +43,14 @@ from valmont.modules.catalog.adapters.http import (
     SearchText,
     SpecOut,
 )
+from valmont.modules.catalog.adapters.image_optimizer import PillowImageOptimizer
 from valmont.modules.catalog.adapters.storage import SupabaseImageStorage
 from valmont.modules.catalog.application import (
     Actor,
     AddProductImage,
     CreateCategory,
     CreateProduct,
+    ImageOptimizer,
     ImageStorage,
     PublishProduct,
     RemoveProductImage,
@@ -78,6 +80,7 @@ from valmont.modules.catalog.domain import (
     SPECS_MAX,
     AdminProductQuery,
     AdminProductView,
+    AnimatedImage,
     AttributeKind,
     AttributeValue,
     CatalogConflict,
@@ -85,7 +88,9 @@ from valmont.modules.catalog.domain import (
     CatalogNotFound,
     Category,
     CategoryInUse,
+    ImageDimensionsExceeded,
     ImageTooLarge,
+    InvalidImage,
     InvalidReference,
     LastImage,
     NotPublishable,
@@ -171,6 +176,14 @@ def _domain_errors() -> Iterator[None]:
         raise AppError("file_too_large", str(exc), 413) from None
     except UnsupportedImage as exc:
         raise AppError("unsupported_media_type", str(exc), 415) from None
+    except InvalidImage:
+        raise AppError("invalid_image", "La imagen está dañada o no se puede leer.", 422) from None
+    except ImageDimensionsExceeded:
+        message = "La imagen tiene demasiados píxeles."
+        raise AppError("image_dimensions_exceeded", message, 422) from None
+    except AnimatedImage:
+        message = "No se aceptan imágenes animadas."
+        raise AppError("animated_image", message, 422) from None
     except StorageUnavailable:
         message = "El almacenamiento de imágenes no está disponible."
         raise AppError("storage_unavailable", message, 503) from None
@@ -618,6 +631,13 @@ def get_image_storage() -> ImageStorage:
 
 
 Storage = Annotated[ImageStorage, Depends(get_image_storage)]
+
+
+def get_image_optimizer() -> ImageOptimizer:
+    return PillowImageOptimizer()
+
+
+Optimizer = Annotated[ImageOptimizer, Depends(get_image_optimizer)]
 Alt = Annotated[
     str,
     Field(json_schema_extra={"maxLength": ALT_MAX}),
@@ -630,6 +650,10 @@ _IMAGE_ERRORS: dict[int | str, dict[str, Any]] = {
     415: {
         "model": ErrorOut,
         "description": "`unsupported_media_type`: por su firma, no es JPEG, PNG ni WebP.",
+    },
+    422: {
+        "model": ErrorOut,
+        "description": "`invalid_image`, `image_dimensions_exceeded` o `animated_image`.",
     },
     503: {
         "model": ErrorOut,
@@ -667,12 +691,15 @@ def upload_image(
     alt: Annotated[Alt, Form()],
     repo: Products,
     storage: Storage,
+    optimizer: Optimizer,
 ) -> ProductImageOut:
     # Como mucho el límite + 1 bytes: lo justo para saber si lo supera. Se ignoran el nombre y
     # el Content-Type del archivo: el tipo sale de su firma.
     data = file.file.read(IMAGE_MAX_BYTES + 1)
     with _domain_errors():
-        return ProductImageOut.from_domain(AddProductImage(repo, storage)(product_id, data, alt))
+        return ProductImageOut.from_domain(
+            AddProductImage(repo, storage, optimizer)(product_id, data, alt)
+        )
 
 
 router.add_api_route(

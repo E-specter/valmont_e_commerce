@@ -8,9 +8,11 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from tests.catalog.catalog_helpers import InMemoryStorage
+from tests.catalog.image_helpers import assert_clean_webp, assert_no_metadata_when_reopened
 from tests.catalog.test_admin_http import Untouchable
 from valmont.main import create_app
 from valmont.modules.catalog.adapters import http
+from valmont.modules.catalog.adapters.image_optimizer import PillowImageOptimizer
 from valmont.modules.catalog.domain import IMAGE_MAX_BYTES, OrderPolicy, image_format
 from valmont.scripts import seed_dev
 from valmont.shared.config import Settings
@@ -86,6 +88,16 @@ def test_placeholder_is_a_png_by_its_signature_and_varies_by_color() -> None:
     assert len(red) < IMAGE_MAX_BYTES
 
 
+def test_every_demo_placeholder_goes_through_the_optimizer_into_a_clean_400px_webp() -> None:
+    optimizer = PillowImageOptimizer()
+
+    for n in range(len(seed_dev.PRODUCTS)):
+        result = optimizer.optimize(seed_dev.placeholder_png(seed_dev._color(n)))
+
+        assert (result.width, result.height, result.content_type) == (400, 400, "image/webp")
+        assert assert_clean_webp(result.data)
+
+
 def test_refuses_to_run_in_prod_without_touching_the_database_or_storage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -110,7 +122,7 @@ def test_two_runs_leave_the_same_rows_and_files_and_the_api_shows_the_twelve(
     # El umbral por defecto (D-027), explícito por si la BD de pruebas tuviera otro.
     db_session.execute(text("UPDATE app.inventory_settings SET low_stock_threshold = 2"))
 
-    seed_dev.seed(db_session, storage)
+    seed_dev.seed(db_session, storage, PillowImageOptimizer())
     first, files = db_session.execute(COUNTS, slugs).one(), set(storage.files)
     # Un cambio del admin entre ejecuciones: con fila de stock, la semilla no lo pisa.
     db_session.execute(
@@ -119,7 +131,7 @@ def test_two_runs_leave_the_same_rows_and_files_and_the_api_shows_the_twelve(
             " WHERE p.id = i.product_id AND p.sku = 'DEMO-007'"
         )
     )
-    seed_dev.seed(db_session, storage)
+    seed_dev.seed(db_session, storage, PillowImageOptimizer())
 
     # 12 productos publicados con una imagen, 4 categorías, 2 + 4 valores, 30 entradas de
     # auditoría del sistema (alta, publicación y 6 ajustes de stock), 6 movimientos y 6 filas
@@ -127,6 +139,10 @@ def test_two_runs_leave_the_same_rows_and_files_and_the_api_shows_the_twelve(
     assert tuple(first) == (12, 12, 12, 4, 2, 4, 30, 6, 6)
     assert tuple(db_session.execute(COUNTS, slugs).one()) == tuple(first)
     assert set(storage.files) == files and len(files) == 12
+    # T-018i: las 12 imágenes pasan por el optimizador: WebP de 400×400 sin metadatos.
+    for path, (data, content_type) in storage.files.items():
+        assert path.endswith(".webp") and content_type == "image/webp"
+        assert assert_clean_webp(data) and assert_no_metadata_when_reopened(data).size == (400, 400)
     # Con RecordMovement (UC-INVENTORY-01): ajuste con nota, actor del sistema y auditoría.
     assert [tuple(row) for row in db_session.execute(MOVEMENTS)] == [
         ("ajuste_inventario", seed_dev.STOCK_NOTE, None, "inventory.stock_adjusted")

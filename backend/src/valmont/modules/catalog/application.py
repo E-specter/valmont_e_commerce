@@ -9,6 +9,8 @@ from uuid import UUID, uuid4
 from valmont.modules.audit.application import AuditEntry, AuditRecorder
 from valmont.modules.catalog.domain import (
     ALT_MAX,
+    IMAGE_EXTENSION,
+    IMAGE_MAX_BYTES,
     AdminProductPage,
     AdminProductQuery,
     AdminProductView,
@@ -17,6 +19,7 @@ from valmont.modules.catalog.domain import (
     CatalogNotFound,
     Category,
     CategoryInUse,
+    ImageTooLarge,
     InvalidReference,
     Product,
     ProductImage,
@@ -100,6 +103,20 @@ class ImageStorage(Protocol):
     def put(self, path: str, data: bytes, content_type: str) -> None: ...
 
     def delete(self, path: str) -> None: ...
+
+
+@dataclass(frozen=True)
+class OptimizedImage:
+    data: bytes
+    width: int
+    height: int
+    content_type: str = "image/webp"
+
+
+class ImageOptimizer(Protocol):
+    def optimize(self, data: bytes) -> OptimizedImage:
+        """InvalidImage, ImageDimensionsExceeded o AnimatedImage. La salida no lleva metadatos."""
+        ...
 
 
 class CategoryRepository(Protocol):
@@ -339,23 +356,29 @@ def discard_file(storage: ImageStorage, path: str) -> None:
 
 
 class AddProductImage:
-    def __init__(self, products: ProductRepository, storage: ImageStorage) -> None:
+    def __init__(
+        self, products: ProductRepository, storage: ImageStorage, optimizer: ImageOptimizer
+    ) -> None:
         self._products = products
         self._storage = storage
+        self._optimizer = optimizer
 
     def __call__(self, product_id: UUID, data: bytes, alt: str) -> ProductImage:
-        extension, content_type = image_format(data)  # 413/415 antes de tocar nada
+        image_format(data)  # 413/415 antes de tocar nada
+        optimized = self._optimizer.optimize(data)  # CPU: antes de bloquear la fila
+        if len(optimized.data) > IMAGE_MAX_BYTES:
+            raise ImageTooLarge(f"La imagen no puede superar {IMAGE_MAX_BYTES // 2**20} MiB.")
         _lock(self._products, product_id)
         positions = [image.position for image in self._products.list_images(product_id)]
         image_id = uuid4()
         image = ProductImage(
             id=image_id,
             product_id=product_id,
-            storage_path=f"{product_id}/{image_id}.{extension}",  # el nombre del cliente no cuenta
+            storage_path=f"{product_id}/{image_id}.{IMAGE_EXTENSION}",
             alt=alt,
             position=max(positions, default=-1) + 1,
         )
-        self._storage.put(image.storage_path, data, content_type)
+        self._storage.put(image.storage_path, optimized.data, optimized.content_type)
         try:
             self._products.add_image(image)
         except Exception:

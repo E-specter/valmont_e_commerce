@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from tests.catalog.catalog_helpers import InMemoryStorage
 from tests.catalog.test_admin_http import Untouchable
+from valmont.modules.catalog.adapters.image_optimizer import PillowImageOptimizer
 from valmont.scripts import seed_dev
 from valmont.shared.config import Settings
 
@@ -53,9 +54,9 @@ def test_seed_creates_the_two_demo_promotions_once_with_a_system_audit(
     storage = InMemoryStorage()
     before = db_session.scalar(TOTAL)
 
-    first = seed_dev.seed(db_session, storage)
+    first = seed_dev.seed(db_session, storage, PillowImageOptimizer())
     after_first = db_session.scalar(TOTAL)
-    second = seed_dev.seed(db_session, storage)
+    second = seed_dev.seed(db_session, storage, PillowImageOptimizer())
 
     # Idempotente por nombre: la segunda ejecución no crea nada ni vuelve a auditar.
     assert first["promociones"] == 2 and second["promociones"] == 0
@@ -69,7 +70,7 @@ def test_seed_creates_the_two_demo_promotions_once_with_a_system_audit(
 def test_demo_promotions_are_a_percent_on_two_products_and_a_fixed_amount_on_a_category(
     db_session: Session,
 ) -> None:
-    seed_dev.seed(db_session, InMemoryStorage())
+    seed_dev.seed(db_session, InMemoryStorage(), PillowImageOptimizer())
 
     fixed, percent = demo_rows(db_session)  # ORDER BY kind: fixed_amount, percent
 
@@ -100,7 +101,7 @@ def test_demo_promotions_show_both_kinds_and_the_best_final_price_wins(
 ) -> None:
     # CA-PROMOTIONS-18 con los datos de la semilla: en cada producto cubierto gana la promoción
     # que deja el menor precio final (R5), y se ven los dos tipos.
-    seed_dev.seed(db_session, InMemoryStorage())
+    seed_dev.seed(db_session, InMemoryStorage(), PillowImageOptimizer())
     fixed, percent = demo_rows(db_session)
     rows = db_session.execute(
         text(

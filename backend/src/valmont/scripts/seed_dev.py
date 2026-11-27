@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from valmont.modules.audit.adapters.persistence import SqlAuditRecorder
 from valmont.modules.catalog.adapters.admin_http import get_image_storage
+from valmont.modules.catalog.adapters.image_optimizer import PillowImageOptimizer
 from valmont.modules.catalog.adapters.persistence import (
     SqlAttributeRepository,
     SqlCategoryRepository,
@@ -33,6 +34,7 @@ from valmont.modules.catalog.application import (
     AddProductImage,
     CreateCategory,
     CreateProduct,
+    ImageOptimizer,
     ImageStorage,
     ProductRepository,
     PublishProduct,
@@ -218,7 +220,7 @@ def _products_by_sku(products: ProductRepository) -> dict[str, AdminProductView]
         page += 1
 
 
-def seed(session: Session, storage: ImageStorage) -> dict[str, int]:
+def seed(session: Session, storage: ImageStorage, optimizer: ImageOptimizer) -> dict[str, int]:
     """Crea lo que falte y confirma por producto: si algo falla, lo ya hecho se queda."""
     categories, attributes = SqlCategoryRepository(session), SqlAttributeRepository(session)
     products, audit = SqlProductRepository(session), SqlAuditRecorder(session)
@@ -259,7 +261,9 @@ def seed(session: Session, storage: ImageStorage) -> dict[str, int]:
             view = CreateProduct(products, audit)(values, SYSTEM)
             created["productos"] += 1
         if not view.images:
-            AddProductImage(products, storage)(view.product.id, placeholder_png(_color(n)), ALT)
+            AddProductImage(products, storage, optimizer)(
+                view.product.id, placeholder_png(_color(n)), ALT
+            )
             created["imágenes"] += 1
         if view.product.status is not ProductStatus.PUBLISHED:
             PublishProduct(products, categories, audit)(view.product.id, SYSTEM)  # CATALOG-R2
@@ -288,7 +292,7 @@ def main() -> None:
     if get_settings().environment == "prod":
         sys.exit("seed_dev: se niega a correr con ENVIRONMENT=prod; no se ha escrito nada.")
     with Session(get_engine()) as session:
-        created = seed(session, get_image_storage())
+        created = seed(session, get_image_storage(), PillowImageOptimizer())
     summary = ", ".join(f"{count} {name}" for name, count in created.items())
     print(f"seed_dev: {len(PRODUCTS)} productos de demostración listos (nuevos: {summary}).")
 

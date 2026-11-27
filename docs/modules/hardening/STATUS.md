@@ -362,6 +362,19 @@ Flujo de `AddProductImage`: `image_format(data)` → `optimizer.optimize(data)` 
 - Estado inicial: READY. Entrega: `git add backend/tests/payments/…`; mensaje `test(payments): dos pruebas sin intermitencia (T-018q)`.
 
 ## Traspasos
+### Traspaso T-018i — 2026-11-27 — backend-dev (IN_REVIEW)
+1. Tarea: T-018i (WebP optimizado sin metadatos). 2. Estado: implementado, sin probar (D-033).
+3. Archivos: `catalog/domain.py` (solo añadido: 3 constantes y 3 excepciones, tras `IMAGE_MAX_BYTES` y antes de `LastImage`; anotar para el rebase con T-018d), `catalog/application.py` (`OptimizedImage`, `ImageOptimizer`, `AddProductImage`), `catalog/adapters/image_optimizer.py` (nuevo), `catalog/adapters/admin_http.py` (`_domain_errors`, `_IMAGE_ERRORS`, `get_image_optimizer`, `upload_image`), `scripts/seed_dev.py` (`seed`, `main`), `pyproject.toml`, `uv.lock`.
+4. Firmas: las del paquete, sin cambios. `AddProductImage` convierte antes de `_lock`; ruta `<product>/<image>.webp`; salida > 5 MiB = `ImageTooLarge`.
+5. Dependencia: `pillow==13.0.0` (D-048); `features.check('webp')` y `littlecms2` = True en Windows. Dockerfile y `deploy/` intactos.
+6. Riesgos comprobados con un script desechable fuera del repo: MPO (`verify()` + `n_frames=2`) se acepta; `profileToProfile` con RGBA en 13.0.0 funciona (modo RGBA); sin diferencias con el paquete.
+7. Observado: JPEG con orientación 6 de 300x100 sale 100x300 WebP; 3000x1000 sale a 2000 px; PNG corrupto y truncado = `InvalidImage`; WebP animado = `AnimatedImage`; PNG 6000x6000 = `ImageDimensionsExceeded`; alfa conservado.
+8. Decisión menor: `_to_srgb` solo aplica ICC a RGB/RGBA/CMYK; en L/P/LA se convierte directo (un ICC de grises no cambia el aspecto).
+9. Comandos: `uv run ruff format src && uv run ruff check src` -> sin errores; importar `valmont.main` y `valmont.scripts.seed_dev` OK. NO EJECUTADO: pruebas (D-028, D-033).
+10. Pendiente de QA: las pruebas existentes que construyen `AddProductImage(repo, storage)` o `seed(session, storage)` deben pasar el optimizador; `InMemoryStorage` esperará `.webp`.
+11. Bloqueos: ninguno.
+12. Commit: ninguno, preparado. Mensaje: `feat(catalog): imágenes de producto en WebP optimizado sin metadatos (T-018i)`.
+
 ### Traspaso T-018f — 2026-11-27 — backend-dev (IN_REVIEW)
 1. Tarea: T-018f, solo código (el temporizador es de T-018g/h, `deploy/`, ficha D-011). 2. Estado: implementado, sin probar por QA.
 3. Archivos: `modules/catalog/application.py` (solo añadido al final), `adapters/storage.py` (`list_files`), `adapters/persistence.py` (`referenced_paths`), `scripts/cleanup_orphan_images.py` (nuevo). `domain.py`, `ImageStorage`, `admin_http.py`, `main.py` y `tests/**` intactos.

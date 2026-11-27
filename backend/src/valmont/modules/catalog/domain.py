@@ -27,6 +27,9 @@ SPEC_LABEL_MAX = 60
 SPEC_VALUE_MAX = 200
 ALT_MAX = 150
 IMAGE_MAX_BYTES = 5 * 1024 * 1024  # el del bucket products (D-019)
+IMAGE_MAX_PIXELS = 25_000_000  # T-018i: tope sobre la cabecera, antes de decodificar
+IMAGE_MAX_SIDE = 2000
+IMAGE_EXTENSION = "webp"  # las imágenes se guardan siempre como WebP (T-018i)
 
 _SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
@@ -77,6 +80,18 @@ class ImageTooLarge(Exception):
 
 class UnsupportedImage(Exception):
     """El archivo no es JPEG, PNG ni WebP según su firma: 415."""
+
+
+class InvalidImage(Exception):
+    """La imagen no se pudo decodificar, está truncada o corrupta: 422 invalid_image."""
+
+
+class ImageDimensionsExceeded(Exception):
+    """La imagen supera IMAGE_MAX_PIXELS: 422 image_dimensions_exceeded."""
+
+
+class AnimatedImage(Exception):
+    """PNG o WebP animado: 422 animated_image."""
 
 
 class LastImage(Exception):

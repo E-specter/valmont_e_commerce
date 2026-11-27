@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tests.catalog.catalog_helpers import InMemoryStorage, tiny_png
+from tests.catalog.image_helpers import assert_clean_webp
 from tests.catalog.test_admin_http import Untouchable
 from tests.catalog.test_domain import make_product
 from tests.identity.identity_helpers import T0, InMemoryProfiles, make_token, use_test_auth
@@ -18,6 +19,7 @@ from valmont.modules.identity.domain import Profile, Role
 from valmont.shared.config import Settings
 
 ADMIN = uuid4()
+CUSTOMER = uuid4()
 BASE = "/api/v1/catalog/admin"
 CDN = "https://cdn.valmont.test"
 GIF = b"GIF89a" + b"\x00" * 32
@@ -40,16 +42,24 @@ class OneProduct:
         self.images.append(image)
 
 
-def make_client(monkeypatch: pytest.MonkeyPatch, repo: object, storage: object) -> TestClient:
+def make_client(
+    monkeypatch: pytest.MonkeyPatch,
+    repo: object,
+    storage: object,
+    optimizer: object | None = None,  # None: el optimizador real de Pillow (T-018i)
+) -> TestClient:
     use_test_auth(monkeypatch)
     settings = Settings(_env_file=None, storage_public_url=CDN)
     monkeypatch.setattr(http, "get_settings", lambda: settings)
     profiles = InMemoryProfiles()
     profiles.rows[ADMIN] = Profile(ADMIN, Role.ADMIN, T0, T0)
+    profiles.rows[CUSTOMER] = Profile(CUSTOMER, Role.CUSTOMER, T0, T0)
     app = create_app()
     app.dependency_overrides[get_profile_repository] = lambda: profiles
     app.dependency_overrides[http.get_product_repository] = lambda: repo
     app.dependency_overrides[admin_http.get_image_storage] = lambda: storage
+    if optimizer is not None:
+        app.dependency_overrides[admin_http.get_image_optimizer] = lambda: optimizer
     headers = {"Authorization": f"Bearer {make_token(str(ADMIN))}"}
     return TestClient(app, headers=headers, raise_server_exceptions=False)
 
@@ -81,10 +91,13 @@ def test_upload_detects_the_type_by_signature_and_ignores_the_client_name_and_ty
     [image] = repo.images
     assert body == {
         "id": str(image.id),
-        "url": f"{CDN}/storage/v1/object/public/products/{repo.product.id}/{image.id}.png",
+        "url": f"{CDN}/storage/v1/object/public/products/{repo.product.id}/{image.id}.webp",
         "alt": "Vista frontal",
     }
-    assert storage.files == {f"{repo.product.id}/{image.id}.png": (tiny_png(), "image/png")}
+    # T-018i: Storage recibe el WebP optimizado, no el PNG original.
+    [(path, (data, content_type))] = storage.files.items()
+    assert path == f"{repo.product.id}/{image.id}.webp" and content_type == "image/webp"
+    assert data != tiny_png() and assert_clean_webp(data)
 
 
 def test_upload_with_another_signature_is_415(untouched: TestClient) -> None:
@@ -207,6 +220,9 @@ def test_openapi_declares_the_upload_as_multipart_with_its_errors() -> None:
     operation = document["paths"][f"{BASE}/products/{{product_id}}/images"]["post"]
 
     assert set(operation["responses"]) == {"201", "401", "403", "404", "413", "415", "422", "503"}
+    unprocessable = operation["responses"]["422"]["description"]
+    for code in ("invalid_image", "image_dimensions_exceeded", "animated_image"):  # T-018i
+        assert f"`{code}`" in unprocessable
     assert "`storage_unavailable`" in operation["responses"]["503"]["description"]
     form = operation["requestBody"]["content"]["multipart/form-data"]["schema"]["$ref"]
     schema = document["components"]["schemas"][form.rsplit("/", 1)[1]]

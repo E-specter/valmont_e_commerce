@@ -12,6 +12,13 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from tests.catalog.catalog_helpers import Catalog, InMemoryStorage, make_image, tiny_png
+from tests.catalog.image_helpers import (
+    animated,
+    assert_clean_webp,
+    corrupt_samples,
+    jpeg_with_metadata,
+    png_declaring,
+)
 from tests.identity.identity_helpers import T0, InMemoryProfiles, make_token, use_test_auth
 from valmont.main import create_app
 from valmont.modules.catalog.adapters import admin_http, http
@@ -74,11 +81,11 @@ def test_upload_stores_the_file_and_appends_the_row_at_the_next_position(
 
     assert positions(db_session, draft.id) == [(first["id"], 0), (second["id"], 1)]
     assert set(storage.files) == {
-        f"{draft.id}/{first['id']}.png",
-        f"{draft.id}/{second['id']}.png",
+        f"{draft.id}/{first['id']}.webp",
+        f"{draft.id}/{second['id']}.webp",
     }
     assert first["url"] == (
-        f"https://cdn.valmont.test/storage/v1/object/public/products/{draft.id}/{first['id']}.png"
+        f"https://cdn.valmont.test/storage/v1/object/public/products/{draft.id}/{first['id']}.webp"
     )
     detail = client.get(f"{BASE}/products/{draft.id}").json()
     assert [image["alt"] for image in detail["images"]] == ["Frente", "Dorso"]
@@ -186,7 +193,7 @@ def test_catalog_r11_last_image_of_a_published_product_is_409_and_kept(
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "last_image"
     assert positions(db_session, published.id) == [(image["id"], 0)]
-    assert f"{published.id}/{image['id']}.png" in storage.files
+    assert f"{published.id}/{image['id']}.webp" in storage.files
 
 
 def test_delete_removes_the_row_and_then_the_file(
@@ -200,7 +207,7 @@ def test_delete_removes_the_row_and_then_the_file(
     assert (response.status_code, response.content) == (204, b"")
     assert positions(db_session, published.id) == [(kept["id"], 0)]
     # TestClient ejecuta la BackgroundTask antes de devolver la respuesta.
-    assert set(storage.files) == {f"{published.id}/{kept['id']}.png"}
+    assert set(storage.files) == {f"{published.id}/{kept['id']}.webp"}
 
 
 def test_a_draft_can_lose_its_last_image(
@@ -231,3 +238,38 @@ def test_storage_failure_after_deleting_the_row_only_leaves_an_orphan_file(
 
     assert response.status_code == 204  # el aviso queda en el log; la fila ya no está
     assert positions(db_session, draft.id) == []
+
+
+def test_upload_converts_to_webp_and_records_a_webp_path_in_the_row(
+    client: TestClient, db_session: Session, catalog: Catalog, storage: InMemoryStorage
+) -> None:
+    draft = catalog.products["draco"]
+    files = {"file": ("movil.jpg", jpeg_with_metadata(), "image/jpeg")}
+
+    response = client.post(f"{BASE}/products/{draft.id}/images", data={"alt": "Movil"}, files=files)
+
+    assert response.status_code == 201, response.text
+    path = db_session.scalar(
+        text("SELECT storage_path FROM app.product_images WHERE id = :id"),
+        {"id": response.json()["id"]},
+    )
+    assert path == f"{draft.id}/{response.json()['id']}.webp"
+    [(data, content_type)] = storage.files.values()
+    assert content_type == "image/webp" and assert_clean_webp(data)
+    assert response.json()["url"].endswith(".webp")
+
+
+def test_a_rejected_image_leaves_neither_a_row_nor_a_file(
+    client: TestClient, db_session: Session, catalog: Catalog, storage: InMemoryStorage
+) -> None:
+    draft = catalog.products["draco"]
+    for data in (corrupt_samples()["png-truncated"], png_declaring(5000, 6000), animated("PNG")):
+        files = {"file": ("x.png", data, "image/png")}
+
+        response = client.post(
+            f"{BASE}/products/{draft.id}/images", data={"alt": "Mala"}, files=files
+        )
+
+        assert response.status_code == 422, response.text
+
+    assert positions(db_session, draft.id) == [] and storage.files == {}
