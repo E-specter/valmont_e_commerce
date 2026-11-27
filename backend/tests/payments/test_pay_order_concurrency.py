@@ -8,7 +8,9 @@ En ningún caso: doble cobro, doble descuento de stock, pedido pagado con reserv
 cancelado con stock vendido, estado incoherente, error 500 o interbloqueo. Datos confirmados y
 borrados al final. La auditoría va a memoria (`app.audit_log` no admite DELETE). Datos ficticios."""
 
+import threading
 from collections.abc import Callable, Iterator
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from typing import Any
 from uuid import UUID
@@ -18,7 +20,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from tests.cart.test_concurrency import in_transaction
+from tests.cart.test_concurrency import TIMEOUT, in_transaction
 from tests.orders.orders_payment_helpers import db_now, set_expiry
 from tests.orders.test_cancel_order_concurrency import cancel, overdue, placed, read_expiring, state
 from tests.orders.test_confirm_payment_concurrency import facts_consistent
@@ -396,10 +398,48 @@ def test_a_payment_against_an_overdue_order_being_expired_by_a_read_is_409_and_e
     assert read.status_code == 200
     assert paid.status_code == 409 and code_of(paid) == "order_not_payable", paid.text
     assert paid.json()["error"]["details"] == {"status": "expirado"}
+    # Si el pago bloquea el pedido antes, la lectura lo salta (SKIP LOCKED) y el 409 deshace su
+    # transacción (R5): el vencimiento queda sin materializar. Ambos órdenes son válidos; lo
+    # fijo es que no hay cobro y que una lectura posterior, sin competencia, lo materializa.
+    assert state(db_engine, order_id)["status"] in ("pendiente_pago", "expirado")
+    assert api.read_orders(user).status_code == 200
     final = state(db_engine, order_id)
     assert final["status"] == "expirado" and final["sales"] == 0
     assert final["reservations"] == ["released"] and world.on_hand(product) == 5
     assert attempts_of_order(db_engine, order_id) == []
+    facts_consistent(final)
+
+
+def test_a_read_skips_an_overdue_order_locked_by_a_payment_and_expires_it_once_free(
+    world: World, db_engine: Engine, api: PayApi
+) -> None:
+    # El orden "el pago bloquea primero" de la prueba anterior, fijado con eventos: mientras otra
+    # transacción tiene el pedido bloqueado, la lectura no lo expira ni espera; al liberarse, sí.
+    product = world.product(on_hand=5)
+    user, order_id = order_for(world, db_engine, api, (product, 2))
+    overdue(db_engine, order_id)
+    locked, release = threading.Event(), threading.Event()
+
+    def lock_then_wait(session: Session) -> None:
+        session.execute(text("SELECT id FROM app.orders WHERE id = :i FOR UPDATE"), {"i": order_id})
+        locked.set()
+        assert release.wait(TIMEOUT)
+
+    with ThreadPoolExecutor(1) as pool:
+        holder = pool.submit(in_transaction, db_engine, lock_then_wait)
+        try:
+            assert locked.wait(TIMEOUT)
+            during = api.read_orders(user)
+            assert state(db_engine, order_id)["status"] == "pendiente_pago"
+        finally:
+            release.set()
+        holder.result(TIMEOUT)
+
+    assert during.status_code == 200, during.text
+    assert api.read_orders(user).status_code == 200
+    final = state(db_engine, order_id)
+    assert final["status"] == "expirado" and final["reservations"] == ["released"]
+    assert world.on_hand(product) == 5 and attempts_of_order(db_engine, order_id) == []
     facts_consistent(final)
 
 

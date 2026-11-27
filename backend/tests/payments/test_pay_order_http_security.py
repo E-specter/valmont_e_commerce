@@ -45,6 +45,17 @@ FAKE_EXPIRY = "11/29"
 FAKE_HOLDER = "Zacarias Quispe Prueba"
 LAST4 = "7391"
 UUID_RE = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+# Ruido aleatorio o temporal del volcado donde un dato corto (el CVV) puede coincidir por azar.
+NOISE_RE = re.compile(
+    rf"{UUID_RE.pattern}|pay-[0-9a-f]{{32}}"
+    r"|\d{4}-\d{2}-\d{2}[T ][\d:.]+(?:Z|[+-]\d{2}(?::?\d{2})?)?"
+)
+
+
+def leaks_cvv(haystack: str) -> bool:
+    """¿Aparece el CVV falso como dato propio? Se ignoran los UUID, claves y marcas de tiempo
+    (el azar los hace contener '913') y se exigen límites de dígito: `91300` no cuenta."""
+    return re.search(rf"(?<!\d){FAKE_CVV}(?!\d)", NOISE_RE.sub(" ", haystack)) is not None
 
 
 def code_of(response: Any) -> str:
@@ -306,8 +317,9 @@ def test_rejected_card_data_reaches_no_table_audit_or_response(shop: OrderShop) 
     ]
     assert rejected.status_code == 422 and ok.status_code == 201
     everything = " ".join([rejected.text, ok.text, *dumps])
-    for secret in (FAKE_NUMBER, FAKE_CVV, FAKE_HOLDER):
+    for secret in (FAKE_NUMBER, FAKE_HOLDER):
         assert secret not in everything
+    assert not leaks_cvv(everything)
 
 
 def test_the_attempt_row_holds_only_the_last_four_digits(shop: OrderShop) -> None:
@@ -344,8 +356,9 @@ def test_nothing_of_the_request_reaches_the_logs_at_debug_level(
 
     log = caplog.text
     assert "payments/orders" in log, "la prueba debe ver los registros de las solicitudes"
-    for secret in (FAKE_NUMBER, FAKE_CVV, FAKE_HOLDER, "card_number", "cvv", '"card_last4"'):
+    for secret in (FAKE_NUMBER, FAKE_HOLDER, "card_number", "cvv", '"card_last4"'):
         assert secret not in log, secret
+    assert not leaks_cvv(log)
     scrubbed = UUID_RE.sub("", log).replace(key, "")
     assert not re.search(rf"(?<![\w.]){LAST4}(?![\w.])", scrubbed)
     assert "Traceback" not in log
