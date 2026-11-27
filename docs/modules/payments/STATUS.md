@@ -10,7 +10,7 @@
 | T-092 | Dominio de payments, puertos (`PaymentGateway`, `PaymentAttemptRepository`) y adaptador simulado | backend-dev + qa-reviewer | T-090 aprobada (alcance y P-1, P-2, P-4) | DONE (2d596a2) |
 | T-093 | Migración `0011`, fila y repositorio SQL de intentos | backend-dev + qa-reviewer | T-092; E-P2 registrada | DONE (0d0fdd1) |
 | T-094 | Pagar un pedido (`PayOrder`) y `POST /payments/orders/{id}/attempts` | backend-dev + qa-reviewer | T-091, T-093 | DONE (ec34d3a) |
-| T-095 | Consultar los intentos (`GetOrderPayments`) y `GET /payments/orders/{id}/attempts` | backend-dev + qa-reviewer | T-094 | READY |
+| T-095 | Consultar los intentos (`GetOrderPayments`) y `GET /payments/orders/{id}/attempts` | backend-dev + qa-reviewer | T-094 | IN_REVIEW |
 | T-096 | Integración transversal y auditoría de seguridad del backend de payments | qa-reviewer (con Opus, decisions.md) | T-091…T-095 | BACKLOG |
 | T-097 | Cliente de API de payments (`frontend/src/lib/api/payments.ts`) y tipos | frontend-dev + qa-reviewer | T-094, T-095 integradas; contrato §7 aprobado | BACKLOG (no READY: sin contrato aprobado ni backend) |
 | T-098 | Pantalla de pago: formulario de tarjeta solo cliente, estados y reintento (la `T-082b` de la pista `ui`) | frontend-dev + qa-reviewer | T-097, T-082a (checkout y creación del pedido), T-111, componentes `ui/` (T-117…T-119) | BACKLOG (no READY: sin diseño de pago cerrado) |
@@ -205,6 +205,17 @@ IDs reservados del módulo: T-090–T-099. En uso: T-090–T-098; **libre: T-099
 - Estado inicial: BACKLOG (no READY: sin diseño de pago cerrado ni backend integrado). Entrega como T-091 (`feat(ui): pantalla de pago simulado sin datos de tarjeta en el servidor (T-098)`). Escalar si: el diseño exige enviar más datos de la tarjeta, o frontend-lead propone dividir la tarea (usar T-099).
 
 ## Traspasos
+
+#### Traspaso T-095 — 2026-11-27 — backend-dev
+
+1. Tarea: T-095, `GetOrderPayments` y `GET /api/v1/payments/orders/{order_id}/attempts`.
+2. Estado: IN_REVIEW (a la espera de QA).
+3. Hecho: `GetOrderPayments` (`GetPayableOrder` -> `count_rejected` y `list_for_order` -> `can_pay = PENDING_PAYMENT and attempts_left > 0`); `OrderPaymentsOut`, `get_get_order_payments` y la ruta `GET`, con `no-store`; 404 uniforme con rollback (`_fail`).
+4. Archivos: `modules/payments/application.py`, `modules/payments/adapters/http.py`.
+5. Firmas: las del paquete, sin cambios. `main.py` no se toca (router ya registrado).
+6. Decisiones: sin `user_id` ni `gateway` en la salida; `card_last4` se devuelve (D-043); sin registro de `card_last4`; la expiración perezosa de `GetPayableOrder` se confirma al terminar la solicitud con 200.
+7. Evidencia: `ruff format .` -> 259 files left unchanged; `ruff check .` -> All checks passed; OpenAPI del GET declara 200/401/404/422; capas vacías. NO EJECUTADO: pruebas (D-028, D-033).
+8. Riesgos: ninguno nuevo; `no-store` en 401/422 sigue pendiente (transversal, T-094).
 
 #### Traspaso T-094 — 2026-11-27 — backend-dev
 

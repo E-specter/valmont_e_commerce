@@ -25,6 +25,8 @@ from valmont.modules.orders.application import (
 from valmont.modules.payments.adapters.persistence import SqlPaymentAttemptRepository
 from valmont.modules.payments.adapters.simulated_gateway import SimulatedGateway
 from valmont.modules.payments.application import (
+    GetOrderPayments,
+    OrderPayments,
     PaymentAttemptRepository,
     PaymentGateway,
     PayOrder,
@@ -85,6 +87,22 @@ class PaymentAttemptOut(BaseModel):
         )
 
 
+class OrderPaymentsOut(BaseModel):
+    order_id: UUID
+    can_pay: bool
+    attempts_left: int
+    attempts: list[PaymentAttemptOut]
+
+    @classmethod
+    def build(cls, result: OrderPayments) -> OrderPaymentsOut:
+        return cls(
+            order_id=result.order.order_id,
+            can_pay=result.can_pay,
+            attempts_left=result.attempts_left,
+            attempts=[PaymentAttemptOut.build(a) for a in result.attempts],
+        )
+
+
 # --- Proveedores ---
 
 
@@ -104,6 +122,13 @@ def get_pay_order(
     audit: AuditRecorderDep,
 ) -> PayOrder:
     return PayOrder(attempts, gateway, get_payable, confirm, audit)
+
+
+def get_get_order_payments(
+    attempts: Annotated[PaymentAttemptRepository, Depends(get_payment_attempts)],
+    get_payable: Annotated[GetPayableOrder, Depends(get_get_payable_order)],
+) -> GetOrderPayments:
+    return GetOrderPayments(attempts, get_payable)
 
 
 # --- Errores ---
@@ -205,3 +230,23 @@ def pay_order(
     if not result.created:
         response.status_code = 200
     return PaymentAttemptOut.build(result.attempt)
+
+
+@router.get(
+    "/orders/{order_id}/attempts",
+    response_model=OrderPaymentsOut,
+    responses={s: ERROR_RESPONSES[s] for s in (401, 404, 422, 503)},
+)
+def list_order_attempts(
+    order_id: UUID,
+    response: Response,
+    user: Annotated[CurrentUser, Depends(current_user)],
+    use_case: Annotated[GetOrderPayments, Depends(get_get_order_payments)],
+    session: SessionDep,
+) -> OrderPaymentsOut | JSONResponse:
+    response.headers.update(_NO_STORE)
+    try:
+        result = use_case(user.user_id, order_id)
+    except OrderNotFound:
+        return _fail(session, 404, "not_found", "Pedido no encontrado.")
+    return OrderPaymentsOut.build(result)

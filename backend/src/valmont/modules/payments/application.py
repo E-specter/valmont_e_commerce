@@ -1,4 +1,4 @@
-"""Puertos, tipos y casos de uso de payments (T-094; `GetOrderPayments` llega con T-095)."""
+"""Puertos, tipos y casos de uso de payments (T-094, T-095)."""
 
 from dataclasses import dataclass
 from typing import Protocol
@@ -21,6 +21,7 @@ from valmont.modules.payments.domain import (
     PaymentAttempt,
     PaymentMethod,
     TooManyAttempts,
+    attempts_left,
     new_attempt,
 )
 
@@ -159,3 +160,21 @@ class PayOrder:
             )
         )
         return PaymentResult(saved, True)
+
+
+class GetOrderPayments:
+    """UC-02 (R8, R9, R15). `GetPayableOrder` filtra por dueño y expira el pedido vencido."""
+
+    def __init__(self, attempts: PaymentAttemptRepository, get_payable: GetPayableOrder) -> None:
+        self._attempts = attempts
+        self._get_payable = get_payable
+
+    def __call__(self, user_id: UUID, order_id: UUID) -> OrderPayments:
+        order = self._get_payable(user_id, order_id)  # OrderNotFound: ajeno o inexistente
+        left = attempts_left(self._attempts.count_rejected(user_id, order_id))
+        return OrderPayments(
+            order=order,
+            attempts=self._attempts.list_for_order(user_id, order_id),
+            can_pay=order.status is OrderStatus.PENDING_PAYMENT and left > 0,
+            attempts_left=left,
+        )
