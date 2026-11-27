@@ -16,7 +16,7 @@ Transversal: no es un módulo con SPEC propia. Cada paquete corrige hallazgos de
 | T-018e | Límites de longitud en el OpenAPI (solo documentación) | backend-dev + qa-reviewer | ninguna | DONE (45ae4c1) |
 | T-018g | Copias de seguridad: 4 MENOR de T-103 en `deploy/scripts/` | backend-dev + qa-reviewer | **ficha de auditoría Docker y confirmación del usuario** (D-011) | BLOCKED |
 | T-018h | Despliegue con dominio real: `security.allowedDomains` de Astro, cabeceras y 502 en Caddy, HSTS, `--forwarded-allow-ips`, comentarios de `compose.yml` (MENOR de T-104, ui N-9) | frontend-dev + backend-dev + qa-reviewer | dominio real y T-104 desplegada | BACKLOG |
-| T-018i | Imágenes de producto subidas: WebP optimizado y sin metadatos con Pillow `==13.0.0` (D-047 D-H3, D-048) | backend-dev + qa-reviewer | ninguna (D-048 aprobada); integrar después de T-018f | READY |
+| T-018i | Imágenes de producto subidas: WebP optimizado y sin metadatos con Pillow `==13.0.0` (D-047 D-H3, D-048) | backend-dev + qa-reviewer | ninguna (D-048 aprobada); integrar después de T-018f | DONE (43d070f) |
 | T-018q | QA: estabilizar las dos pruebas inestables de payments (QA de T-138) | qa-reviewer | ninguna | DONE (0d653d2) |
 
 IDs reservados del hardening: T-018a…T-018q (los de arriba); un `fix` de QA reutiliza el sufijo con número (`T-018a1`).

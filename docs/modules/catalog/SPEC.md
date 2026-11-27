@@ -124,7 +124,7 @@ Parámetros de `GET /products`: `q` (≤ 100; vacío = sin búsqueda) · `catego
 | POST | `/products` | `ProductCreateIn` | 201 `AdminProduct` (borrador) | 409 `sku_taken`/`slug_taken`, 422 |
 | PATCH | `/products/{id}` | `ProductUpdateIn` (parcial) | `AdminProduct` | 404, 409 `sku_taken`/`slug_taken`/`slug_locked`/`publish_requirements_unmet` (si está publicado, CATALOG-R2), 422 |
 | POST | `/products/{id}/publish` · `/unpublish` | — | `AdminProduct` | 404, 409 `publish_requirements_unmet` |
-| POST | `/products/{id}/images` | multipart `file` + `alt` (1–150) | 201 `ProductImage` | 404, 413 `file_too_large`, 415 `unsupported_media_type`, 422 |
+| POST | `/products/{id}/images` | multipart `file` + `alt` (1–150) | 201 `ProductImage` | 404, 413 `file_too_large`, 415 `unsupported_media_type`, 422 (`invalid_image`, `image_dimensions_exceeded`, `animated_image`, T-018i) |
 | PATCH | `/products/{id}/images/{image_id}` | `{alt}` | `ProductImage` | 404, 422 |
 | DELETE | `/products/{id}/images/{image_id}` | — | 204 | 404, 409 `last_image` |
 | PUT | `/products/{id}/images/order` | `[image_id]` (exactamente todos) | `[ProductImage]` | 404, 422 |
@@ -179,3 +179,5 @@ Parámetros de `GET /products`: `q` (≤ 100; vacío = sin búsqueda) · `catego
 | P-CATALOG-1 | ¿Datos de demostración para el frontend? | **Resuelta:** sí, `backend/scripts/seed_dev.py`, ficticios (`DEMO-…`), solo fuera de `prod`, idempotente (T-031) | usuario |
 | P-CATALOG-2 | ¿Relacionados elegidos por el admin? | **Resuelta:** regla automática CATALOG-R6 | usuario |
 | P-CATALOG-3 | Umbral de "Últimas unidades" | 2 unidades, configurable; se decide en la SPEC de inventory | usuario |
+
+> **T-018i (D-047, D-048):** toda imagen subida se convierte en el servidor a WebP optimizado (calidad 82, lado máximo 2000 px, orientación EXIF aplicada, sRGB) y se guarda **sin metadatos** (EXIF, XMP, ICC) en `<product_id>/<image_id>.webp`; el original nunca se guarda. Entrada: JPEG, PNG o WebP de ≤ 5 MiB y ≤ 25 MP (MPO de móvil aceptado, animadas rechazadas). Las imágenes subidas antes de T-018i no se migran. Adaptador: `catalog/adapters/image_optimizer.py` (Pillow 13.0.0).
