@@ -13,10 +13,10 @@ Rango reservado del módulo: **T-116–T-139**. En uso: T-116–T-131. Libres: *
 | T-117 | `ui/` lote 1A: `Icon`, `Wordmark`, `Checkerboard`, `Button`, `IconButton`, `TextLink`, `Field`, `Checkbox` | frontend-dev + qa-reviewer | T-116 | DONE (92f6727) |
 | T-118 | `ui/` lote 1B: `Card`, `Badge`, `Chip`, `Price`, `Availability`, `Notice`, `EmptyState`, `Skeleton` y `lib/format.ts` | frontend-dev + qa-reviewer | T-116 (`Icon` de T-117 solo al integrar) | DONE (a280dda) |
 | T-119 | `SiteHeader`, `SiteFooter`, `PageTitle`, `lib/site.ts` y cableado de los layouts | frontend-dev + qa-reviewer | T-117, T-118, D-041 (P-1) | READY |
-| T-120 | Cliente de API del servidor (`lib/api/http.ts`, `server.ts`, `catalog.ts`) | frontend-dev + qa-reviewer | T-116 (esquema de variables) | READY |
+| T-120 | Cliente de API del servidor (`lib/api/http.ts`, `server.ts`, `catalog.ts`) | frontend-dev + qa-reviewer | T-116 (esquema de variables) | DONE (d90bbc9) |
 | T-121 | Portada `/` (SSR con caché corta) | frontend-dev + qa-reviewer | T-118, T-119, T-120, D-041 (P-2) | BACKLOG |
 | T-122 | "Nosotros" `/nosotros` y páginas legales `/privacidad`, `/terminos` | frontend-dev + qa-reviewer | T-119, T-123 (`DefinitionList`), D-041 (P-9) | BACKLOG |
-| T-123 | `Breadcrumb`, `Pagination`, `DefinitionList`, `ProductCard` (4 variantes) y `ProductGrid` | frontend-dev + qa-reviewer | T-117, T-118, T-120 (tipos) | BACKLOG |
+| T-123 | `Breadcrumb`, `Pagination`, `DefinitionList`, `ProductCard` (4 variantes) y `ProductGrid` | frontend-dev + qa-reviewer | T-117, T-118, T-120 (tipos) | READY |
 | T-124 | Catálogo `/relojes`: filtros por URL, chips, paginación y estados | frontend-dev + qa-reviewer | T-119, T-120, T-123, D-041 (P-2, P-3) | BACKLOG |
 | T-125 | Ficha `/relojes/[slug]`, galería, `BuyBox` y página 404 | frontend-dev + qa-reviewer | T-119, T-120, T-123 | BACKLOG |
 | T-126 | Sesión SSR: `@supabase/ssr`, middleware, guardia de rutas, `/auth/callback`, `/salir` y proxy `/bff/*` | frontend-dev + qa-reviewer (revisión de seguridad a fondo) | T-120; **aprobación de `@supabase/ssr` y `@supabase/supabase-js`**; D-025, D-041 (P-5); aviso de config de Supabase (§6) | BACKLOG (dependencias aprobadas, D-042) |
@@ -753,3 +753,10 @@ Plan completo en este documento. Estado: IN_REVIEW. Sin pruebas ejecutadas (plan
 
 - `VIEWS.md` §2 dice portada, ingreso y registro "estáticos"; este plan los hace SSR: la portada por las categorías reales (G-4) y ingreso y registro porque su formulario es un `POST` de la propia página (cookie de sesión). Se anota una aclaración en `VIEWS.md` §11.
 - `T-081` pide "T-074…T-079 integradas": solo T-074…T-076 están en `main`; la parte del cliente final (crear, listar, ver y cancelar) puede arrancar ya, la de administración espera a T-078 y T-079.
+
+#### Notas del Leader tras QA de T-118 y T-120 (2026-11-27)
+- **N-1 (T-123):** `Money` está declarado dos veces, en `lib/format.ts` (T-118) y en `lib/api/http.ts` (T-120). T-123 deja uno solo: `format.ts` importa el tipo de `lib/api/http.ts`. Es un cambio solo de tipos.
+- **N-2 (T-125):** `getProduct('.')` o `getProduct('..')` se normalizan en la URL (`/products/.` → `/products/`, que da un 307 a la lista). La ficha `[slug].astro` responde 404 a un `slug` igual a `.` o `..` sin llamar a la API, o `getProduct` codifica el punto como `%2E`.
+- **N-3 (T-124):** `listProducts` reenvía al servidor cualquier clave extra (`{ ...f }`). El catálogo construye la consulta con la lista cerrada de filtros a partir de `searchParams`.
+- **N-4 (T-121):** cuando una página use `server.ts`, se repite el grep de `dist/client` (`API_BASE_URL`, `127.0.0.1:8000`, `api/v1`), que debe salir vacío.
+- **N-5 (QA, todas las tareas):** los valores falsos de las pruebas no deben coincidir con el patrón del hook de secretos (`.githooks`). Se definen como constantes con otro nombre (`FAKE_BEARER`) o con menos de 8 caracteres.
