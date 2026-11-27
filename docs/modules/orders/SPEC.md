@@ -1,5 +1,5 @@
 # orders — Especificación
-> Estado: PROPUESTO (contrato §7 pendiente de backend-lead y frontend-lead; las preguntas de negocio están resueltas en D-040, §12; el recojo en tienda se apoya en las hipótesis H-1…H-6) · Requisitos: RF04.01–RF04.07, RF11.01, RF12.01, RF12.02, RF13.03 · Reglas: RN-01, RN-04…RN-10, RN-15, RN-16 · Decisiones: D-040 · Dueño: backend · Última actualización: 2026-11-26 module-coordinator (T-070; D-040 incorporada)
+> Estado: APROBADA (contrato §7 implementado y verificado en T-074…T-080; ajustes de D-041 incorporados; las preguntas de negocio están resueltas en D-040, §12; el recojo en tienda se apoya en las hipótesis H-1…H-6) · Requisitos: RF04.01–RF04.07, RF11.01, RF12.01, RF12.02, RF13.03 · Reglas: RN-01, RN-04…RN-10, RN-15, RN-16 · Decisiones: D-040 · Dueño: backend · Última actualización: 2026-11-26 module-coordinator (T-070; D-040 incorporada)
 
 ## 1. Problema y alcance
 
@@ -163,7 +163,9 @@ app.order_status_history   (solo inserción)
 - **No se añade en esta migración la FK `stock_reservations.order_id → orders`** que la `0005` anunciaba: ver D-040 (P-11).
 - Se añade el registro de `adapters/persistence` en `migrations/env.py`.
 
-## 7. Contrato API (PROPUESTO)
+## 7. Contrato API (APROBADO, implementado en T-074…T-079)
+
+> Ajustes posteriores al texto original de esta sección: (1) D-041 P-6, `GET /orders` admite varios `status` (parámetro repetido); (2) D-041 P-7, `OrderLineOut.image` (`url`, `alt`) se lee del lector compartido y es `null` si el producto no está publicado; (3) T-085, `carrier` y `tracking_code` se recortan y rechazan caracteres de control, y `created_from`/`created_to` se acotan a 2000-01-01…2100-12-31 (422 fuera de rango; el OpenAPI no publica ese límite). La fuente de verdad del contrato es el OpenAPI generado.
 
 Prefijo `/api/v1/orders`. Las rutas con prefijo `admin` se declaran **antes** que `/{order_id}`. Todas exigen sesión: 401 `unauthenticated` y 503 `auth_unavailable`; las de administración, además `require_admin` (403 `forbidden`). Errores en el formato común y declarados en el OpenAPI (`ERROR_RESPONSES`). Importes como `Money` (`{"amount": int, "currency": "PEN"}`); ids como UUID en texto; fechas en UTC.
 

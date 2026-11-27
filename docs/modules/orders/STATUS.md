@@ -1,5 +1,5 @@
 # orders — Estado
-> Fase: 4 · Estado del módulo: SPECIFICATION (SPEC PROPUESTA; pendiente de la aprobación del contrato §7 por backend-lead y frontend-lead; las preguntas de negocio y las propuestas E-1…E-3 quedaron resueltas en D-040, con el recojo en tienda como hipótesis H-1…H-6 de la SPEC §12) · Última actualización: 2026-11-26 module-coordinator
+> Fase: 4 · Estado del módulo: BACKEND DONE (T-071…T-080 y T-085 integradas; auditoría de seguridad final con Opus sin hallazgos críticos ni mayores). Pantallas T-081…T-084 pendientes en la pista de frontend · Última actualización: 2026-11-27 claude-leader
 
 ## Plan
 
@@ -15,7 +15,8 @@
 | T-077 | Puerto para payments: `GetPayableOrder` y `ConfirmOrderPayment` | backend-dev + qa-reviewer | T-075 | DONE (39c503a) |
 | T-078 | Administración: listado y detalle (`ListAdminOrders`, `GetAdminOrder`) y 2 `GET` | backend-dev + qa-reviewer | T-075 | DONE (b31df9e) |
 | T-079 | Administración: transiciones y cancelación con reembolso simulado (`TransitionOrder`) y `POST …/transitions` | backend-dev + qa-reviewer | T-078 | DONE (9e98c42) |
-| T-080 | Integración transversal y revisión de seguridad del backend de orders | qa-reviewer (con Opus en la ronda final, decisions.md) | T-074…T-079 | READY |
+| T-080 | Integración transversal y revisión de seguridad del backend de orders | qa-reviewer (con Opus en la ronda final, decisions.md) | T-074…T-079 | DONE (dd81602) |
+| T-085 | fix: validación de `carrier`, `tracking_code` y `note` (recorte, control, surrogados) y tope de fechas del filtro de administración (hallazgos MENOR-1…3 de T-080) | backend-dev + qa-reviewer | T-080 | DONE (b8a2017) |
 | T-081 | Cliente de API de orders (`frontend/src/lib/api/orders.ts`) y tipos | frontend-dev + qa-reviewer | contrato §7 aprobado; T-074…T-079 integradas | BACKLOG (no READY: sin contrato aprobado) |
 | T-082 | Pantalla de entrega y confirmación del pedido (checkout) | frontend-dev + qa-reviewer | T-081, T-111 (VIEWS.md y Figma), T-060 | BACKLOG (no READY: sin diseño) |
 | T-083 | Mis pedidos, detalle con historial, cancelar y "volver a comprar" (account) | frontend-dev + qa-reviewer | T-081, T-111 | BACKLOG (no READY: sin diseño) |
@@ -498,3 +499,4 @@ Y la fila de `docs/agents/_registry.md`: `docs/modules/orders/ · Carpeta · SPE
 - **R-11 (QA de T-074, a resolver en T-075):** el dominio `Order` y `SqlOrderRepository.get` no cargan `carrier`, `tracking_code` ni `shipped_at` (están en `app.deliveries`), y `DeliveryOut` los emite como `null`. Es correcto para pedidos nuevos; para leer pedidos enviados, T-075 debe añadirlos a `DeliveryDetails` u `Order` (o a un objeto `Delivery`, SPEC §5) y al repositorio, y T-079 los escribe al enviar. RESUELTA en T-075 (ca7a40a): ruta A; el repositorio devuelve `Delivery` solo cuando hay datos de envío.
 - **R-12 (T-076, aceptado):** cancelar un pedido vencido responde 409 `not_cancellable` con `status: "expirado"`. El 409 deshace la transacción, así que la caducidad (historial `system`, auditoría y liberación) se guarda en la siguiente lectura (R7 perezosa). La disponibilidad ya ignora las reservas vencidas, así que el stock no queda retenido. CA-15 se probó con un pago simulado (repositorio + `ConsumeReservations`); se repite con `ConfirmOrderPayment` real en T-077.
 - **R-13 (T-077, para payments):** `GetPayableOrder` y `ConfirmOrderPayment` existen en `application.py`, pero orders aún no expone `adapters/wiring.py` con sus proveedores (excepción (7)). La primera tarea de implementación de payments (T-091 o la que la SPEC T-090 asigne) crea `modules/orders/adapters/wiring.py` con `get_get_payable_order` y `get_confirm_order_payment`, igual que los de cart e inventory en T-071. CA-15 y CA-24 ya se verificaron con el `ConfirmOrderPayment` real (T-077).
+- **R-14 (auditoría T-080, MENOR-4, transversal):** las respuestas con datos personales salen sin `Cache-Control: no-store` ni `X-Content-Type-Options: nosniff`, y la app no limita el tamaño del cuerpo (ASVS 8.2.1 y 14.4). No es exclusivo de orders: va al endurecimiento del backend (middleware en `shared/` o en el proxy Caddy), antes del lanzamiento.
