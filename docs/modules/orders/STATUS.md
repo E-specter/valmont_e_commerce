@@ -373,6 +373,18 @@ Y la fila de `docs/agents/_registry.md`: `docs/modules/orders/ · Carpeta · SPE
 
 ## Traspasos
 
+#### Traspaso T-085 — 2026-11-27 — backend-dev
+1. Estado: IN_REVIEW. Pruebas: NO EJECUTADO (D-028, D-033).
+2. Hecho en `adapters/admin_http.py` (único archivo de código): MENOR-1/3 `carrier` y `tracking_code` pasan a `ShortText` (recorte, 1–60 tras recortar; `"   "` da 422) y rechazan `Cc` y `Cs` con 422 en el formato común.
+3. `note` solo rechazaba `Cc`: ahora rechaza también `Cs` (sustituto suelto).
+3b. `\n` solo se admite en `note`; `carrier` y `tracking_code` rechazan cualquier `Cc` (incluido `\n`) y `Cs` (con `info.field_name`).
+4. MENOR-2: `created_from` y `created_to` acotados con `Query(ge=2000-01-01, le=2100-12-31)`; fuera de ese rango, 422 `validation_error` (sin `OverflowError`). Rango documentado en el código.
+5. Cubren: `test_security_audit_http.py::test_a_nul_or_a_lone_surrogate_in_carrier_or_tracking_is_422_never_500` y `::test_calendar_edge_dates_in_the_admin_filter_never_answer_500`.
+6. Análisis estático: `uv run ruff format .` → 225 files left unchanged; `uv run ruff check .` → All checks passed; `import valmont.main` → OK.
+7. Sin cambios en `application.py`, dominio, persistencia, migraciones ni dependencias.
+8. Decisión de rango (2000–2100) a validar por backend-lead; no hay requisito que lo fije.
+12. Commits: ninguno — preparado. Mensaje: `fix(orders): validación de transportista, seguimiento y fechas del filtro de administración (T-085)`.
+
 #### Traspaso T-079 — 2026-11-26 — backend-dev
 1. Estado: IN_REVIEW. Pruebas: NO EJECUTADO (D-028, D-033).
 2. Hecho: `application.py` (`Actor`, `TransitionOrder`, firmas del paquete); `adapters/admin_http.py` (`TransitionIn`, `current_actor` propio de orders, `get_transition_order`, `POST /{order_id}/transitions`, 409 `invalid_transition`; el detalle pasa a un helper `_detail` compartido con el `GET`). `domain.py`, `persistence.py`, `http.py`, `main.py`, inventory y `tests/**` sin cambios.

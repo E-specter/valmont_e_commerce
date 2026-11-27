@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import (
     BaseModel,
     ConfigDict,
-    Field,
     StringConstraints,
+    ValidationInfo,
     field_validator,
     model_validator,
 )
@@ -102,6 +102,11 @@ def get_get_admin_order(
 _ERRORS = {s: ERROR_RESPONSES[s] for s in (401, 403, 422, 503)}
 
 
+# Rango del filtro por fecha: fuera de él, 422 (evita OverflowError en `created_to + 1 día`).
+_MIN_DAY = date(2000, 1, 1)
+_MAX_DAY = date(2100, 12, 31)
+
+
 @router.get(
     "",
     response_model=AdminOrderPageOut,
@@ -112,8 +117,8 @@ def list_orders(
     use_case: Annotated[ListAdminOrders, Depends(get_list_admin_orders)],
     status: Annotated[OrderStatus | None, Query()] = None,
     q: Annotated[str | None, Query(max_length=100)] = None,
-    created_from: Annotated[date | None, Query()] = None,
-    created_to: Annotated[date | None, Query()] = None,
+    created_from: Annotated[date | None, Query(ge=_MIN_DAY, le=_MAX_DAY)] = None,
+    created_to: Annotated[date | None, Query(ge=_MIN_DAY, le=_MAX_DAY)] = None,
     page: Annotated[int, Query(ge=1, le=1000)] = 1,
     page_size: Annotated[int, Query(ge=1, le=50)] = 20,
 ) -> AdminOrderPageOut:
@@ -196,6 +201,9 @@ def _detail(
 # --- Transiciones (UC-ORDERS-09 y 10) ---
 
 
+ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
+
+
 class TransitionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -210,14 +218,19 @@ class TransitionIn(BaseModel):
         Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
         | None
     ) = None
-    carrier: str | None = Field(default=None, min_length=1, max_length=60)
-    tracking_code: str | None = Field(default=None, min_length=1, max_length=60)
+    carrier: ShortText | None = None
+    tracking_code: ShortText | None = None
 
-    @field_validator("note")
+    @field_validator("note", "carrier", "tracking_code")
     @classmethod
-    def _note_without_controls(cls, value: str | None) -> str | None:
-        # Sin caracteres de control (Cc), salvo el salto de línea.
-        if value and any(c != "\n" and unicodedata.category(c) == "Cc" for c in value):
+    def _without_controls(cls, value: str | None, info: ValidationInfo) -> str | None:
+        # Sin Cc ni Cs (sustituto suelto): no caben en un `text` de PostgreSQL.
+        # Solo `note` admite el salto de línea; carrier y tracking_code son de una línea.
+        keep = "\n" if info.field_name == "note" else ""
+        if value and any(
+            (c != keep and unicodedata.category(c) == "Cc") or unicodedata.category(c) == "Cs"
+            for c in value
+        ):
             raise ValueError("Caracteres no permitidos.")
         return value
 
