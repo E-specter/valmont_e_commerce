@@ -15,7 +15,7 @@ Transversal: no es un módulo con SPEC propia. Cada paquete corrige hallazgos de
 | T-018f | Limpieza de archivos huérfanos de Storage (`dry-run` por defecto) | backend-dev + qa-reviewer | ninguna | READY |
 | T-018g | Copias de seguridad: 4 MENOR de T-103 en `deploy/scripts/` | backend-dev + qa-reviewer | **ficha de auditoría Docker y confirmación del usuario** (D-011) | BLOCKED |
 | T-018h | Despliegue con dominio real: `security.allowedDomains` de Astro, cabeceras y 502 en Caddy, HSTS, `--forwarded-allow-ips`, comentarios de `compose.yml` (MENOR de T-104, ui N-9) | frontend-dev + backend-dev + qa-reviewer | dominio real y T-104 desplegada | BACKLOG |
-| T-018q | QA: estabilizar las dos pruebas inestables de payments (QA de T-138) | qa-reviewer | ninguna | READY |
+| T-018q | QA: estabilizar las dos pruebas inestables de payments (QA de T-138) | qa-reviewer | ninguna | DONE (0d653d2) |
 
 IDs reservados del hardening: T-018a…T-018q (los de arriba); un `fix` de QA reutiliza el sufijo con número (`T-018a1`).
 
@@ -275,3 +275,4 @@ Plan y paquetes escritos; sin código. Resumen en el traspaso al Leader (respues
 - D-H1 = A (solo UUID) → **T-018c READY**. D-H2 = A (todos los módulos) → **T-018d READY**. D-H3 = 256 KiB.
 - **T-018i (nueva, BACKLOG hasta aprobar la dependencia):** las imágenes de producto subidas se convierten a WebP optimizado en el servidor antes de guardarse en Storage (D-H3 del usuario). Necesita una librería de imágenes.
 - D-H4 = B: además del script manual (T-018f), un temporizador en `deploy/`; se aplica en T-018g/h con ficha de auditoría y confirmación del usuario (D-011).
+- **T-018r (nueva, READY, qa-reviewer):** aislamiento de la BD de pruebas. `tests/identity/test_birth_date_migration.py`, `tests/payments/test_migration.py` y el resto de pruebas de migración bajan y suben `valmont_test`; con varias ejecuciones de integración a la vez (agentes en paralelo) provocan `UndefinedColumn`/`UndefinedTable`, `DeadlockDetected` y destinos de downgrade inválidos. Corrección propuesta: las pruebas de migración usan una BD propia creada y borrada por la sesión de pruebas (p. ej. `valmont_test_migrations`), sin tocar la compartida. Incluye: datos sobrantes `lectura-*` que rompen `tests/catalog/test_http_db.py::test_categories_and_attributes_show_only_active_values_by_position`, y la prueba de tiempos comparados de `tests/payments/test_t096_journey_and_attacks.py` (~línea 276), inestable bajo carga.
