@@ -1,5 +1,5 @@
 # ui — Estado
-> Fase: 4 (pista de frontend) · Estado: PLANIFICADO (T-116…T-131 con paquete; T-132…T-139 libres) · Última actualización: 2026-11-26 frontend-lead (T-116, plan)
+> Fase: 4 (pista de frontend) · Estado: PLANIFICADO (T-116…T-137 con paquete y casi todos DONE; **backoffice: T-142…T-149 y T-084 en §10**) · Última actualización: 2026-11-27 frontend-lead (T-142, plan del backoffice)
 > Fuentes: `docs/design_ui/BRIEF.md` y `VIEWS.md` (§2–§11), D-012, D-014, D-024, D-025, D-041. Figma: **no se ha consultado nada nuevo** en este plan; cada paquete cita los nodos que frontend-dev puede consultar **una vez** (D-031).
 
 ## 1. Plan
@@ -31,6 +31,8 @@ Rango reservado del módulo: **T-116–T-139**. En uso: T-116–T-131. Libres: *
 | T-135 | fix visual C: pie de tarjeta homogéneo en una fila (divisor, precio y "Ver detalles" alineados) (D-10) | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | DONE (f4d723e) |
 | T-136 | fix visual D: Jaro solo en el wordmark; botones y enlaces en la familia del brief (D-04; D-044) | frontend-dev + qa-reviewer | T-133 (pie) | DONE (161e085) |
 | T-137 | fix visual E: foto del hero sustituida por un bloque de marca (D-044) y ajustes menores D-03, D-06, D-07, D-08, D-12, D-13 | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | DONE (948e515) |
+
+> **Backoffice (D-046, D-049):** su plan de implementación (T-142…T-149 y T-084, contratos y reglas RT-B) está en **§10** al final de este documento.
 
 ### Orden y paralelismo (rutas disjuntas)
 
@@ -972,3 +974,478 @@ Plan completo en este documento. Estado: IN_REVIEW. Sin pruebas ejecutadas (plan
 - **N-8 (D-045, identity T-113):** T-131 (fecha de nacimiento en el registro) amplía su alcance: el formulario de registro exige la fecha y bloquea a los menores (P-7) antes de llamar a Auth; `/auth/callback` (T-126) guarda `birth_date` con el `PATCH /identity/me` y la borra de `user_metadata`; Mi cuenta (T-129) permite al cliente antiguo fijarla una vez; el checkout (T-082) traduce los 409 `birth_date_required` y `underage`.
 - **N-9 (T-126, informativos de QA, aceptados por el Leader):** (1) tras `/salir` o tras borrar un usuario, su JWT sigue siendo válido hasta caducar (~1 h), porque `getClaims()` y el backend lo verifican en local; es el compromiso de no consultar Auth en cada petición. (2) **Despliegue:** sin `security.allowedDomains` en Astro, `url.origin` es siempre `http://localhost:<puerto>`, así que detrás de Caddy con HTTPS todo POST de `/bff` y `/salir` daría 403 por `Origin`; va a T-018 y debe resolverse antes del despliegue.
 - **N-7 (actualización, QA de T-129):** E2E intermitentes bajo carga con la suite completa, ajenos a la tarea: `t127-login.spec.ts:315` (anti-enumeración por tiempos) y `catalog-filterbar.spec.ts:103` (móvil, Enter en el plegable). Pendientes de estabilizar como T-018q de frontend.
+
+## 10. Backoffice (T-142…T-149 y T-084) — plan de implementación
+
+> Planificado el 2026-11-27 por frontend-lead (T-142). Dirección visual y decisiones D-B1…D-B7 **aprobadas** (D-046, D-049). Fuentes: `VIEWS.md` §12, `BRIEF.md` §14, el OpenAPI de `/api/v1/*/admin` (leído del backend en marcha el 2026-11-27), `orders/SPEC.md` §4 y §7, y §2–§3 de este STATUS. **No se consultó Figma**: cada paquete cita nodos ya documentados (una consulta por nodo en todo el plan). Los paquetes de este bloque se delegan completos (PROTOCOL §3); las pruebas las escribe y ejecuta solo qa-reviewer (D-033), en paralelo con el código y con las firmas de abajo.
+
+### 10.1 Plan
+
+| ID | Título | Rol | Depende de | Estado |
+|---|---|---|---|---|
+| T-142 | Tema `[data-context="backoffice"]`, `AdminLayout`, guardia de administrador y página «Sin permiso», `NavItem`, `UserMenu` e iconos | frontend-dev + qa-reviewer | T-116, T-117, T-126 | READY |
+| T-143 | Base de UI: ajuste de `ui/` al contexto, `Button` danger/ghost/sm, `Notice` con acción, `StatusPill`, `DataTable`, `Timeline`, `ConfirmDialog`, `KpiCard`, `form-busy` | frontend-dev + qa-reviewer | T-117, T-118; se integra después de T-142 | READY |
+| T-144 | Clientes de API de administración (`lib/api/admin-*.ts`) y utilidades puras (`lib/admin/*`) | frontend-dev + qa-reviewer | T-118 (`formatMoney`), T-120 | READY |
+| T-145 | Panel `/admin` (KPI y alertas derivados de los listados) | frontend-dev + qa-reviewer | T-142, T-143, T-144 | READY al integrar T-142…T-144 |
+| T-084 | Listado de pedidos `/admin/pedidos` (**reutiliza el ID**; el detalle pasa a T-146) | frontend-dev + qa-reviewer | T-142, T-143, T-144 | READY al integrar T-142…T-144 |
+| T-146 | Detalle de pedido, transiciones y diálogo «Cancelar y reembolsar» | frontend-dev + qa-reviewer | T-142, T-143, T-144 | READY al integrar T-142…T-144 |
+| T-147 | Formulario de producto (crear y editar), publicación, `Select`, `Textarea`, `RadioGroup`, `SpecsEditor` | frontend-dev + qa-reviewer | T-142, T-143, T-144 | READY al integrar T-142…T-144 |
+| T-148 | Imágenes del producto: subida, `alt`, reordenar (D-B7), borrar, errores 413/415/409/503 | frontend-dev + qa-reviewer | T-147 | READY al integrar T-147 |
+| T-149 | Listado de productos `/admin/productos` (sin frame: patrón de pedidos) | frontend-dev + qa-reviewer | T-143, T-144; **D-AB2** | BLOCKED (decisión del usuario) |
+
+IDs T-142…T-149 reservados a esta pista (el Leader los confirma). **Sin paquete, a propósito:** inventario y promociones (contrato listo, sin diseño: H-B7), reportes (H-B1), clientes y auditoría (H-B3) y el endpoint de resumen (T-141, backend). Sus entradas del menú salen «Pronto».
+
+### 10.2 Orden y paralelismo (rutas disjuntas)
+
+```
+Ola 1   T-142 ∥ T-143 ∥ T-144           (disjuntos; T-143 se revisa visualmente cuando T-142 esté integrado)
+Ola 2   T-145 ∥ T-084 ∥ T-146 ∥ T-147   (disjuntos: cada uno es dueño de su página y sus componentes de `admin/`)
+Ola 3   T-148 (tras T-147) ∥ T-149 (si D-AB2 = A)
+```
+- **Archivos compartidos y dueño:** `tokens.css`, `icons.ts`, `format.ts`, `guard.ts` y `BaseLayout.astro` → solo T-142. `ui/Button`, `ui/Notice` y el resto de `ui/` existente → solo T-143. `lib/api/server.ts` y `lib/server/session.ts` → solo T-148 (cambio aditivo, ver su paquete). `ui/Select`, `ui/Textarea`, `ui/RadioGroup` → T-147; `ui/FileDropzone` → T-148. `lib/admin/nav.ts` → T-142 lo crea; cada pantalla (T-145, T-084, T-147, T-149) cambia **una sola línea** (`enabled: true` de su entrada). Es el único solape: el Leader lo resuelve al integrar en serie.
+- Un paquete = un día de un desarrollador como máximo; si se excede, `BLOCKED` y se divide.
+- **QA y desarrollador reciben el mismo paquete** (firmas cerradas): QA escribe `frontend/tests/**` y `frontend/e2e/**`; el desarrollador, solo `frontend/src/**`. El ayudante E2E `frontend/e2e/helpers/admin.ts` (crear un usuario administrador, ver D-AB3) lo escribe QA en T-142 y lo reutilizan los demás.
+
+### 10.3 Decisiones de arquitectura (las cierra frontend-lead; la recomendación de AB-1 va al usuario)
+
+- **AB-1 Acceso a las rutas de administración: SSR con `serverTransport` (recomendado), sin proxy de administración.** Las páginas `/admin/**` se renderizan en el servidor con `apiFor(locals)`; el token no sale del servidor y no se añade superficie nueva. `/bff` conserva su lista cerrada (`orders/admin` sigue en 404, T-126). Las mutaciones son **formularios `POST` de la propia página** (PRG, funcionan sin JavaScript, como `/cuenta`). Las islas son solo mejoras progresivas (diálogo, arrastrar y soltar, indicador de envío): ninguna llama a la API. *Por qué no un proxy `/bff-admin`:* convertiría cualquier XSS en un cliente autenticado de administrador, duplicaría la lista permitida y la verificación de rol, y no aporta nada mientras no haya tablas «en vivo». *Coste aceptado:* una recarga por acción y la subida de imágenes en dos saltos (navegador → Astro → API, ≤ 5 MiB). *Alternativa B:* proxy con lista cerrada y rol comprobado en el servidor de Astro; solo si se pide edición en línea.
+- **AB-2 Guardia y rol.** Dos capas, ninguna decide permisos: (1) `/admin` entra en `PROTECTED_PREFIXES` (sin sesión → 302 a ingreso, `no-store`); (2) cada página llama a `requireAdmin(Astro)` (`lib/server/admin.ts`), que lee `GET /identity/me` y, si `role !== 'admin'`, responde 403 con la página «Sin permiso». **Es solo comodidad:** la autorización real es de cada endpoint (`require_admin`), y **un 403 de cualquier llamada** (rol retirado a media sesión) se trata igual con `adminErrorResponse`. Una llamada de más por página (`/me`) es el precio de no confiar en claims del JWT.
+- **AB-3 Mutaciones (PRG).** Todo `POST` de página: `Origin` igual a `url.origin` (403), `request.formData()` dentro de `try` (415), validación mínima de formato (la regla de negocio es del backend), llamada con `apiFor(locals)`, éxito → **303** con `Cache-Control: private, no-store` (Response manual), error → la misma página con el estado HTTP real (422, 409, 413…), `no-store` y lo escrito conservado. La página nunca envía `user_id`, `role` ni importes calculados en el cliente.
+- **AB-4 Tema (D-B2 A).** `data-context="backoffice"` en `<html>` desde `AdminLayout` (prop aditiva `context` de `BaseLayout`), no en un contenedor: así el fondo, el `color-scheme` y el desbordamiento son oscuros. El bloque reasigna **roles** (§10.5). Los componentes `ui/` no cambian de código por el tema; solo se audita que usen roles y no colores directos (T-143).
+- **AB-5 Estados.** RT-3 se mantiene: en SSR «cargando» lo cubre el streaming de Astro, así que el esqueleto de `bo/03c` **no se pinta en las cargas de página** (excepción informada; `Skeleton` queda para islas). Sí se implementan vacío, error con «Reintentar», `guardando` (botón `loading` por `form-busy`) y `pending` de `KpiCard`. Descartado: *server islands* con `fallback` (añaden cifrado de props y rutas `/_server-islands/`, riesgo con la sesión).
+- **AB-6 Responsive.** Figma solo dibuja 1440 px. Se implementa ≥ 1024 px como el frame y, por debajo, la barra lateral pasa a un menú con `popover` (sin dependencias) y las tablas a un contenedor con `overflow-x` enfocable (H-B8). frontend-lead lo revisa; no se inventa más diseño.
+- **AB-7 D-B6 B (importes) y D-B5 A (fechas).** Importes con `formatMoney` (P-3, «S/ 84,500»): los frames con `.00` fijo se ajustan al implementar. Fechas con `formatDateTimeNumeric` (T-142): `27/11/2026 15:04`, 24 h, `America/Lima`; las de calendario (`estimated_delivery_on`) con `formatDateOnly`.
+
+### 10.4 Reglas transversales del backoffice (RT-B; se suman a RT-1…RT-12)
+
+- **RT-B1 Origen:** todo `POST` de página compara `Origin` con `url.origin`; ausente o distinto → 403 (T-126, T-127).
+- **RT-B2 Cuerpo:** `formData()` en `try`; cuerpo no formulario → **415**, nunca 500 (T-127, T-128, T-129).
+- **RT-B3 PRG:** éxito → **303** con `Cache-Control: private, no-store` hecho a mano (el middleware lo garantiza en rutas protegidas, pero el 303 lo fija igualmente). Errores y 200 también `no-store`.
+- **RT-B4 Hook de secretos:** `.githooks/pre-commit` rechaza literales de 8 o más caracteres asignados a nombres que contienen `key`, `secret`, `password` o `token`. Todo texto de interfaz con esos nombres vive en constantes `MSG_*` de `lib/admin/messages.ts` (nombres sin esas palabras); los valores falsos de las pruebas, con otro nombre o de menos de 8 caracteres (N-5).
+- **RT-B5 RT-1:** sin `#hex`, `rgb()`, `color-mix`, `px` de tipografía ni `font-family` fuera de `tokens.css`; cada `<style>` en `@layer components`. Un token que falte se pide a T-142, no se inventa.
+- **RT-B6 Capas:** los componentes (`components/**`) e islas **no importan de `lib/server/**`**; reciben todo por props. Los textos compartidos salen de `lib/admin/*` (neutro, sin `astro:env`). `grep -rn "lib/server" src/components src/islands` debe salir vacío.
+- **RT-B7 Privacidad:** nombre, teléfono y dirección del pedido solo se pintan a un administrador verificado; nunca en `console`, logs ni URL; las páginas `/admin/**` llevan `noindex` y `no-store`.
+- **RT-B8 Errores del backend:** 401 → cierra la sesión local y 302 a ingreso (con `next`); 403 → «Sin permiso» (403); 404 → `/404`; 409 y 422 → estado de la propia vista; 5xx o red → 503 con `Notice` y «Reintentar». Siempre por `adminErrorResponse` y `lib/admin/errors.ts`.
+- **RT-B9 Texto del servidor:** `note`, `alt`, `recipient_name`, `reference` y nombres de producto se pintan como texto (sin `set:html`). Los mensajes de `ApiError` (en inglés o técnicos) no se muestran: se traducen por `code` y por `type` de 422.
+- **RT-B10 Accesibilidad:** un `h1`; `nav aria-label="Administración"`; `main#contenido`; enlace de salto; foco amarillo de 2 px; objetivos ≥ 40 px (botones) y 44 px (controles); estado nunca solo con color; `prefers-reduced-motion`; `aria-busy` al enviar; errores por campo con `aria-describedby` y un resumen con `role="alert"` y foco.
+- **RT-B11 Entrega:** `git add <rutas exactas>`, sin commit; solo `npm run check`; mensaje propuesto `<tipo>(<ámbito>): <resumen> (T-NNN)`.
+
+### 10.5 Contratos transversales del backoffice (los cierra frontend-lead)
+
+**3.5 Tokens (T-142 los declara en `tokens.css`; los demás solo los usan).** El BRIEF §14 llama `--bg-surface-dark` al `#002C18`, pero `tokens.css` ya usa ese nombre para forest-deep (`#001A0B`). Se resuelve con nombres nuevos; `--bg-surface-dark` **no cambia** (sidebar, barra superior, cabecera de tabla y caja de campo).
+
+| Token nuevo | Valor | Uso |
+|---|---|---|
+| `--color-forest-card` | `#002c18` | tarjetas, tablas y diálogos |
+| `--text-secondary-on-dark` | `#ebd394` | ayuda y metadatos (10,40 sobre tarjeta) |
+| `--bg-surface-raised` | `var(--color-forest-mid)` | nav activo, pill «enviado», esqueletos, miniaturas |
+| `--stroke-control-on-dark` | `rgb(179 239 178 / 0.5)` | borde de campos y botones secundarios (≥ 4,00) |
+| `--stroke-soft-on-dark` | `rgb(179 239 178 / 0.2)` | divisores de fila |
+| `--size-sidebar` · `--size-topbar` | `260px` · `72px` | retícula |
+| `--size-control-sm` · `--size-control` | `40px` · `44px` | botón y campo |
+| `--size-th` · `--size-row` · `--size-row-lg` | `44px` · `56px` · `80px` | tabla |
+| `--size-pill` · `--content-max-bo` | `24px` · `1180px` | pill y ancho de contenido |
+| `--radius-dialog` | `12px` | diálogo (el `lg` de Figma es 12; el `--radius-lg` del proyecto es 16) |
+
+Bloque de contexto (reasigna roles; fuera de él, la tienda queda idéntica):
+```css
+[data-context="backoffice"] {
+  color-scheme: dark;
+  --bg-page: var(--color-forest);          --bg-surface: var(--color-forest-card);
+  --text-primary: var(--color-ivory);      --text-secondary: var(--text-secondary-on-dark);
+  --stroke-default: var(--stroke-on-dark); --stroke-soft: var(--stroke-soft-on-dark);
+  --stroke-control: var(--stroke-control-on-dark);  --stroke-strong: var(--color-mint);
+  --focus-color: var(--color-yellow);
+  --color-red-strong: var(--color-red);    /* texto de error sobre oscuro: el rojo claro (4,67 sobre tarjeta) */
+}
+```
+
+**3.6 Servidor de administración (`lib/server/admin.ts`, T-142).**
+```ts
+import type { Profile } from '../api/identity';
+import type { Transport } from '../api/http';
+export type AdminCtx = { api: Transport; profile: Profile };            // profile.role === 'admin'
+export type AdminGate = { ok: true; ctx: AdminCtx } | { ok: false; response: Response };
+type AstroLike = Pick<import('astro').AstroGlobal, 'locals' | 'url' | 'request' | 'cookies' | 'rewrite'>;
+/** GET /identity/me. 401 → endSession + 302 loginUrl · role ≠ admin → rewrite('/admin/sin-permiso') (403) · 5xx o red → rewrite('/admin/no-disponible') (503). */
+export function requireAdmin(astro: AstroLike): Promise<AdminGate>;
+/** ApiError 401 → 302 login · 403 → sin permiso · 404 → rewrite('/404'); lo demás (incluido lo que no es ApiError) → null: lo trata la página. */
+export function adminErrorResponse(astro: AstroLike, e: unknown): Promise<Response | null>;
+export function checkAdminOrigin(request: Request, url: URL): boolean;   // Origin === url.origin; ausente → false
+export function seeOther(location: string): Response;                    // 303 + Cache-Control: private, no-store
+export function isUuid(s: string): boolean;                              // 8-4-4-4-12 hexadecimal, sin recortar
+```
+Uso: `const gate = await requireAdmin(Astro); if (!gate.ok) return gate.response; const { api, profile } = gate.ctx;`.
+
+**3.7 API de administración (T-144; tipos 1:1 con el OpenAPI; dinero = `Money` de `http.ts`; todas reciben `t: Transport` primero).**
+```ts
+// lib/api/admin-orders.ts
+export type OrderStatus = 'pendiente_pago'|'pagado'|'en_preparacion'|'enviado'|'listo_para_recojo'|'entregado'|'cancelado'|'expirado';
+export type TransitionTarget = 'en_preparacion'|'enviado'|'listo_para_recojo'|'entregado'|'cancelado';
+export type AdminOrderSummary = { id: string; number: string; status: OrderStatus; total: Money; item_count: number; created_at: string;
+  expires_at: string|null; estimated_delivery_on: string|null; user_id: string; recipient_name: string; district: string|null };
+export type AdminOrderQuery = { status?: OrderStatus; q?: string; created_from?: string; created_to?: string; page?: number; page_size?: number }; // fechas 'YYYY-MM-DD'; page_size ≤ 50
+export type AdminOrderLine = { product_id: string; sku: string; name: string; image: { url: string; alt: string }|null; quantity: number; list_price: Money;
+  unit_price: Money; discount_amount: Money; line_total: Money; fulfillment: 'stock'|'made_to_order'; lead_time_days: number|null };
+export type AdminDelivery = { delivery_method: 'shipping'|'pickup'; recipient_name: string; phone: string; department: string|null; province: string|null; district: string|null;
+  address_line: string|null; reference: string|null; pickup_store: { name: string; address: string; hours: string }|null; carrier: string|null; tracking_code: string|null; shipped_at: string|null };
+export type AdminHistoryEntry = { from_status: OrderStatus|null; status: OrderStatus; at: string; actor: 'customer'|'admin'|'system'; actor_id: string|null; note: string|null };
+export type AdminOrderDetail = AdminOrderSummary & { paid_at: string|null; expires_in_seconds: number|null; subtotal: Money; shipping: Money; lines: AdminOrderLine[];
+  delivery: AdminDelivery; refund: { amount: Money; at: string }|null; history: AdminHistoryEntry[]; can_cancel: boolean; can_transition_to: OrderStatus[] };
+export function listAdminOrders(t: Transport, q?: AdminOrderQuery): Promise<Page<AdminOrderSummary>>;   // GET /orders/admin
+export function getAdminOrder(t: Transport, orderId: string): Promise<AdminOrderDetail>;               // GET /orders/admin/{id}
+export function transitionOrder(t: Transport, orderId: string,
+  body: { to: TransitionTarget; note?: string; carrier?: string; tracking_code?: string }): Promise<AdminOrderDetail>;   // POST …/transitions
+// lib/api/admin-inventory.ts
+export type StockStatus = 'in_stock'|'low_stock'|'out_of_stock'|'on_request';
+export type StockItem = { product_id: string; sku: string; name: string; product_status: 'draft'|'published'; on_hand: number; reserved: number; available: number; status: StockStatus };
+export function listStock(t: Transport, q?: { q?: string; status?: StockStatus; page?: number; page_size?: number }): Promise<Page<StockItem>>;   // GET /inventory/admin/stock; page_size ≤ 48
+// lib/api/admin-catalog.ts
+export type ProductStatus = 'draft'|'published';   export type OrderPolicy = 'stock'|'made_to_order'|'backorder';
+export type ProductImage = { id: string; url: string; alt: string };
+export type AdminProduct = { id: string; slug: string; sku: string; name: string; category: { id: string; slug: string; name: string }; price: Money;
+  movement: { code: string; label: string }|null; case_material: { code: string; label: string }|null; case_diameter_mm: number|null; water_resistance_m: number|null;
+  main_image: ProductImage|null; description: string; specs: { label: string; value: string }[]; images: ProductImage[]; status: ProductStatus; order_policy: OrderPolicy;
+  lead_time_days: number|null; category_id: string; movement_code: string|null; case_material_code: string|null; published_at: string|null; created_at: string; updated_at: string };
+export type ProductInput = { sku: string; slug?: string|null; name: string; description: string; category_id: string; price: Money; order_policy: OrderPolicy;
+  lead_time_days?: number|null; movement_code?: string|null; case_material_code?: string|null; case_diameter_mm?: string|null; water_resistance_m?: number|null;
+  specs: { label: string; value: string }[] };
+export type ProductPatch = Partial<ProductInput>;                         // solo lo cambiado; null borra los opcionales
+export type AdminCategory = { id: string; slug: string; name: string; description: string|null; position: number; is_active: boolean };
+export type AdminAttributeValue = { code: string; label: string; position: number; is_active: boolean };
+export function listAdminProducts(t: Transport, q?: { q?: string; status?: ProductStatus; page?: number; page_size?: number }): Promise<Page<AdminProduct>>;  // page_size ≤ 48
+export function getAdminProduct(t: Transport, id: string): Promise<AdminProduct>;
+export function createProduct(t: Transport, input: ProductInput): Promise<AdminProduct>;                           // 201
+export function updateProduct(t: Transport, id: string, patch: ProductPatch): Promise<AdminProduct>;
+export function publishProduct(t: Transport, id: string): Promise<AdminProduct>;                                   // 409 publish_requirements_unmet con details.missing
+export function unpublishProduct(t: Transport, id: string): Promise<AdminProduct>;
+export function listAdminCategories(t: Transport): Promise<AdminCategory[]>;
+export function getAdminAttributes(t: Transport): Promise<{ movements: AdminAttributeValue[]; case_materials: AdminAttributeValue[] }>;
+export function uploadProductImage(t: Transport, productId: string, file: File, alt: string): Promise<ProductImage>;  // multipart: `file` y `alt` (1–150)
+export function updateImageAlt(t: Transport, productId: string, imageId: string, alt: string): Promise<ProductImage>;
+export function reorderImages(t: Transport, productId: string, imageIds: string[]): Promise<ProductImage[]>;       // PUT …/images/order; el cuerpo es el arreglo de UUID
+export function deleteImage(t: Transport, productId: string, imageId: string): Promise<void>;                      // 204; 409 last_image
+```
+
+**3.8 Utilidades puras (T-144, `lib/admin/*`; sin `astro:env`, importables desde componentes).**
+```ts
+// status.ts
+export const ORDER_STATUSES: readonly OrderStatus[];
+export const ORDER_STATUS_LABEL: Record<OrderStatus, string>;   // «Pendiente de pago», «Pagado», «En preparación», «Enviado», «Listo para recojo», «Entregado», «Cancelado», «Expirado»
+export function orderPill(s: OrderStatus): { label: string; tone: PillTone };    // VIEWS §12.4: pending·paid·active·transit·transit·done·cancelled·neutral
+export function productPill(s: ProductStatus): { label: string; tone: PillTone }; // draft «Borrador» neutral · published «Publicado» paid
+export function transitionLabel(to: TransitionTarget, from: OrderStatus): string; // «Preparar pedido» · «Marcar como enviado» · «Marcar listo para recojo» · «Marcar como entregado» · cancelar: «Cancelar y reembolsar» si from ∈ {pagado, en_preparacion}, si no «Cancelar pedido»
+export function cancelCopy(from: OrderStatus): { title: string; body: string; confirm: string }; // pagado/en_preparacion: reembolso simulado del total, no repone stock; pendiente_pago: libera reservas, sin reembolso
+export function transitionTargets(canTransitionTo: readonly OrderStatus[]): TransitionTarget[]; // intersección con los 5 destinos; avance primero, cancelar al final; nunca deduce estados
+// money.ts   (aritmética entera, sin coma flotante; H-B6)
+export function parseSoles(text: string): { ok: true; cents: number } | { ok: false };   // '1250' · '1250.5' · '1250.50'; sin miles ni coma decimal; ≤ 9 enteros; 0 no válido
+export function solesInput(cents: number): string;                                        // 125000 → '1250'; 125050 → '1250.50'
+// order-query.ts
+export function parseOrderQuery(sp: URLSearchParams): { query: AdminOrderQuery; invalid: string[] }; // lista cerrada; status por lista blanca; fechas /^\d{4}-\d{2}-\d{2}$/; q recortado ≤ 100; page 1…1000; page_size fijo 20
+export function orderQueryString(q: AdminOrderQuery): string;                                        // orden alfabético, sin `page=1`
+// errors.ts
+export function fieldErrors(e: ApiError, fields: readonly string[]): Record<string, string>;        // 422: último elemento de `loc` → campo; texto en español por `type`, genérico si no hay
+// messages.ts: constantes MSG_* (RT-B4)
+```
+`formatDateTimeNumeric(iso: string): string` → `"27/11/2026 15:04"` (T-142, en `lib/format.ts`). `PillTone = 'pending'|'paid'|'active'|'transit'|'done'|'cancelled'|'neutral'` se exporta desde `lib/admin/status.ts` (T-144); `components/ui/status-pill.ts` (T-143) declara la misma unión (ver su paquete).
+
+### 10.6 Huecos del backoffice (complementan `VIEWS.md` §12.5)
+
+| ID | Hueco | Efecto | Tratamiento |
+|---|---|---|---|
+| H-B4 (confirmado en el OpenAPI) | El detalle y el listado de pedidos no traen correo ni nombre de la cuenta, solo `user_id`; el correo vive en `auth.users` | La tarjeta «Entrega» muestra la cuenta como `user_id` abreviado (8 primeros) | **No bloquea.** Propuesta a backend-lead (D-AB4): `customer: {email, full_name} \| null` en el detalle, cambio compatible vía un puerto de identity |
+| H-B5 (cerrado) | Semántica de `q` en pedidos | `q` busca por **número** (`VAL-000123` o `123`) o por **destinatario** (contiene, sin distinguir mayúsculas); las fechas son días de Lima | Placeholder «Número o destinatario»; verificado en `orders/adapters/persistence.py` |
+| H-B6 (cerrado) | Importe de entrada | Se escribe en soles (`1250.50`) y viaja en céntimos | `parseSoles` y `solesInput` en T-144; el backend valida |
+| H-B8 | Tableta y móvil del backoffice no están dibujados | Comportamiento mínimo (AB-6) | frontend-lead revisa; diseño propio solo si el usuario lo pide |
+| H-B9 | `AdminOrderSummaryOut` no trae `delivery_method` | «Recojo en tienda» se infiere de `district = null` (VIEWS §12.2) | Aceptado; si falla, ampliar el listado (compatible) |
+| H-B10 | `GET /catalog/admin/products` existe y no tiene frame | Sin pantalla de entrada al formulario | T-149 y D-AB2 |
+| H-B11 | `GET /orders/admin` no documenta el orden | «Pedidos por preparar» puede no salir del más antiguo | Se pinta el orden recibido; si el negocio lo pide, parámetro `sort` (compatible, backend) |
+| H-B12 | Sin módulo de inventario en pantalla | La nota tras cancelar un pedido pagado (R15, no repone stock) es texto sin enlace | Se enlaza cuando exista inventario (H-B7) |
+
+### 10.7 Paquetes de tarea (PROTOCOL §3)
+
+Todos: RT-1…RT-12 y RT-B1…RT-B11 aplican; skills `frontend-module-implementation`, `modern-web-guidance` y `frontend-design`; revisión de frontend-lead con la lista de `DESIGN.md` §9 y captura de Playwright frente al frame (1440). Estado inicial y escalado, en cada uno.
+
+### T-142 — Tema, `AdminLayout`, guardia de administrador y «Sin permiso»
+- Objetivo: `/admin/**` exige sesión y rol de administrador (comodidad; el backend decide), se pinta con el tema oscuro del backoffice y tiene su marco (barra lateral con 8 módulos, barra superior, migas, cabecera de página).
+- Responsable: frontend-dev (pruebas: qa-reviewer; acepta frontend-lead) · Módulo: ui (backoffice) · Requisitos: RF13.02, RF13.01, RNF07 · D-046, D-049 (D-B1, D-B2)
+- Leer: `VIEWS.md` §12.1–12.3, §12.7; `BRIEF.md` §14; este STATUS §3.2 y §10.3–10.5; `frontend/src/{middleware.ts,lib/server/{guard,session}.ts,layouts/BaseLayout.astro,styles/tokens.css,components/ui/{Icon,Wordmark,Checkerboard,Breadcrumb}.astro}`; traspasos de T-126, T-127 y T-129 (§8).
+- Contratos aplicables: `GET /api/v1/identity/me` (`role`, `full_name`); §10.5 (3.5 y 3.6).
+- Dependencias: T-116, T-117, T-126.
+- Puede modificar: `frontend/src/styles/tokens.css` (solo los tokens de 3.5 y el bloque de contexto), `frontend/src/layouts/{AdminLayout,BaseLayout}.astro` (en `BaseLayout`, solo la prop aditiva `context`), `frontend/src/components/admin/{NavItem,UserMenu}.astro`, `frontend/src/components/ui/icons.ts` (solo añadir), `frontend/src/lib/admin/nav.ts`, `frontend/src/lib/server/admin.ts`, `frontend/src/lib/server/guard.ts` (solo `PROTECTED_PREFIXES`), `frontend/src/lib/format.ts` (solo añadir `formatDateTimeNumeric`), `frontend/src/pages/admin/{sin-permiso,no-disponible}.astro`, `frontend/src/pages/dev/admin-layout.astro` (solo desarrollo, 404 en producción).
+- Protegido: `middleware.ts`, `lib/server/{session,supabase}.ts`, `lib/api/**`, `components/ui/**` (de T-143; `icons.ts` es la excepción y es de este paquete), `backend/**`, `supabase/**`, `deploy/**`.
+- Resultado esperado:
+  - 3.5 y 3.6 implementados; `BaseLayout` con `context?: 'store'|'backoffice'` que pone `data-context` en `<html>`.
+  - `AdminLayout` con la retícula de VIEWS §12.1 (`bo/01-layout`): barra lateral fija de 260 con `Wordmark`, 8 `NavItem` y damero de 20 px al pie; barra superior de 72 con `Breadcrumb`, enlace «Ver tienda» (`/`) y `UserMenu`; cabecera de página (`h1`, slot `actions`); contenido de 1116 útiles.
+  - `lib/admin/nav.ts` con las 8 entradas en este orden: Panel, Pedidos, Productos, Inventario, Promociones, Reportes, Clientes, Auditoría. **Solo Panel `enabled: true`**; el resto `false` hasta que su pantalla exista (D-B1: se pintan sin `href`, con `aria-disabled="true"` y el texto visible «Pronto»).
+  - 17 iconos nuevos en `icons.ts` (los de `bo/componentes` que faltan: `dashboard`, `orders`, `watch`, `inventory`, `tag`, `chart`, `users`, `shield`, `external`, `chevron`, `alert`, `upload`, `trash`, `back`, `chevdown`, `image`, `drag`), con trazados propios en el estilo de los existentes (sin dependencias).
+  - `/admin/sin-permiso` (estado 403, `h1` «No tienes permiso», enlace a la tienda y a «Cerrar sesión») y `/admin/no-disponible` (503, `Notice` de error con «Reintentar»), ambas con `AdminLayout` mínimo sin datos de administración.
+- Criterios de aceptación:
+  - [ ] `isProtectedPath` protege `/admin`, `/admin/x`, `/ADMIN/x`, `/%61dmin/x`, `/admin//x`; **no** `/administracion` ni `/admins`. Sin sesión → 302 `/ingresar?next=…` con `Cache-Control: private, no-store`.
+  - [ ] `requireAdmin`: perfil `customer` → 403 «Sin permiso»; perfil `admin` → `{ ok: true }`; `/me` con 401 → cierra la sesión local y 302 al ingreso; `/me` con 5xx o sin red → 503 `no-disponible`; ningún caso devuelve datos de administración.
+  - [ ] `adminErrorResponse`: 401, 403 y 404 como en 3.6; 409, 422 y 5xx → `null`; un error que no es `ApiError` → `null`.
+  - [ ] `AdminLayout`: `<html lang="es" data-context="backoffice">`, `noindex`, enlace de salto, `nav aria-label="Administración"` con 8 entradas (activa con `aria-current="page"`; deshabilitadas sin `href`), `main#contenido`, un solo `h1`, migas, `UserMenu` con «Ver tienda» y `<form method="post" action="/salir">`.
+  - [ ] Los pares de contraste de VIEWS §12.7 se cumplen con los tokens declarados; las páginas de la tienda no cambian (los valores de `:root` y de los roles no se alteran fuera del contexto).
+  - [ ] ≤ 1024 px: la barra lateral se sustituye por un menú con `popover` navegable por teclado; sin JavaScript el menú sigue siendo un `<nav>` utilizable.
+  - [ ] RT-1: sin valores sueltos; el HTML y los JS entregados al cliente no contienen `Authorization`, `API_BASE_URL` ni la respuesta de `/identity/me` más allá de `full_name`.
+- Firmas públicas:
+  - `AdminLayout` Props `{ title: string; section: AdminSection; crumbs?: { label: string; href?: string }[]; userName: string | null; description?: string }`; slots `default` y `actions`.
+  - `NavItem` Props `{ label: string; href?: string; icon: IconName; current?: boolean; disabled?: boolean; hint?: string }` (`hint` = «Pronto»).
+  - `UserMenu` Props `{ name: string | null }`.
+  - `lib/admin/nav.ts`: `export type AdminSection = 'panel'|'pedidos'|'productos'|'inventario'|'promociones'|'reportes'|'clientes'|'auditoria'; export type NavEntry = { section: AdminSection; label: string; href: string; icon: IconName; enabled: boolean }; export const ADMIN_NAV: readonly NavEntry[];` (href: `/admin`, `/admin/pedidos`, `/admin/productos`, `/admin/inventario`, `/admin/promociones`, `/admin/reportes`, `/admin/clientes`, `/admin/auditoria`).
+  - `lib/server/admin.ts` y tokens: 3.5 y 3.6. `lib/format.ts`: `formatDateTimeNumeric(iso: string): string`.
+  - Rutas `GET /admin/sin-permiso` (403) y `GET /admin/no-disponible` (503).
+- Pruebas obligatorias (qa-reviewer): unitarias de `isProtectedPath` (tabla de rutas), `requireAdmin` y `adminErrorResponse` (Astro y `fetch` simulados; cada rama), `checkAdminOrigin`, `isUuid`, `seeOther` (303 y `no-store`), `formatDateTimeNumeric` (`2026-11-27T20:04:00Z` → `27/11/2026 15:04`; medianoche de Lima; `00:05` sin «a. m.»; 24 h); `tokens.test.ts` ampliado (cada token de 3.5, el bloque de contexto, contraste de los pares de §12.7 calculado, los valores de la tienda intactos); Container API de `AdminLayout`, `NavItem` y `UserMenu`; E2E con un **usuario administrador y otro cliente creados por la suite** (D-AB3): sin sesión → ingreso; cliente → 403 sin ningún dato; administrador → marco, navegación, «Salir»; `/bff/orders/admin/x` sigue en 404; axe; capturas a 1440 y 1024; `npm run check`; `npm run build`; `grep` de `dist/client` sin `API_BASE_URL` ni `api/v1` (N-4).
+- Diseño (frontend): `194:35` (`bo/01-layout`) y `193:189` (set `NavItem`), `193:21` (iconos `icon/*`), una consulta por nodo. VIEWS §12.1 (layout), §12.3, BRIEF §14. Revisión: captura de `/dev/admin-layout` frente al frame.
+- Revisión manual (el usuario): con un administrador (ver D-AB3) abrir `/dev/admin-layout` y, tras T-145, `/admin`: marco oscuro, navegación con «Pronto», migas, «Ver tienda» y «Cerrar sesión»; con un cliente, `/admin` muestra «Sin permiso».
+- Seguridad: ocultar la navegación no es autorización; `no-store` y `noindex`; el correo y el rol no salen del servidor; `/admin/sin-permiso` no revela si existe la ruta consultada.
+- Estado inicial: READY · Entrega: RT-B11; `feat(ui): marco del backoffice, tema oscuro y guardia de administrador (T-142)`.
+- IDs reservados: ninguno.
+- Escalar si: `Astro.rewrite` no conserva el estado 403 o repite el middleware de forma que cree un bucle; o `data-context` en `<html>` rompe el orden de capas de `BaseLayout`.
+
+### T-143 — Base de UI del backoffice
+- Objetivo: existen los componentes reutilizables que piden varias pantallas (tabla, pill de estado, línea de tiempo, diálogo, tarjeta KPI, aviso con acción, botones peligro y fantasma) y los de la tienda ya se ven bien dentro del contexto.
+- Responsable: frontend-dev (pruebas: qa-reviewer) · Módulo: ui · Requisitos: RNF07 · D-049 (D-B2, D-B4)
+- Leer: `VIEWS.md` §12.3–12.4 y §12.7; `BRIEF.md` §7 y §14; `components/ui/**` (T-117, T-118, T-123); §10.5 (3.5).
+- Contratos aplicables: ninguno de API.
+- Dependencias: T-117, T-118. Se integra después de T-142 (usa sus tokens; si falta uno, `BLOCKED` y se pide a T-142).
+- Puede modificar: `frontend/src/components/ui/{Button,Notice}.astro` (solo variantes y slot aditivos), `components/ui/{StatusPill,DataTable,Timeline,ConfirmDialog}.astro`, `components/ui/status-pill.ts`, `components/admin/KpiCard.astro`, `frontend/src/islands/{confirm-dialog,form-busy}.ts`, `frontend/src/pages/dev/admin-ui.astro`, y el `<style>` de los demás `ui/` existentes **solo** para cambiar un color directo por su rol (auditoría).
+- Protegido: `tokens.css`, `icons.ts`, `format.ts`, `layouts/**`, `lib/**`, `pages/**` salvo la de muestrario.
+- Resultado esperado:
+  - **Auditoría de roles:** listar (en el traspaso) los `ui/` que usan `--color-*` en vez de roles; sustituir donde el aspecto de la tienda no cambie. Los que no se puedan, se anotan.
+  - `Button`: variantes `danger` (contorno rojo) y `ghost`; tamaño `sm` (40 px). `Notice`: slot nombrado `actions` y las variantes de «Alert» de Figma (`warning`, `danger` = `error`, `info`).
+  - `StatusPill` (punto + texto, 24 px; tonos de VIEWS §12.4), `DataTable` (cabecera de 44 en `--bg-surface-dark`, filas de 56 u 80, divisor `--stroke-soft`, números alineados a la derecha con `font-variant-numeric: tabular-nums`, región desplazable y enfocable), `Timeline`, `ConfirmDialog` sobre `<dialog>` (cierra con `Esc`, foco atrapado por el navegador, `aria-labelledby`; abrir con **Invoker Commands** `commandfor`/`command="show-modal"`; la isla `confirm-dialog` es el respaldo y abre en `showModal()` el que venga con `open`), `KpiCard` (data, pending con borde discontinuo y «Sin contrato», error).
+  - `form-busy`: al enviar un formulario con `data-busy-on-submit`, `aria-busy="true"` y el botón de envío `loading` y deshabilitado (después del envío, para que su valor viaje); idempotente.
+  - `pages/dev/admin-ui.astro` con todos los estados bajo `data-context="backoffice"`.
+- Criterios de aceptación:
+  - [ ] En la tienda, `Button`, `Notice` y el resto de `ui/` se ven **igual** (mismos estilos calculados con y sin el contexto, por rol).
+  - [ ] `StatusPill` nunca comunica solo con color; los 7 tonos cumplen los contrastes de §12.7.
+  - [ ] `DataTable`: `<table>` con `<caption>` (visible solo para lectores), `scope="col"`, sin tabla de diseño; con muchas columnas se desplaza dentro de su región.
+  - [ ] `ConfirmDialog` sin JavaScript abre con `command` y cierra con el botón de cancelar (`formmethod="dialog"`); con `open` se pinta ya visible; `Esc` lo cierra; el botón de confirmar es el único que envía.
+  - [ ] `KpiCard pending`: texto «Sin contrato» y `aria-label` completo; `state="error"` ofrece el texto «No disponible».
+  - [ ] Sin valores sueltos (RT-1); `components/**` no importa de `lib/server`.
+- Firmas públicas:
+  - `components/ui/status-pill.ts`: `export type PillTone = 'pending'|'paid'|'active'|'transit'|'done'|'cancelled'|'neutral'` (**la misma unión** que declara `lib/admin/status.ts` de T-144; se duplica a propósito para que los dos paquetes pasen `npm run check` por separado, y una prueba de QA exige que coincidan). `StatusPill` Props `{ label: string; tone: PillTone }`.
+  - `DataTable` Props `{ columns: readonly DataTableColumn[]; caption: string; density?: 'md'|'lg' }` con `export interface DataTableColumn { key: string; header: string; align?: 'start'|'end'|'center'; width?: string; hideHeader?: boolean }`; slot `default` = las `<tr>` del `<tbody>`.
+  - `Timeline` Props `{ label: string; items: readonly { title: string; at: string; note?: string | null; actor?: string; current?: boolean }[] }` (`at` llega ya formateada).
+  - `ConfirmDialog` Props `{ id: string; title: string; description?: string; confirmLabel: string; cancelLabel?: string; tone?: 'danger'|'primary'; open?: boolean; action?: string }`; slot `default` = los campos del formulario (incluidos los `hidden`); el formulario es `method="post"`.
+  - `KpiCard` Props `{ label: string; value?: string; state?: 'data'|'pending'|'error'; hint?: string; href?: string }`.
+  - `Button` Props adicionales `variant: … | 'danger' | 'ghost'`, `size: … | 'sm'`; `Notice` slot `actions`.
+  - `islands/confirm-dialog.ts`: `export function initConfirmDialog(root?: ParentNode): void`; `islands/form-busy.ts`: `export function initFormBusy(root?: ParentNode): void`.
+- Pruebas obligatorias (qa-reviewer): Container API de cada componente (atributos, roles, variantes, `caption`, `scope`, sin `set:html`); `happy-dom` de las dos islas (idempotentes, `showModal` solo con `open`, el botón conserva su valor al enviar); igualdad de las dos uniones `PillTone` (la de `status-pill.ts` y la de `lib/admin/status.ts`); prueba de estilos: auditoría de roles (los `ui/` no usan `--color-*` directos salvo lista anotada) y RT-1; E2E del muestrario: `Esc`, foco dentro del diálogo, `command` sin JavaScript, axe en el muestrario, capturas a 1440; `npm run check`; `npm run build`.
+- Diseño (frontend): `193:21` (`bo/componentes`; sets `Button` `193:146`, `StatusPill` `193:171`, `KpiCard` `193:198`, `Alert` `193:229`) **una sola consulta**. Tabla, línea de tiempo y diálogo salen de BRIEF §14 y VIEWS §12 (cabecera 44, filas 56 y 80, diálogo con borde de control y fondo al 75 %): sus frames (`197:200`, `199:542`, `200:639`) los consultan T-084 y T-146.
+- Revisión manual (el usuario): `/dev/admin-ui` con la sesión de administrador (muestrario de estados).
+- Seguridad: el diálogo no envía datos al cancelar; ningún componente imprime datos con `set:html`.
+- Estado inicial: READY · Entrega: RT-B11; `feat(ui): componentes base del backoffice (T-143)`.
+- IDs reservados: ninguno.
+- Escalar si: un rol necesario no existe en `tokens.css` (se pide a T-142), o la auditoría cambia el aspecto de la tienda.
+
+### T-144 — Clientes de API de administración y utilidades
+- Objetivo: una sola capa tipada de acceso a los endpoints de administración y las funciones puras que usan varias pantallas, sin interfaz.
+- Responsable: frontend-dev (pruebas: qa-reviewer) · Módulo: ui · Requisitos: RF13.03, RF06.01–RF06.03, RF12.02 · D-015, D-037
+- Leer: §10.5 (3.6–3.8); `lib/api/{http,server,identity,catalog}.ts`; `lib/format.ts`; `orders/SPEC.md` §7; `catalog/SPEC.md` §7; el OpenAPI (`http://127.0.0.1:8000/openapi.json`) para cotejar cada tipo.
+- Contratos aplicables: `/api/v1/orders/admin*`, `/api/v1/catalog/admin/*`, `/api/v1/inventory/admin/stock` (solo lectura). No se inventa ningún campo: lo que difiera del OpenAPI se anota y se escala.
+- Dependencias: T-118, T-120.
+- Puede modificar: `frontend/src/lib/api/{admin-orders,admin-catalog,admin-inventory}.ts`, `frontend/src/lib/admin/{status,money,order-query,errors,messages}.ts`.
+- Protegido: `lib/api/{http,server,browser,catalog,identity}.ts` (solo se importan), `lib/format.ts`, `lib/server/**`, `components/**`, `pages/**`.
+- Resultado esperado: las firmas de 3.7 y 3.8, con cuerpos y consultas exactos: `listAdminOrders` envía solo las claves de `AdminOrderQuery` (lista cerrada, como N-3); `transitionOrder` envía únicamente `to`, `note`, `carrier` y `tracking_code`; `updateProduct` envía lo recibido sin añadir claves; `reorderImages` envía el arreglo de UUID como cuerpo; `uploadProductImage` arma un `FormData` con `file` y `alt` (la rama de `FormData` del transporte es de T-148: aquí solo se arma el cuerpo y se documenta). Mensajes en `messages.ts` con constantes `MSG_*` (RT-B4): permiso, no disponible, estado cambiado, nota obligatoria, campo obligatorio, `sku_taken`, `slug_taken`, `slug_locked`, `last_image`, `file_too_large`, `unsupported_media_type`, `storage_unavailable` y un mapa `MSG_PUBLISH_MISSING` (`description` «Descripción», `category` «Categoría», `price` «Precio», `image` «Al menos una imagen», `lead_time_days` «Plazo de entrega»).
+- Criterios de aceptación:
+  - [ ] Cada función usa el método, la ruta y la consulta del OpenAPI; el `id` va codificado en la ruta; ninguna usa `fetch` directo.
+  - [ ] `parseSoles` acepta `1250`, `1250.5`, `1250.50` y rechaza `''`, `0`, `-1`, `1,250`, `1250,50`, `1e3`, `12.505`, `١٢٣` y más de 9 enteros; `solesInput(parseSoles(x).cents)` es el entero o el decimal canónico; sin `parseFloat` ni `Number` sobre decimales.
+  - [ ] `parseOrderQuery` descarta claves ajenas, `status` fuera de la lista, fechas mal formadas, `q` con más de 100 caracteres (recortado) y `page` fuera de 1…1000; `orderQueryString` es estable y omite `page=1`.
+  - [ ] `transitionTargets(['pagado','en_preparacion','cancelado'])` → `['en_preparacion','cancelado']`; `['enviado','entregado']` → `['entregado']`; nunca devuelve `pagado`, `pendiente_pago` ni `expirado`.
+  - [ ] `fieldErrors` traduce por `loc` y `type`; sin `details` devuelve `{}`; nunca expone `msg` en inglés.
+  - [ ] `orderPill` y `productPill` cubren los 8 + 2 estados con el mapa de VIEWS §12.4.
+- Firmas públicas: las de 3.7 y 3.8 (QA escribe contra ellas).
+- Pruebas obligatorias (qa-reviewer): unitarias con `fetch` simulado de cada función (método, ruta, consulta, cuerpo, `Authorization` solo si hay token, 401/403/404/409/422/413/415/503 → `ApiError` con `status`, `code` y `details`); `parseSoles` y `solesInput` con tabla de bordes; `parseOrderQuery`; `transitionTargets`; `fieldErrors`; `orderPill`/`productPill`; prueba de fuente: `lib/admin/**` y `lib/api/admin-*.ts` no importan de `astro:env` ni de `lib/server`; `npm run check`; `npm run build`.
+- Diseño (frontend): no aplica.
+- Revisión manual (el usuario): ninguna visible.
+- Seguridad: nada de importes calculados (RN-09): `parseSoles` solo convierte lo escrito; la identidad sale del token, nunca de un parámetro; ningún `user_id` en cuerpos.
+- Estado inicial: READY · Entrega: RT-B11; `feat(ui): clientes de API de administración y utilidades (T-144)`.
+- IDs reservados: ninguno.
+- Escalar si: el OpenAPI discrepa de 3.7 (se corrige 3.7 con `api-contract-review` antes de seguir) o `case_diameter_mm` no acepta una cadena decimal.
+
+### T-145 — Panel `/admin`
+- Objetivo: el administrador ve de un vistazo qué pedidos esperan preparación, cuántos están pendientes de pago y qué stock está bajo o agotado, con datos derivados de los listados (D-B3 A).
+- Responsable: frontend-dev (pruebas: qa-reviewer) · Módulo: ui (backoffice) · Requisitos: RF13.01, RF13.03, RF06.06 · D-049 (D-B3)
+- Leer: `VIEWS.md` §12.2 (fila Panel) y §12.5 (H-B1, H-B2); §10.3–10.5; T-142, T-143, T-144.
+- Contratos aplicables: `GET /orders/admin?status&page_size` y `GET /inventory/admin/stock?status&page_size`.
+- Dependencias: T-142, T-143, T-144.
+- Puede modificar: `frontend/src/pages/admin/index.astro`, `frontend/src/components/admin/{DashboardKpis,DashboardAlerts,DashboardOrders,DashboardStock}.astro`, `frontend/src/lib/admin/dashboard.ts`, y una línea de `lib/admin/nav.ts` (`panel`).
+- Protegido: todo lo de T-142…T-144 (solo se importa).
+- Resultado esperado: `loadDashboard` hace **4 llamadas en paralelo** (`Promise.allSettled`): pedidos `pagado` con `page_size=5` (da el KPI «Por preparar» y las 5 filas), pedidos `pendiente_pago` con `page_size=1`, stock `low_stock` con `page_size=4` (KPI «Stock bajo» y mini tabla) y stock `out_of_stock` con `page_size=1`. Un fallo parcial degrada solo ese bloque; un 401 o 403 se relanza y lo trata `adminErrorResponse`. KPI «Ventas del período» en `pending` (H-B1); la alerta «vencen pronto» se omite (H-B2). Alertas: «N productos agotados» y «N con stock bajo» solo si N > 0. Tabla «Pedidos por preparar» (número con enlace a `/admin/pedidos/{id}`, destinatario, total con `formatMoney`, fecha con `formatDateTimeNumeric`) y «Ver todos» a `/admin/pedidos?status=pagado`. Vacíos: «Nada por preparar» y «Sin productos con stock bajo».
+- Criterios de aceptación:
+  - [ ] Con la API sana, los cuatro KPI muestran el `total` del listado correspondiente y la tabla las 5 filas recibidas, en el orden recibido.
+  - [ ] Si una de las 4 llamadas falla (5xx o red), solo su bloque muestra el error con «Reintentar» (recarga de la página); la página responde 200.
+  - [ ] Si alguna llamada responde 403, la página responde 403 «Sin permiso»; con 401, redirige al ingreso.
+  - [ ] «Ventas del período» aparece `pending` con «Sin contrato» y no llama a la API.
+  - [ ] No se calcula ningún importe ni total en el cliente; las cifras son `total` o `formatMoney`.
+  - [ ] `loadDashboard` está aislada en `lib/admin/dashboard.ts` para que T-141 solo cambie su interior.
+- Firmas públicas: `export type Count = { ok: true; total: number } | { ok: false }`; `export type DashboardData = { toPrepare: Count; pendingPayment: Count; lowStock: Count; outOfStock: Count; ordersToPrepare: AdminOrderSummary[] | null; lowStockItems: StockItem[] | null }`; `export function loadDashboard(t: Transport): Promise<DashboardData>`. Componentes: `DashboardKpis` `{ data: DashboardData }`, `DashboardAlerts` `{ data: DashboardData }`, `DashboardOrders` `{ items: AdminOrderSummary[] | null }`, `DashboardStock` `{ items: StockItem[] | null }`. Ruta `GET /admin`.
+- Pruebas obligatorias (qa-reviewer): unitarias de `loadDashboard` (4 llamadas y sus consultas exactas; fallo parcial; 401/403 relanzados); Container API de los cuatro componentes (datos, vacío, error, `pending`); E2E con administrador y datos sembrados por la suite (un pedido pagado y un producto con stock bajo, creados por la API): cifras, enlaces, 403 de un cliente; axe; capturas a 1440; `npm run check`; `npm run build`.
+- Diseño (frontend): `194:206` (`bo/02-panel`), una consulta; VIEWS §12.2; los importes sin `.00` fijo (D-B6 B).
+- Revisión manual (el usuario): `/admin` con un pedido pagado y un producto con stock bajo; comparar con el frame.
+- Seguridad: solo lectura; `no-store`; sin PII en consola.
+- Estado inicial: READY al integrar T-142…T-144 · Entrega: RT-B11; `feat(ui): panel de administración con KPI y alertas (T-145)`.
+- IDs reservados: ninguno.
+- Escalar si: las 4 llamadas hacen lento el panel (> 1 s con datos de demostración): se adelanta T-141.
+
+### T-084 — Listado de pedidos `/admin/pedidos` (reutiliza el ID; ver `orders/STATUS.md`)
+- Objetivo: el administrador busca y filtra pedidos y abre uno, con paginación y los estados vacío, error y filtros activos en la URL.
+- Responsable: frontend-dev (pruebas: qa-reviewer) · Módulo: orders (frontend, backoffice) · Requisitos: RF13.03, RF12.02 · CA-ORDERS-16 · D-049 (D-B5, D-B6)
+- Leer: `VIEWS.md` §12.2 (fila listado), §12.5 (H-B5); `orders/SPEC.md` §7 (`GET /admin`); §10.3–10.5; T-142, T-143, T-144.
+- Contratos aplicables: `GET /api/v1/orders/admin?status&q&created_from&created_to&page&page_size` (`page_size` ≤ 50; fechas entre 2000 y 2100; `q` por número o destinatario).
+- Dependencias: T-142, T-143, T-144.
+- Puede modificar: `frontend/src/pages/admin/pedidos/index.astro`, `frontend/src/components/admin/{OrderFilters,OrdersTable}.astro`, y una línea de `lib/admin/nav.ts` (`pedidos`).
+- Protegido: lo demás; en particular `pages/admin/pedidos/[order_id].astro` (T-146).
+- Resultado esperado: formulario de filtros **GET** (funciona sin JavaScript): `Field type="search"` «Número o destinatario», dos `Field type="date"` («Desde», «Hasta») y `Chip` de enlace por estado («Todos» y los 8 estados) con el estado activo en amarillo; «Aplicar» y «Limpiar filtros». Tabla con `DataTable`: número (enlace a `/admin/pedidos/{id}?volver=<orderQueryString saneada, codificada>`; la fila lleva `id="o-{id}"` para recuperar el foco al volver), destinatario, distrito o «Recojo en tienda» (H-B9), unidades, `StatusPill`, total (`formatMoney`), creado (`formatDateTimeNumeric`) y, solo en `pendiente_pago`, «Vence …» (`expires_at`). `Pagination` con `hrefFor` que conserva la consulta. Estados: vacío con filtros («No hay pedidos con estos filtros» y «Limpiar filtros»), vacío sin filtros («Aún no hay pedidos»), error 503 con «Reintentar» (`bo/03d`), 422 de `q` con mensaje junto al campo. La página fija `page_size` en 20.
+- Criterios de aceptación:
+  - [ ] La consulta se construye solo con `parseOrderQuery` (lista cerrada); `?status=otro`, `?page=0`, `?created_from=x` se ignoran sin error, y se pintan los filtros válidos.
+  - [ ] Filtrar por estado, texto y fechas devuelve las filas del backend; la paginación conserva los filtros; cambiar un filtro vuelve a `page=1`.
+  - [ ] Vacío, error y 422 de `q` se distinguen y no pintan una tabla vacía; el 403 y el 401 usan `adminErrorResponse`.
+  - [ ] Cada fila: `StatusPill` con texto, importes de `formatMoney`, fechas `dd/mm/aaaa hh:mm` en Lima.
+  - [ ] Teclado: se puede filtrar y recorrer la tabla y la paginación; el enlace del número es el único foco de la fila.
+  - [ ] Sin JavaScript todo funciona.
+- Firmas públicas: `OrderFilters` Props `{ values: { status?: OrderStatus; q?: string; created_from?: string; created_to?: string }; errors?: { q?: string; created_from?: string; created_to?: string }; action: string; hrefForStatus: (s: OrderStatus | null) => string }`; `OrdersTable` Props `{ items: AdminOrderSummary[]; backQuery: string }` (`backQuery` = `orderQueryString` de la consulta actual). Ruta `GET /admin/pedidos?status&q&created_from&created_to&page`.
+- Pruebas obligatorias (qa-reviewer): Container API de `OrderFilters` y `OrdersTable` (cada estado de pill, «Recojo en tienda», «Vence», `hrefFor`, valores conservados, errores por campo); página con `fetch` simulado (consulta exacta enviada, vacío, error, 422, 403, 401); E2E con administrador y pedidos sembrados por la suite (estados distintos): filtros, paginación, `q` por número y por destinatario, vacío, enlace al detalle; accesibilidad con axe; capturas de `197:200`, `197:554` y `197:1058` a 1440; `npm run check`; `npm run build`.
+- Diseño (frontend): `197:200`, `197:554`, `197:1058` (`bo/03`, `03b`, `03d`), una consulta cada uno; `197:778` (`03c`, cargando) **no se implementa en SSR** (AB-5). Importes sin `.00` fijo (D-B6 B).
+- Revisión manual (el usuario): `/admin/pedidos` con varios pedidos; probar cada filtro, el vacío (`?q=zzzz`) y el enlace al detalle.
+- Seguridad: solo lectura; `q` se envía como parámetro (nunca en HTML sin escapar); `recipient_name` como texto; `no-store`.
+- Estado inicial: READY al integrar T-142…T-144 · Entrega: RT-B11; `feat(ui): listado de pedidos del backoffice (T-084)`.
+- IDs reservados: ninguno.
+- Escalar si: el backend no filtra como describe H-B5, o la tabla de 8 columnas no cabe en 1116 px sin romper la retícula.
+
+### T-146 — Detalle de pedido, transiciones y «Cancelar y reembolsar»
+- Objetivo: el administrador abre un pedido, lo lleva por sus estados válidos o lo cancela con motivo, y ve el reembolso y el historial.
+- Responsable: frontend-dev (pruebas: qa-reviewer) · Módulo: orders (frontend, backoffice) · Requisitos: RF13.03, RF12.02, RF04.04 · CA-ORDERS-17, 18, 19 · D-049 (D-B4)
+- Leer: `VIEWS.md` §12.2 (fila detalle) y §12.4 (transiciones); `orders/SPEC.md` §4 (R10, R15, R19, R20), §5 y §7 (`transitions`); §10.3–10.5; T-084 (solo la forma del enlace de vuelta).
+- Contratos aplicables: `GET /orders/admin/{id}` y `POST /orders/admin/{id}/transitions {to, note?, carrier?, tracking_code?}` (`note` 1–500; `carrier` y `tracking_code` 1–60, solo con `to = enviado`; 404, 409 `invalid_transition` con `details {from, to, allowed}`, 422).
+- Dependencias: T-142, T-143, T-144.
+- Puede modificar: `frontend/src/pages/admin/pedidos/[order_id].astro`, `frontend/src/components/admin/{OrderActions,OrderLines,OrderDelivery,OrderSummaryCard}.astro`.
+- Protegido: `pages/admin/pedidos/index.astro` y sus componentes (T-084), `lib/admin/**` y `lib/api/**` (solo se importan).
+- Resultado esperado: página con `Breadcrumb` (Pedidos › VAL-…) y enlace «Volver a pedidos» a `/admin/pedidos?{consulta}#o-{id}`, donde la consulta sale de **`parseOrderQuery(new URLSearchParams(volver))` + `orderQueryString`** (nunca se copia el valor crudo de `?volver=`); `h1` con el número y `StatusPill`; líneas con `DataTable` de filas de 80 (miniatura o marcador si `image` es nulo, nombre, SKU, cantidad, precio unitario con `Price`/`formatMoney`, `line_total`), totales (`subtotal`, `shipping`, `total`), `Timeline` del historial (`actor` → «Cliente», «Administrador», «Sistema»; `note` como texto; el estado actual en amarillo), tarjeta «Entrega» (`DefinitionList`: método, destinatario, teléfono, dirección o tienda de recojo, transportista y seguimiento si existen, **cuenta = `user_id` abreviado**, H-B4), bloque «Reembolso» si `refund` (monto y fecha) y `OrderActions`. **Solo se pintan los destinos de `transitionTargets(can_transition_to)`** (D-B4 A). Cada avance es un formulario `POST` con `to` oculto; «Marcar como enviado» pide `carrier` y `tracking_code` opcionales; **cancelar** abre `ConfirmDialog` con `note` obligatoria (1–500) y el texto de `cancelCopy` según el estado; tras cancelar un pedido pagado, una nota fija («El stock no se repone automáticamente: si la pieza vuelve a la tienda, registra una devolución en Inventario», R15). Un pedido terminal no muestra acciones. El `POST` de la página (campo `_action=transition`) valida que `to` sea uno de los 5 destinos (si no, 422 sin llamar) y manda **solo** `to`, `note`, `carrier` y `tracking_code`.
+- Criterios de aceptación:
+  - [ ] Los botones salen exactamente de `can_transition_to` del servidor: un pedido `pagado` ofrece «Preparar pedido» y «Cancelar y reembolsar»; `en_preparacion` con envío, «Marcar como enviado» y cancelar; con recojo, «Marcar listo para recojo»; `enviado` y `listo_para_recojo`, solo «Marcar como entregado»; `entregado`, `cancelado` y `expirado`, ninguno.
+  - [ ] Éxito → 303 a la misma página con el estado nuevo y un aviso («Pedido actualizado», `role="status"`); la vista usa el cuerpo recibido, nunca calcula estados.
+  - [ ] Cancelar sin motivo → 422 con el error junto al campo y el diálogo abierto; con motivo, un `pagado` queda `cancelado` con el bloque de reembolso (`formatMoney`) y la nota R15; un `pendiente_pago`, sin reembolso y con el texto de «libera las reservas».
+  - [ ] 409 `invalid_transition` → vuelve a leer el detalle, muestra el estado actual y un `Notice` de aviso («El estado del pedido cambió: se muestra el estado actual»); nunca reintenta solo.
+  - [ ] 404 → `/404`; `order_id` que no es UUID → `/404` **sin** llamar a la API; 403 y 401 por `adminErrorResponse`; 5xx o red → 503 con «Reintentar».
+  - [ ] Enviar dos veces seguidas no duplica la acción en el cliente (`form-busy`); el backend resuelve la carrera con el 409.
+  - [ ] Sin imagen de línea no se rompe la fila; `note` con `<script>` se muestra como texto.
+- Firmas públicas: `OrderActions` Props `{ orderId: string; status: OrderStatus; canTransitionTo: readonly OrderStatus[]; deliveryMethod: 'shipping'|'pickup'; values?: { note?: string; carrier?: string; tracking_code?: string }; errors?: { form?: string; note?: string; carrier?: string; tracking_code?: string }; cancelOpen?: boolean }`; `OrderLines` Props `{ lines: readonly AdminOrderLine[] }`; `OrderDelivery` Props `{ delivery: AdminDelivery; userId: string }`; `OrderSummaryCard` Props `{ subtotal: Money; shipping: Money; total: Money; refund: { amount: Money; at: string } | null; paidAt: string | null }`. Ruta `GET|POST /admin/pedidos/[order_id]` (`_action=transition`, campos `to`, `note`, `carrier`, `tracking_code`).
+- Pruebas obligatorias (qa-reviewer): Container API (acciones por estado y modalidad, diálogo abierto con error, terminal sin acciones, imagen nula, `note` hostil); página con `fetch` simulado (cuerpo exacto del `POST`, `Origin` ajeno → 403, cuerpo no formulario → 415, 303 con `no-store`, 409 con relectura, 422, 404, UUID inválido sin llamada); E2E con administrador y pedidos sembrados (pagado, en preparación con envío y con recojo): recorrer `pagado → en_preparacion → enviado → entregado`, el de recojo, cancelar uno pagado (reembolso visible) y uno pendiente; un cliente no entra; axe; capturas de `199:542` y `200:639` a 1440; `npm run check`; `npm run build`.
+- Diseño (frontend): `199:542` (`bo/04-pedido-detalle`) y `200:639` (`bo/04b-cancelar-dialogo`), una consulta cada uno. VIEWS §12.2 y §12.4.
+- Revisión manual (el usuario): con un pedido pagado, prepararlo, enviarlo con transportista, entregarlo; con otro pagado, cancelarlo con motivo y ver el reembolso; probar un pedido de recojo.
+- Seguridad: el cliente no decide qué transiciones existen ni calcula importes; PII solo a administrador; `to` validado contra los 5 destinos; sin `console`; `no-store`.
+- Estado inicial: READY al integrar T-142…T-144 · Entrega: RT-B11; `feat(ui): detalle de pedido con transiciones y cancelación (T-146)`.
+- IDs reservados: ninguno.
+- Escalar si: `can_transition_to` incluye un destino que la interfaz no sabe pintar (se ignora y se registra), o el diálogo no cabe en 1116 px.
+
+### T-147 — Formulario de producto (crear y editar) y publicación
+- Objetivo: el administrador crea un producto, lo edita (solo lo cambiado) y lo publica o despublica, con los errores 409 y 422 junto a su campo.
+- Responsable: frontend-dev (pruebas: qa-reviewer) · Módulo: catalog (frontend, backoffice) · Requisitos: RF06.01, RF06.02, RF06.07, RF02.03 · D-049, D-015, D-037
+- Leer: `VIEWS.md` §12.2 (fila producto) y §12.5 (H-B6); `catalog/SPEC.md` §4 y §7 (administración); §10.3–10.5; T-142…T-144.
+- Contratos aplicables: `POST /catalog/admin/products`, `GET|PATCH …/products/{id}`, `POST …/publish` y `…/unpublish`, `GET …/categories`, `GET …/attributes`. Errores: 409 `sku_taken`, `slug_taken`, `slug_locked`, `publish_requirements_unmet` (`details.missing`), 422 por campo.
+- Dependencias: T-142, T-143, T-144.
+- Puede modificar: `frontend/src/pages/admin/productos/{nuevo,[product_id]}.astro`, `frontend/src/components/admin/{ProductForm,SpecsEditor,PublishPanel}.astro`, `frontend/src/components/ui/{Select,Textarea,RadioGroup}.astro`, `frontend/src/islands/{specs-editor,unsaved-changes}.ts`, `frontend/src/lib/admin/product-form.ts`, y una línea de `lib/admin/nav.ts` (`productos`).
+- Protegido: `pages/admin/productos/index.astro` (T-149), la sección de imágenes (T-148: el formulario deja un hueco `<slot name="images" />`), lo demás.
+- Resultado esperado: dos rutas con el mismo `ProductForm` y la tarjeta lateral `PublishPanel` (VIEWS `bo/05`): bloques Datos (SKU, slug opcional, nombre, descripción), Precio y venta (`Field` «Precio (S/)» en soles con `parseSoles`, política `RadioGroup` stock / bajo pedido / sobre pedido, plazo en días), Atributos (`Select` de categoría, movimiento y material de caja de las listas del backend; diámetro con un decimal; resistencia al agua en metros), Especificaciones (`SpecsEditor`, hasta 40 pares etiqueta/valor; sin JavaScript se pintan las existentes y 2 vacías; con JavaScript se añaden y quitan) y Publicación (`PublishPanel`: estado `Borrador`/`Publicado`, «Publicar» y «Despublicar»). **Crear:** `POST` → 303 a `/admin/productos/{id}?creado=1`; las imágenes aparecen tras guardar (aviso «Guarda el producto para añadir imágenes»). **Editar:** `GET` carga el producto; el `POST` relee el producto, calcula con `diffProduct` **solo los campos cambiados** (vacío en un opcional → `null`) y llama a `PATCH`; sin cambios no llama («Sin cambios»). Los mensajes de error van por `fieldErrors`; 409 `sku_taken`/`slug_taken` bajo su campo; 409 `slug_locked` como mensaje de formulario; el plazo obligatorio fuera de «stock» es una regla del backend (422), no de la interfaz. Publicar con 409 `publish_requirements_unmet` lista `details.missing` traducido (`MSG_PUBLISH_MISSING`). `unsaved-changes` avisa al salir con cambios sin guardar.
+- Criterios de aceptación:
+  - [ ] Crear con datos válidos → producto en `draft` y redirección; con SKU repetido → 409 bajo el campo SKU y lo escrito conservado; con datos inválidos → 422 por campo (nombre, descripción, plazo, diámetro…).
+  - [ ] Editar solo el nombre envía un `PATCH` con `{ name }` y nada más; vaciar «Resistencia al agua» envía `water_resistance_m: null`; el precio viaja como `{ amount, currency: 'PEN' }` con `amount` entero de `parseSoles`.
+  - [ ] El precio se muestra al editar con `solesInput` y en las tarjetas con `formatMoney` (D-B6 B); `1250.50` ↔ `125050`.
+  - [ ] Publicar un producto incompleto → 409 con la lista de requisitos faltantes en español; completo → `published`; «Despublicar» vuelve a `draft`.
+  - [ ] `product_id` que no es UUID → `/404` sin llamada; 404 → `/404`; 403 y 401 por `adminErrorResponse`.
+  - [ ] El formulario nunca envía `status`, `id`, `published_at` ni `images`; los campos extra del cuerpo recibido se ignoran.
+  - [ ] Teclado y lectores: etiquetas, `aria-describedby`, resumen de errores con foco; sin JavaScript crear y editar funcionan.
+- Firmas públicas:
+  - `lib/admin/product-form.ts`: `export type ProductFormValues = { sku: string; slug: string; name: string; description: string; category_id: string; price: string; order_policy: OrderPolicy; lead_time_days: string; movement_code: string; case_material_code: string; case_diameter_mm: string; water_resistance_m: string; specs: { label: string; value: string }[] }`; `readProductForm(fd: FormData): ProductFormValues`; `toProductValues(p: AdminProduct): ProductFormValues`; `validateProductForm(v: ProductFormValues): { ok: true; input: ProductInput } | { ok: false; errors: Partial<Record<keyof ProductFormValues | 'form', string>> }` (solo formato: obligatorios y precio con `parseSoles`); `diffProduct(original: ProductFormValues, next: ProductFormValues): ProductPatch`.
+  - `ProductForm` Props `{ mode: 'create'|'edit'; values: ProductFormValues; errors?: Partial<Record<keyof ProductFormValues | 'form', string>>; categories: readonly AdminCategory[]; movements: readonly AdminAttributeValue[]; caseMaterials: readonly AdminAttributeValue[]; saved?: 'created'|'updated'|'unchanged' }`; slot `images`.
+  - `PublishPanel` Props `{ productId: string; status: ProductStatus; missing?: readonly string[]; error?: string }`. `SpecsEditor` Props `{ specs: readonly { label: string; value: string }[]; errors?: Record<number, string>; max?: number }`.
+  - `ui/Select` Props `{ id: string; name: string; label: string; options: readonly { value: string; label: string }[]; value?: string; placeholder?: string; required?: boolean; disabled?: boolean; error?: string; hint?: string }`; `ui/Textarea` Props `{ id: string; name: string; label: string; value?: string; rows?: number; maxlength?: number; required?: boolean; error?: string; hint?: string }`; `ui/RadioGroup` Props `{ name: string; legend: string; options: readonly { value: string; label: string; hint?: string }[]; value?: string; error?: string; required?: boolean }`.
+  - `islands/specs-editor.ts`: `initSpecsEditor(root?: ParentNode): void`; `islands/unsaved-changes.ts`: `initUnsavedChanges(root?: ParentNode): void`.
+  - Rutas `GET|POST /admin/productos/nuevo` y `GET|POST /admin/productos/[product_id]` (`_action` = `save`, `publish`, `unpublish`).
+- Pruebas obligatorias (qa-reviewer): unitarias de `readProductForm`, `validateProductForm`, `diffProduct` (nombre solo, `null` de opcionales, precio, orden de `specs`) y `toProductValues`; Container API de `ProductForm`, `PublishPanel`, `SpecsEditor`, `Select`, `Textarea`, `RadioGroup` (estados, errores, `aria`); `happy-dom` de las dos islas; páginas con `fetch` simulado (cuerpos exactos, `Origin` 403, 415, 303 con `no-store`, 409, 422, 404, UUID inválido); E2E con administrador: crear, editar, 409 de SKU, 422, publicar incompleto y completo, despublicar, un cliente no entra; axe; capturas de `201:748` a 1440; `npm run check`; `npm run build`.
+- Diseño (frontend): `201:748` (`bo/05-producto-formulario`), una consulta. Componentes nuevos `Select`, `Textarea`, `RadioGroup` genéricos en `ui/` (VIEWS §12.3; **`Textarea` aparte** y no un `Field` multilínea, para no ampliar la unión de `Field.type`).
+- Revisión manual (el usuario): crear un producto, repetir su SKU, editarlo, intentar publicarlo sin imagen y leer el aviso.
+- Seguridad: el rol lo exige el backend en cada llamada; sin `set:html`; `sku`, `slug` y texto como texto; el precio se envía como entero validado por el servidor; sin PII.
+- Estado inicial: READY al integrar T-142…T-144 · Entrega: RT-B11; `feat(ui): formulario de producto y publicación del backoffice (T-147)`.
+- IDs reservados: ninguno.
+- Escalar si: las listas de atributos o categorías no coinciden con el contrato, o el diámetro exige un formato que no sea una cadena decimal.
+
+### T-148 — Imágenes del producto
+- Objetivo: en la edición de un producto se suben, describen, reordenan (arrastrando o con botones) y borran sus imágenes, con los errores del backend explicados.
+- Responsable: frontend-dev (pruebas: qa-reviewer) · Módulo: catalog (frontend, backoffice) · Requisitos: RF06.03 · D-019, D-048, D-049 (D-B7), WCAG 2.5.7
+- Leer: `VIEWS.md` §12.2 (fila producto: imágenes) ; `catalog/SPEC.md` §4 (R11) y §7 (imágenes); `hardening/STATUS.md` T-018i (WebP: el contrato `{id,url,alt}` **no cambia**); §10.3–10.5; T-147.
+- Contratos aplicables: `POST …/products/{id}/images` (multipart `file` + `alt` 1–150; JPEG, PNG o WebP; ≤ 5 MiB; el servidor convierte a WebP y limpia metadatos), `PATCH …/images/{image_id}` (`alt`), `PUT …/images/order` (arreglo de UUID), `DELETE …/images/{image_id}` (204). Errores: 413 `file_too_large`, 415 `unsupported_media_type`, 503 `storage_unavailable`, 409 `last_image`, 422, 404.
+- Dependencias: T-147.
+- Puede modificar: `frontend/src/pages/admin/productos/[product_id].astro` (solo el relleno del slot `images` y el manejo de sus `_action`), `frontend/src/components/admin/ImageManager.astro`, `frontend/src/components/ui/FileDropzone.astro`, `frontend/src/islands/image-sort.ts`, `frontend/src/lib/api/server.ts` (**solo** la rama de `FormData` y `timeoutMs`, aditivas), `frontend/src/lib/server/session.ts` (**solo** `apiFor(locals, opts?)` aditivo).
+- Protegido: lo demás de T-147 (formulario, panel, `product-form.ts`), `lib/api/{http,browser}.ts`.
+- Resultado esperado:
+  - Transporte: si `req.body instanceof FormData`, se envía tal cual sin `Content-Type` (el navegador del servidor pone el límite) ni `JSON.stringify`; `serverTransport({ accessToken, timeoutMs })` con 8 s por defecto; `apiFor(locals, { timeoutMs })`. La subida usa 20 s.
+  - `ImageManager`: miniaturas con `alt` editable (`_action=image-alt`), **botones «Subir» y «Bajar»** (siempre presentes; `_action=image-move`, el servidor calcula el nuevo orden y llama a `PUT order`), **arrastrar y soltar** con `image-sort` (HTML5, `draggable`; al soltar rellena el campo `ids` y envía `_action=image-order`; un `aria-live` anuncia «Imagen movida a la posición N»), «Eliminar» con `ConfirmDialog`, y `FileDropzone` para subir una imagen con su `alt` obligatorio (`_action=image-upload`). La primera imagen es la principal (se rotula).
+  - Antes de leer el cuerpo, si `Content-Length` > 6 MiB → 413 con el mensaje; si el archivo recibido pesa > 5 MiB, también (el backend sigue siendo la autoridad).
+  - Modo crear: sin imágenes (aviso de T-147).
+- Criterios de aceptación:
+  - [ ] Subir un JPEG, un PNG y un WebP válidos añade la imagen y 303; el `alt` vacío → 422 junto al campo, sin llamar si el formulario lo trae vacío.
+  - [ ] Archivo de > 5 MiB → 413 con «El archivo supera los 5 MiB»; tipo no permitido (p. ej. GIF o un texto renombrado) → 415 con «Formato no admitido: usa JPEG, PNG o WebP»; Storage caído → 503 con «Reintentar»; ninguno rompe el formulario ni pierde lo escrito.
+  - [ ] Mover con los botones y con arrastrar y soltar produce el mismo `PUT` (arreglo completo de UUID en el nuevo orden); la primera imagen cambia de principal.
+  - [ ] Borrar la última imagen de un producto publicado → 409 `last_image` con «Un producto publicado necesita al menos una imagen»; borrar otra, 204 y 303.
+  - [ ] El orden por teclado es completo sin ratón (2.5.7); `aria-live` anuncia el movimiento; `prefers-reduced-motion` desactiva animaciones.
+  - [ ] `FormData` en el transporte no altera los envíos JSON existentes (`Content-Type` solo para JSON).
+  - [ ] El `alt` y el nombre del archivo se pintan como texto; el nombre del archivo del cliente no se usa para nada.
+- Firmas públicas: `ImageManager` Props `{ productId: string; images: readonly ProductImage[]; published: boolean; errors?: { form?: string; file?: string; alt?: string; imageId?: string }; max?: number }`; `FileDropzone` Props `{ id: string; name: string; label: string; accept: string; maxBytes: number; hint?: string; error?: string }`; `islands/image-sort.ts`: `export function initImageSort(root?: ParentNode): void`; transporte: `serverTransport(opts: { accessToken?: string | null; timeoutMs?: number })`, `apiFor(locals: App.Locals, opts?: { timeoutMs?: number })`. `_action` = `image-upload`, `image-alt`, `image-move`, `image-order`, `image-delete`.
+- Pruebas obligatorias (qa-reviewer): `server-transport.test.ts` ampliado (`FormData` sin `Content-Type` manual, JSON sin cambios, `timeoutMs`); Container API de `ImageManager` y `FileDropzone`; `happy-dom` de `image-sort` (reorden, campo `ids`, `aria-live`, idempotente); página con `fetch` simulado (cada `_action`, `Origin`, 415 de cuerpo, 413 por `Content-Length`, 409 `last_image`, 503); E2E con administrador y archivos de prueba generados por la suite (JPEG, PNG, WebP válidos; un GIF; uno de 5 MiB + 1): subir, describir, mover con botones, con arrastre y borrar; comprobar que la URL guardada responde y, tras T-018i, que es WebP; axe; `npm run check`; `npm run build`; `grep` de `dist/client` sin `api/v1`.
+- Diseño (frontend): `201:748` (ya consultado en T-147: sin nueva consulta; las miniaturas de 56 px, el `drag` y los estados salen de VIEWS §12.2). `FileDropzone` genérico en `ui/`.
+- Revisión manual (el usuario): editar un producto, subir una foto, mover una con el ratón y otra con los botones, borrar una, intentar subir un GIF y un archivo enorme.
+- Seguridad: el tipo y el tamaño lo valida el servidor (la comprobación del cliente es comodidad); los archivos no se guardan en disco ni se registran; `Origin` y 415 como RT-B1/B2; el cambio del transporte no debe permitir rutas absolutas (se conserva la validación de `path`).
+- Estado inicial: READY al integrar T-147 · Entrega: RT-B11; `feat(ui): imágenes del producto en el backoffice (T-148)`.
+- IDs reservados: ninguno.
+- Escalar si: la subida de 5 MiB no cabe en 20 s en local, o el backend exige un orden parcial en `PUT order`.
+
+### T-149 — Listado de productos `/admin/productos` (BLOCKED: D-AB2)
+- Objetivo: el administrador ve los productos (también borradores), los busca por nombre o SKU, filtra por estado y llega al formulario.
+- Responsable: frontend-dev (pruebas: qa-reviewer) · Módulo: catalog (frontend, backoffice) · Requisitos: RF06.01, RF13.01 · H-B10
+- Leer: `VIEWS.md` §12.2 (patrón del listado de pedidos) y §12.5 (H-B7, H-B10); §10.3–10.5; T-084 (patrón); T-143, T-144.
+- Contratos aplicables: `GET /catalog/admin/products?status&q&page&page_size` (`page_size` ≤ 48).
+- Dependencias: T-143, T-144; **decisión D-AB2 = A**.
+- Puede modificar: `frontend/src/pages/admin/productos/index.astro`, `frontend/src/components/admin/ProductsTable.astro`, y una línea de `lib/admin/nav.ts` (`productos`, si T-147 aún no la cambió).
+- Protegido: `[product_id].astro`, `nuevo.astro` y el resto.
+- Resultado esperado: **sin frame en Figma**: se compone con el patrón de `bo/03` (barra de filtros GET con `Field` de búsqueda y chips Todos/Borrador/Publicado, `DataTable`, `Pagination`, vacío y error). Columnas: miniatura (`main_image`, `alt` del contrato), nombre y SKU con enlace a `/admin/productos/{id}`, categoría, precio (`formatMoney`), `StatusPill` (`productPill`), actualizado (`formatDateTimeNumeric`). Botón «Nuevo producto» → `/admin/productos/nuevo`. Se anota como pantalla derivada para la segunda pasada de diseño (H-B7).
+- Criterios de aceptación: como T-084 (consulta con lista cerrada, vacío, error, 403/401, teclado); borradores visibles con su pill; sin imagen no se rompe; `q` y `status` se conservan en la paginación.
+- Firmas públicas: `ProductsTable` Props `{ items: readonly AdminProduct[] }`. Ruta `GET /admin/productos?status&q&page`.
+- Pruebas obligatorias (qa-reviewer): Container API de `ProductsTable`; página con `fetch` simulado (consulta exacta, vacío, error, 403); E2E con administrador (borrador y publicado sembrados): lista, filtros, enlace al formulario, «Nuevo producto»; axe; `npm run check`; `npm run build`.
+- Diseño (frontend): sin frame; patrón `197:200` y `bo/componentes`. frontend-lead revisa la coherencia con `bo/03`.
+- Revisión manual (el usuario): `/admin/productos` con un borrador y un publicado; abrir uno; «Nuevo producto».
+- Seguridad: como T-084.
+- Estado inicial: BLOCKED (decisión D-AB2) · Entrega: RT-B11; `feat(ui): listado de productos del backoffice (T-149)`.
+- IDs reservados: ninguno.
+- Escalar si: el usuario prefiere esperar a la segunda pasada de diseño (D-AB2 = B).
+
+### 10.8 Decisiones que necesitan al usuario o al Leader
+
+| ID | Decide | Pregunta | Opciones | Recomendada |
+|---|---|---|---|---|
+| D-AB1 | Usuario | Cómo accede el backoffice a la API de administración | (A) SSR con `serverTransport` y formularios `POST` de la propia página, sin proxy; (B) proxy `/bff-admin` con lista cerrada y rol comprobado en Astro | **A** (§10.3 AB-1): el token no sale del servidor, `/bff` conserva su lista cerrada y no hay superficie nueva; el coste es una recarga por acción |
+| D-AB2 | Usuario | Listado de productos sin frame (H-B7, H-B10): sin él no hay entrada al formulario | (A) T-149 ya, con el patrón de pedidos y revisión del usuario; (B) esperar a la segunda pasada de diseño; (C) sin listado (solo URL directa) | **A**: reutiliza `DataTable`, chips y paginación; lo derivado se marca para la segunda pasada |
+| D-AB3 | Leader (puerta Docker, D-011) | Administrador para las pruebas E2E y la revisión manual: el rol se asigna con `update app.profiles set role = 'admin'` (docs/deploy.md) | (A) `qa-reviewer` lo hace por `docker exec` + `psql` contra la base **local de desarrollo**, solo sobre usuarios que crea la suite, y los borra; y `review-up.sh` crea un administrador de revisión; (B) un script de siembra del Leader; (C) sin E2E de administrador | **A**, con ficha de auditoría breve (qué comando, sobre qué usuarios, cómo revertir) |
+| D-AB4 | Usuario → backend-lead | Correo y nombre del cliente en el detalle del pedido (H-B4) | (A) MVP con `user_id` abreviado; (B) `customer {email, full_name}` en `AdminOrderDetailOut` (cambio compatible, `api-contract-review`; el correo vive en `auth.users`, requiere un puerto de identity) | **A** ahora; **B** en una tarea de backend aparte cuando haya Clientes (RF13.04) |
+| D-AB5 | Leader | Rango de IDs: T-142…T-149 para esta pista; `T-084` se reutiliza para el listado | Confirmar o reasignar | Confirmar |
+
+**Sin bloqueos de contrato** para T-142…T-148: todos los endpoints usados existen y se cotejaron con el OpenAPI. Pantallas no planificadas (a propósito): inventario y promociones (H-B7, falta diseño), reportes (H-B1, sin contrato), clientes y auditoría (H-B3, sin endpoints).
+
+### 10.9 Traspaso de la planificación (T-142)
+
+#### Traspaso T-142 (plan del backoffice) — 2026-11-27 — frontend-lead
+1. Estado final: IN_REVIEW (solo documentación; el Leader revisa y hace el commit).
+2. Cambios: sección §10 de este STATUS con 9 paquetes (T-142…T-149 y T-084), contratos transversales, reglas RT-B y decisiones D-AB1…D-AB5; `orders/STATUS.md` (T-084) y filas en `tasks.md`.
+3. Archivos: `docs/modules/ui/STATUS.md`, `docs/modules/orders/STATUS.md`, `docs/agents/tasks.md`.
+4. Decisiones tomadas: AB-1…AB-7 (§10.3), propuestas; D-AB1…D-AB5 pendientes (§10.8).
+5. Pruebas: ninguna (documentación). Se leyó el OpenAPI del backend en marcha y se cotejó cada tipo de 3.7.
+6. No ejecutadas: todas (no hay código).
+7. Dependencias pendientes: D-AB2 y D-AB3.
+8. Riesgos: T-143 modifica la apariencia de `ui/` si la auditoría de roles lo exige (se comprueba que la tienda no cambie); el solape de `nav.ts`; la caída de rendimiento del panel con 4 llamadas (T-141).
+9. Preguntas: §10.8.
+10. Documentación actualizada: este STATUS, `orders/STATUS.md`, `tasks.md`.
+11. Siguiente acción: lanzar la ola 1 (T-142 ∥ T-143 ∥ T-144) con `qa-reviewer` en paralelo.
+12. Commits: ninguno — preparado. Mensaje: `docs(ui): paquetes de implementación del backoffice (T-142)`.

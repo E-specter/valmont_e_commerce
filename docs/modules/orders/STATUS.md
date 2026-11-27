@@ -20,7 +20,7 @@
 | T-081 | Cliente de API de orders (`frontend/src/lib/api/orders.ts`) y tipos | frontend-dev + qa-reviewer | contrato §7 aprobado; T-074…T-079 integradas | BACKLOG (no READY: sin contrato aprobado) |
 | T-082 | Pantalla de entrega y confirmación del pedido (checkout) | frontend-dev + qa-reviewer | T-081, T-111 (VIEWS.md y Figma), T-060 | BACKLOG (no READY: sin diseño) |
 | T-083 | Mis pedidos, detalle con historial, cancelar y "volver a comprar" (account) | frontend-dev + qa-reviewer | T-081, T-111 | BACKLOG (no READY: sin diseño) |
-| T-084 | Backoffice de pedidos: listado, detalle y transiciones | frontend-dev + qa-reviewer | T-081, T-111 | BACKLOG (no READY: sin diseño) |
+| T-084 | Backoffice de pedidos: **listado** `/admin/pedidos` (el detalle y las transiciones pasan a **T-146**, división de frontend-lead en T-142; ambos con paquete completo en `docs/modules/ui/STATUS.md` §10.7) | frontend-dev + qa-reviewer | T-142, T-143, T-144 (ya no T-081 ni T-111: el diseño existe, T-140, y el cliente de API es `lib/api/admin-orders.ts` de T-144) | READY al integrar T-142…T-144 |
 
 IDs reservados del módulo: T-070–T-089. En uso: T-070–T-084; **libres: T-085–T-089** (correcciones `fix`, o la división de las pantallas por frontend-lead).
 
@@ -353,7 +353,10 @@ Y la fila de `docs/agents/_registry.md`: `docs/modules/orders/ · Carpeta · SPE
 - IDs reservados: ninguno.
 - Escalar si: Figma muestra imagen de producto por línea (el pedido no la guarda; ver T-082).
 
-### T-084 — Backoffice de pedidos (BACKLOG)
+### T-084 — Backoffice de pedidos (BACKLOG → dividido; paquete vigente en `docs/modules/ui/STATUS.md` §10.7)
+
+> **2026-11-27, frontend-lead (T-142):** el diseño del backoffice existe (T-140, D-046, D-049) y el plan de implementación lo divide. **T-084 queda como el listado `/admin/pedidos`** y el detalle con transiciones y cancelación es **T-146** (mismo bloque de `ui/STATUS.md` §10.7, con firmas, criterios y pruebas). El texto de abajo es el paquete original y queda como referencia de los CA de orders (CA-ORDERS-16 a 19, R10, R15, R19, R20); **si discrepa de `ui/STATUS.md` §10.7, gana §10.7**. El cliente de API ya no es de T-081 sino de T-144 (`lib/api/admin-orders.ts`; T-081 sigue siendo el cliente de la tienda). Las rutas reales son `frontend/src/pages/admin/pedidos/**` (no `admin/orders/**`). El aviso de reponer stock tras cancelar un pedido pagado (R15) es un texto sin enlace hasta que exista el módulo de inventario en pantalla.
+
 - Objetivo: el administrador lista, filtra, abre un pedido y lo lleva por sus estados o lo cancela.
 - Responsable: frontend-dev (pruebas: qa-reviewer; acepta el Leader) · Módulo: orders (frontend, área `backoffice`) · Requisitos: RF13.03, RF12.02
 - Leer: SPEC §7 y §4 (R10, R15, R19); `docs/design_ui/VIEWS.md` y Figma (pendientes); `frontend/src/lib/api/`.
