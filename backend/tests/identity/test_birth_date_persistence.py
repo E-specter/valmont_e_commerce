@@ -306,18 +306,18 @@ def test_no_audit_row_carries_the_birth_date_and_identity_writes_none(
 def test_each_user_reads_only_their_own_date_from_the_database(
     api: TestClient, db_engine: Engine
 ) -> None:
-    ana, luis = uuid4(), uuid4()
+    ana, luis, other = uuid4(), uuid4(), uuid4()
     try:
         api.patch(ME, headers=headers_for(ana), json={"birth_date": "1990-05-17"})
         api.patch(ME, headers=headers_for(luis), json={"birth_date": "1985-12-24"})
 
         assert api.get(ME, headers=headers_for(ana)).json()["birth_date"] == "1990-05-17"
         assert api.get(ME, headers=headers_for(luis)).json()["birth_date"] == "1985-12-24"
-        stranger = api.get(ME, headers=headers_for(uuid4())).json()
+        stranger = api.get(ME, headers=headers_for(other)).json()  # GET crea su perfil
         assert stranger["birth_date"] is None
     finally:
         with db_engine.begin() as connection:
-            connection.execute(delete(ProfileRow).where(ProfileRow.user_id.in_([ana, luis])))
+            connection.execute(delete(ProfileRow).where(ProfileRow.user_id.in_([ana, luis, other])))
 
 
 def test_body_user_id_cannot_set_the_date_of_another_profile(

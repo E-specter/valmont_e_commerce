@@ -28,13 +28,15 @@ def test_app_schema_is_closed_to_supabase_api_roles(db_session: Session) -> None
     assert db_session.scalar(query) is not True
 
 
-def test_migrations_go_down_to_base_and_up_again(alembic_config: Config, db_engine: Engine) -> None:
-    head = ScriptDirectory.from_config(alembic_config).get_current_head()
+def test_migrations_go_down_to_base_and_up_again(
+    migration_config: Config, migration_engine: Engine
+) -> None:
+    head = ScriptDirectory.from_config(migration_config).get_current_head()
 
-    command.downgrade(alembic_config, "base")
-    with db_engine.connect() as connection:
+    command.downgrade(migration_config, "base")
+    with migration_engine.connect() as connection:
         assert connection.scalars(VERSION).all() == []
 
-    command.upgrade(alembic_config, "head")
-    with db_engine.connect() as connection:
+    command.upgrade(migration_config, "head")
+    with migration_engine.connect() as connection:
         assert connection.scalars(VERSION).all() == [head]

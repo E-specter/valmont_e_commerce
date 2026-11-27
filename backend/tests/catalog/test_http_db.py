@@ -193,15 +193,33 @@ def test_categories_and_attributes_show_only_active_values_by_position(
     client: TestClient, db_session: Session, catalog: Catalog
 ) -> None:
     categories = SqlCategoryRepository(db_session)
-    first = make_category("Primera", position=-1)
-    for category in (first, make_category("Oculta", position=-2, is_active=False)):
+    first, hidden = (
+        make_category("Primera", position=-1),
+        make_category("Oculta", position=-2, is_active=False),
+    )
+    for category in (first, hidden):
         categories.add(category)
 
     listed = client.get(f"{BASE}/categories").json()
     attributes = client.get(f"{BASE}/attributes").json()
 
-    assert [c["slug"] for c in listed] == [first.slug, catalog.a.slug, catalog.b.slug]
-    assert listed[0] == {"slug": first.slug, "name": "Primera", "description": None}
+    # Solo los datos propios: la BD puede tener más filas (otras pruebas, la siembra) y no cuentan.
+    own = {first.slug, catalog.a.slug, catalog.b.slug}
+    assert hidden.slug not in [c["slug"] for c in listed]
+    assert [c["slug"] for c in listed if c["slug"] in own] == [
+        first.slug,
+        catalog.a.slug,
+        catalog.b.slug,
+    ]
+    assert next(c for c in listed if c["slug"] == first.slug) == {
+        "slug": first.slug,
+        "name": "Primera",
+        "description": None,
+    }
+    own_codes = {QUARTZ.code, AUTOMATIC.code, STEEL.code, GOLD.code}
+    attributes = {
+        kind: [v for v in values if v["code"] in own_codes] for kind, values in attributes.items()
+    }
     assert attributes == {
         "movements": [
             {"code": QUARTZ.code, "label": QUARTZ.label},

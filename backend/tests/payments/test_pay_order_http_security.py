@@ -47,7 +47,7 @@ LAST4 = "7391"
 UUID_RE = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 # Ruido aleatorio o temporal del volcado donde un dato corto (el CVV) puede coincidir por azar.
 NOISE_RE = re.compile(
-    rf"{UUID_RE.pattern}|pay-[0-9a-f]{{32}}"
+    rf"{UUID_RE.pattern}|pay-[0-9a-f]{{32}}|[0-9a-f]{{32}}"  # request_id (32 hex)
     r"|\d{4}-\d{2}-\d{2}[T ][\d:.]+(?:Z|[+-]\d{2}(?::?\d{2})?)?"
 )
 

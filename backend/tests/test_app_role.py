@@ -484,17 +484,17 @@ def test_app_role_has_no_privilege_on_payment_attempts_beyond_select_and_insert(
 
 
 def test_downgrade_to_0005_revokes_the_grants_and_upgrade_restores_them(
-    alembic_config: Config, db_engine: Engine
+    migration_config: Config, migration_engine: Engine
 ) -> None:
-    command.downgrade(alembic_config, "0005")
-    with db_engine.connect() as connection:
+    command.downgrade(migration_config, "0005")
+    with migration_engine.connect() as connection:
         assert not any(privileges(connection, TABLE_PRIVILEGES).values())
         assert not any(privileges(connection, SEQUENCE_PRIVILEGES).values())
         assert connection.execute(SCHEMA_PRIVILEGES).one() == (False, False)
         # El rol se queda: es del clúster y otra BD puede tener aún permisos para él (0006).
         assert connection.scalar(text("SELECT 1 FROM pg_roles WHERE rolname = 'valmont_app'"))
 
-    command.upgrade(alembic_config, "head")
-    with db_engine.connect() as connection:
+    command.upgrade(migration_config, "head")
+    with migration_engine.connect() as connection:
         assert privileges(connection, TABLE_PRIVILEGES) == EXPECTED_TABLES
         assert privileges(connection, SEQUENCE_PRIVILEGES) == EXPECTED_SEQUENCES

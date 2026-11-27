@@ -70,13 +70,15 @@ Servicios activos: Postgres 17, Auth (GoTrue), Kong, PostgREST, Storage (bucket 
 | Instalar o sincronizar dependencias | `uv sync` |
 | Servidor de desarrollo | `uv run fastapi dev src/valmont/main.py` → http://127.0.0.1:8000/docs |
 | Pruebas unitarias | `uv run pytest -q` |
-| Pruebas de integración (con `npm run db:start`) | `uv run pytest -m integration -q` (usa la BD `valmont_test`, que se crea sola) |
+| Pruebas de integración (con `npm run db:start`) | `uv run pytest -m integration -q` (cada ejecución crea su propia BD, ver la nota de abajo) |
 | Aplicar migraciones (BD de desarrollo) | `uv run alembic upgrade head` |
 | Nueva migración | `uv run alembic revision --autogenerate --rev-id 00NN -m "<cambio>"` → revisar → `upgrade head` |
 | ¿Modelos y BD sincronizados? | `uv run alembic check` |
 | Lint | `uv run ruff check .` |
 | Formato (verificar / aplicar) | `uv run ruff format --check .` / `uv run ruff format .` |
 | Añadir dependencia | `uv add <paquete>` (requiere aprobación de backend-lead) |
+
+**BD de las pruebas de integración (T-018r):** cada ejecución crea `valmont_test_tmp_run_<id>` (migrada a `head`, unos 2 s) y la borra al terminar, así que varias ejecuciones a la vez no se pisan. Las pruebas de migración, que bajan y suben versiones, usan otra (`valmont_test_tmp_mig_<id>`, fixtures `migration_config` y `migration_engine`). `valmont_test` y `postgres` no se tocan. Si se mata `pytest` a la fuerza pueden quedar BD `valmont_test_tmp_*` huérfanas: `DROP DATABASE <nombre> WITH (FORCE)`.
 
 ### Frontend (`cd frontend`)
 

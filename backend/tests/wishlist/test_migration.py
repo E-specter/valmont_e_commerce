@@ -11,17 +11,17 @@ pytestmark = pytest.mark.integration
 EXISTS = text("SELECT to_regclass('app.wishlist_items') IS NOT NULL")
 
 
-def test_0009_follows_0008(alembic_config: Config) -> None:
-    revision = ScriptDirectory.from_config(alembic_config).get_revision("0009")
+def test_0009_follows_0008(migration_config: Config) -> None:
+    revision = ScriptDirectory.from_config(migration_config).get_revision("0009")
 
     assert revision is not None and revision.down_revision == "0008"
 
 
 def test_downgrade_drops_the_table_and_upgrade_restores_it(
-    alembic_config: Config, db_engine: Engine
+    migration_config: Config, migration_engine: Engine
 ) -> None:
-    command.downgrade(alembic_config, "0008")
-    with db_engine.connect() as connection:
+    command.downgrade(migration_config, "0008")
+    with migration_engine.connect() as connection:
         assert connection.scalar(EXISTS) is False
         # Lo que 0008 y las anteriores crearon sigue ahí (FK de 0009: profiles y products).
         assert connection.scalar(
@@ -32,10 +32,10 @@ def test_downgrade_drops_the_table_and_upgrade_restores_it(
             )
         )
 
-    command.upgrade(alembic_config, "head")
-    with db_engine.connect() as connection:
+    command.upgrade(migration_config, "head")
+    with migration_engine.connect() as connection:
         assert connection.scalar(EXISTS) is True
 
 
-def test_alembic_check_reports_no_pending_changes(alembic_config: Config) -> None:
-    command.check(alembic_config)  # lanza CommandError si los modelos y la BD difieren
+def test_alembic_check_reports_no_pending_changes(migration_config: Config) -> None:
+    command.check(migration_config)  # lanza CommandError si los modelos y la BD difieren

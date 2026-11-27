@@ -15,25 +15,25 @@ OBJECTS = text(
 )
 
 
-def test_0007_follows_0006(alembic_config: Config) -> None:
-    revision = ScriptDirectory.from_config(alembic_config).get_revision("0007")
+def test_0007_follows_0006(migration_config: Config) -> None:
+    revision = ScriptDirectory.from_config(migration_config).get_revision("0007")
 
     assert revision is not None and revision.down_revision == "0006"
 
 
 def test_downgrade_drops_the_view_and_tables_and_upgrade_restores_them(
-    alembic_config: Config, db_engine: Engine
+    migration_config: Config, migration_engine: Engine
 ) -> None:
-    command.downgrade(alembic_config, "0006")
-    with db_engine.connect() as connection:
+    command.downgrade(migration_config, "0006")
+    with migration_engine.connect() as connection:
         assert connection.execute(OBJECTS).one() == (False, False, False)
         # Las tablas de catalog, de las que depende la vista, siguen ahí.
         assert connection.scalar(text("SELECT to_regclass('app.products') IS NOT NULL"))
 
-    command.upgrade(alembic_config, "head")
-    with db_engine.connect() as connection:
+    command.upgrade(migration_config, "head")
+    with migration_engine.connect() as connection:
         assert connection.execute(OBJECTS).one() == (True, True, True)
 
 
-def test_alembic_check_reports_no_pending_changes(alembic_config: Config) -> None:
-    command.check(alembic_config)  # lanza CommandError si los modelos y la BD difieren
+def test_alembic_check_reports_no_pending_changes(migration_config: Config) -> None:
+    command.check(migration_config)  # lanza CommandError si los modelos y la BD difieren

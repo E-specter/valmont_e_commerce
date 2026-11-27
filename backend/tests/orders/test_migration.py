@@ -29,18 +29,18 @@ SEQUENCES = text(
 )
 
 
-def test_0010_follows_0009(alembic_config: Config) -> None:
-    revision = ScriptDirectory.from_config(alembic_config).get_revision("0010")
+def test_0010_follows_0009(migration_config: Config) -> None:
+    revision = ScriptDirectory.from_config(migration_config).get_revision("0010")
 
     assert revision is not None and revision.down_revision == "0009"
 
 
 def test_downgrade_drops_the_four_tables_and_upgrade_restores_them(
-    alembic_config: Config, db_engine: Engine
+    migration_config: Config, migration_engine: Engine
 ) -> None:
-    command.downgrade(alembic_config, "0009")
+    command.downgrade(migration_config, "0009")
     try:
-        with db_engine.connect() as connection:
+        with migration_engine.connect() as connection:
             assert connection.scalar(EXISTING) is None
             assert connection.scalar(SEQUENCES) == 0
             # Lo que 0009 y las anteriores crearon sigue ahí (FK de 0010: profiles y products).
@@ -52,18 +52,18 @@ def test_downgrade_drops_the_four_tables_and_upgrade_restores_them(
                 )
             )
     finally:
-        command.upgrade(alembic_config, "head")
+        command.upgrade(migration_config, "head")
 
-    with db_engine.connect() as connection:
+    with migration_engine.connect() as connection:
         assert sorted(connection.scalar(EXISTING)) == sorted(TABLES)
         assert connection.scalar(SEQUENCES) == 2
 
 
 def test_downgrade_works_with_orders_inside_and_leaves_no_trace(
-    alembic_config: Config, db_engine: Engine
+    migration_config: Config, migration_engine: Engine
 ) -> None:
     # El orden del downgrade (historial, entrega, líneas, pedidos) importa con filas: las FK.
-    with Session(db_engine) as session, session.begin():
+    with Session(migration_engine) as session, session.begin():
         user = add_profile(session)
         product = add_product(session)
         order_id = insert_order_row(session, user)
@@ -71,12 +71,12 @@ def test_downgrade_works_with_orders_inside_and_leaves_no_trace(
         insert_delivery_row(session, order_id)
         insert_history_row(session, order_id)
     try:
-        command.downgrade(alembic_config, "0009")
-        with db_engine.connect() as connection:
+        command.downgrade(migration_config, "0009")
+        with migration_engine.connect() as connection:
             assert connection.scalar(EXISTING) is None
     finally:
-        command.upgrade(alembic_config, "head")
-        with Session(db_engine) as session, session.begin():
+        command.upgrade(migration_config, "head")
+        with Session(migration_engine) as session, session.begin():
             category = session.scalar(
                 text("SELECT category_id FROM app.products WHERE id = :id"), {"id": product}
             )
@@ -84,7 +84,7 @@ def test_downgrade_works_with_orders_inside_and_leaves_no_trace(
             session.execute(text("DELETE FROM app.products WHERE id = :id"), {"id": product})
             session.execute(text("DELETE FROM app.categories WHERE id = :id"), {"id": category})
 
-    with db_engine.connect() as connection:
+    with migration_engine.connect() as connection:
         assert (
             connection.scalar(
                 text("SELECT count(*) FROM app.orders WHERE id = :id"), {"id": order_id}
@@ -93,5 +93,5 @@ def test_downgrade_works_with_orders_inside_and_leaves_no_trace(
         )
 
 
-def test_alembic_check_reports_no_pending_changes(alembic_config: Config) -> None:
-    command.check(alembic_config)  # lanza CommandError si los modelos y la BD difieren
+def test_alembic_check_reports_no_pending_changes(migration_config: Config) -> None:
+    command.check(migration_config)  # lanza CommandError si los modelos y la BD difieren

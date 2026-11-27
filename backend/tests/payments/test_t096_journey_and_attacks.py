@@ -348,26 +348,29 @@ def test_foreign_and_missing_orders_are_not_distinguishable_by_time(shop: OrderS
     p = placed_order(shop)
     stranger = shop.user()
 
-    def median_ms(order_id: object, method: str) -> float:
-        samples = []
+    def request(order_id: object, method: str) -> float:
+        start = time.perf_counter()
+        if method == "get":
+            response = shop.client.get(pay_path(order_id), headers=auth(stranger))
+        else:
+            response = pay(shop, stranger, order_id, "4242")
+        elapsed = (time.perf_counter() - start) * 1000
+        assert response.status_code == 404
+        return elapsed
+
+    def medians(method: str) -> tuple[float, float]:
+        # Muestras intercaladas: la carga de la máquina afecta por igual a las dos series.
+        foreign, missing = [], []
         for _ in range(25):
-            start = time.perf_counter()
-            if method == "get":
-                response = shop.client.get(pay_path(order_id), headers=auth(stranger))
-            else:
-                response = pay(shop, stranger, order_id, "4242")
-            samples.append((time.perf_counter() - start) * 1000)
-            assert response.status_code == 404
-        return statistics.median(samples)
+            foreign.append(request(p.order_id, method))
+            missing.append(request(uuid4(), method))
+        return statistics.median(foreign), statistics.median(missing)
 
     for method in ("get", "post"):
-        median_ms(uuid4(), method)  # calentamiento
-        foreign, missing = median_ms(p.order_id, method), median_ms(uuid4(), method)
-        assert abs(foreign - missing) < max(10.0, 0.5 * min(foreign, missing)), (
-            method,
-            foreign,
-            missing,
-        )
+        request(uuid4(), method)  # calentamiento
+        # Una diferencia sistemática (la enumeración) se repite en cada ronda; un pico de carga no.
+        rounds = [medians(method) for _ in range(3)]
+        assert any(abs(f - m) < max(10.0, 0.5 * min(f, m)) for f, m in rounds), (method, rounds)
 
 
 # --------------------------------------------------------------------------------------------

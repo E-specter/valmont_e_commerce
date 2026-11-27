@@ -13,18 +13,18 @@ OBJECTS = text(
 )
 
 
-def test_0008_follows_0007(alembic_config: Config) -> None:
-    revision = ScriptDirectory.from_config(alembic_config).get_revision("0008")
+def test_0008_follows_0007(migration_config: Config) -> None:
+    revision = ScriptDirectory.from_config(migration_config).get_revision("0008")
 
     assert revision is not None and revision.down_revision == "0007"
 
 
 def test_downgrade_drops_both_tables_and_upgrade_restores_them(
-    alembic_config: Config, db_engine: Engine
+    migration_config: Config, migration_engine: Engine
 ) -> None:
     # cart_items primero: su FK apunta a carts; si el orden fuera el contrario, fallaría.
-    command.downgrade(alembic_config, "0007")
-    with db_engine.connect() as connection:
+    command.downgrade(migration_config, "0007")
+    with migration_engine.connect() as connection:
         assert connection.execute(OBJECTS).one() == (False, False)
         # Lo que 0007 y las anteriores crearon sigue ahí (FK de 0008: profiles y products).
         assert connection.scalar(
@@ -34,10 +34,10 @@ def test_downgrade_drops_both_tables_and_upgrade_restores_them(
             )
         )
 
-    command.upgrade(alembic_config, "head")
-    with db_engine.connect() as connection:
+    command.upgrade(migration_config, "head")
+    with migration_engine.connect() as connection:
         assert connection.execute(OBJECTS).one() == (True, True)
 
 
-def test_alembic_check_reports_no_pending_changes(alembic_config: Config) -> None:
-    command.check(alembic_config)  # lanza CommandError si los modelos y la BD difieren
+def test_alembic_check_reports_no_pending_changes(migration_config: Config) -> None:
+    command.check(migration_config)  # lanza CommandError si los modelos y la BD difieren
