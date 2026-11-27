@@ -1,10 +1,10 @@
 from collections.abc import Mapping
 from dataclasses import asdict
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, Text, false, func, select, text, update
+from sqlalchemy import CheckConstraint, Date, DateTime, Text, false, func, select, text, update
 from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
@@ -19,6 +19,7 @@ class ProfileRow(Base):
     __table_args__ = (
         CheckConstraint("role IN ('customer', 'admin')", name="role"),
         CheckConstraint("jsonb_typeof(preferences) = 'object'", name="preferences_object"),
+        CheckConstraint("birth_date >= DATE '1900-01-01'", name="birth_date_range"),
     )
 
     user_id: Mapped[UUID] = mapped_column(primary_key=True)
@@ -29,6 +30,7 @@ class ProfileRow(Base):
     privacy_version: Mapped[str | None] = mapped_column(Text)
     privacy_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     marketing_opt_in: Mapped[bool] = mapped_column(server_default=false())
+    birth_date: Mapped[date | None] = mapped_column(Date)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -45,6 +47,7 @@ def _to_domain(row: ProfileRow) -> Profile:
         privacy_version=row.privacy_version,
         privacy_accepted_at=row.privacy_accepted_at,
         marketing_opt_in=row.marketing_opt_in,
+        birth_date=row.birth_date,
     )
 
 
@@ -73,3 +76,11 @@ class SqlProfileRepository:
             .returning(ProfileRow)
         )
         return _to_domain(self._session.scalars(stmt).one())
+
+    def set_birth_date_if_unset(self, user_id: UUID, birth_date: date) -> bool:
+        stmt = (
+            update(ProfileRow)
+            .where(ProfileRow.user_id == user_id, ProfileRow.birth_date.is_(None))
+            .values(birth_date=birth_date, updated_at=func.now())
+        )
+        return self._session.execute(stmt).rowcount == 1

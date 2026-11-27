@@ -141,6 +141,19 @@
 
 ## Traspasos
 
+### Traspaso T-138 (backend-dev) — IN_REVIEW
+1. Tarea: T-138. 2. Estado: IN_REVIEW (implementado, sin probar; pruebas de QA pendientes).
+3. Hecho: `domain.py` (constantes, `BirthDateInvalid/Locked`, `AgeRequirementError/BirthDateRequired/Underage`, `lima_today`, `parse_birth_date`, `age_on`, `check_birth_date_range`, `is_adult`, `Profile.birth_date`); `application.py` (`set_birth_date_if_unset`, `UpdateProfile` con `birth_date`, `EnsureAdult`, `__all__`); `persistence.py` (columna, CHECK, `set_birth_date_if_unset` atómico); `wiring.py` nuevo (`get_ensure_adult`); `http.py` (`birth_date` en In/Out, `no-store`, 422 `birth_date_future|too_old`, 409 `birth_date_locked`); migración `0012`.
+4. Firmas: exactamente las del paquete, sin cambios.
+5. Estático: `uv run ruff format .` y `ruff check .` limpios en mi código; falla E501 en `backend/tests/identity/birth_date_helpers.py:1` (archivo de QA, línea de 102 caracteres; no lo toco).
+6. Migración (BD local): `alembic upgrade head` → 0012; `alembic check` → "No new upgrade operations detected"; `downgrade -1` → 0011; `upgrade head` → 0012 (head). El autogenerate no detecta CHECK: añadido a mano (`ck_profiles_birth_date_range`).
+7. Importar la app y `wiring` → ok. Capas (grep de la skill) → vacía.
+8. NO EJECUTADO: pruebas (D-028, D-033).
+9. Seguridad: la fecha no va a logs, errores ni `msg`; las excepciones no llevan fecha ni edad; sin auditoría; `Cache-Control: no-store` en GET y PATCH /me; no se toca `main.py`, `env.py`, `shared/`, orders.
+10. Notas: `test_app_role.py` no cambia (columna nueva, sin tabla nueva). Si el cuerpo trae `birth_date` igual a la ya fijada, es idempotente (200).
+11. Riesgos: ninguno abierto. Bloqueos: ninguno.
+12. Commits: ninguno — preparado (6 archivos de identity y migración). Mensaje: `feat(identity): fecha de nacimiento fijable una vez y verificación de mayoría de edad (T-138)`.
+
 #### Traspaso T-113 — 2026-11-27 — module-coordinator
 1. Estado final: IN_REVIEW (solo documentación). T-138 y T-139 quedan BLOQUEADAS por decisiones del usuario y por la aprobación del contrato.
 2. Cambios: `SPEC.md` §13 (reglas IDENTITY-R6…R14, modelo, migración `0012`, contrato, dónde se exige, privacidad, CA-IDENTITY-07…18, plan de pruebas, P-IDENTITY-4…8); paquetes T-113, T-138 y T-139 con firmas exactas.

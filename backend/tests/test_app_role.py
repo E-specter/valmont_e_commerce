@@ -229,6 +229,28 @@ def test_app_role_manages_promotions_and_reads_their_effective_price(app_session
     assert app_session.scalar(price, params) == 100
 
 
+def test_app_role_writes_and_reads_the_profile_birth_date(app_session: Session) -> None:
+    # T-138 (CA-IDENTITY-17): la columna nueva cae bajo el CRUD ya concedido sobre profiles (el mapa
+    # no cambia); la fijación atómica y el CHECK de rango funcionan con el rol de la aplicación.
+    params = {"user": uuid4()}
+    app_session.execute(text("INSERT INTO app.profiles (user_id) VALUES (:user)"), params)
+    read = text("SELECT birth_date FROM app.profiles WHERE user_id = :user")
+    assert app_session.scalar(read, params) is None
+
+    set_once = text(
+        "UPDATE app.profiles SET birth_date = DATE '1990-05-17', updated_at = now()"
+        " WHERE user_id = :user AND birth_date IS NULL"
+    )
+    assert app_session.execute(set_once, params).rowcount == 1
+    assert app_session.execute(set_once, params).rowcount == 0
+    assert str(app_session.scalar(read, params)) == "1990-05-17"
+    with pytest.raises(DBAPIError, match="birth_date_range"), app_session.begin_nested():
+        app_session.execute(
+            text("UPDATE app.profiles SET birth_date = DATE '1899-12-31' WHERE user_id = :user"),
+            params,
+        )
+
+
 def test_app_role_manages_carts_and_their_items(app_session: Session) -> None:
     # T-056: CRUD sobre carts y cart_items; los topes de R3 son del dominio, no de los permisos.
     product = insert_product(app_session)

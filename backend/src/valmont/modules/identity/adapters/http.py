@@ -1,8 +1,8 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated, Self
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import AfterValidator, BaseModel, ConfigDict, StrictBool, model_validator
 
@@ -14,6 +14,8 @@ from valmont.modules.identity.application import (
     UpdateProfile,
 )
 from valmont.modules.identity.domain import (
+    BirthDateInvalid,
+    BirthDateLocked,
     CurrentUser,
     Preferences,
     Profile,
@@ -21,10 +23,11 @@ from valmont.modules.identity.domain import (
     normalize_full_name,
     normalize_phone,
     normalize_privacy_version,
+    parse_birth_date,
 )
 from valmont.shared.auth import unauthenticated, verify_token
 from valmont.shared.db import SessionDep
-from valmont.shared.errors import ERROR_RESPONSES, AppError
+from valmont.shared.errors import ERROR_RESPONSES, AppError, ErrorOut
 from valmont.shared.money import Money
 
 # --- Dependencias de autenticación (las usan todos los routers: modules.md §3) ---
@@ -102,6 +105,7 @@ class ProfileUpdateIn(BaseModel):
     preferences: PreferencesIn = None
     marketing_opt_in: StrictBool = None  # "yes" o "true" → 422
     accept_privacy_version: Annotated[str, AfterValidator(normalize_privacy_version)] = None
+    birth_date: Annotated[str, AfterValidator(parse_birth_date)] = None  # AAAA-MM-DD; null → 422
 
     def to_changes(self) -> ProfileChanges:
         changes = {name: getattr(self, name) for name in self.model_fields_set}
@@ -126,6 +130,7 @@ class ProfileOut(BaseModel):
     privacy_version: str | None
     privacy_accepted_at: UtcDatetime | None
     marketing_opt_in: bool
+    birth_date: date | None
     created_at: UtcDatetime
     updated_at: UtcDatetime
 
@@ -146,6 +151,7 @@ class ProfileOut(BaseModel):
             privacy_version=profile.privacy_version,
             privacy_accepted_at=profile.privacy_accepted_at,
             marketing_opt_in=profile.marketing_opt_in,
+            birth_date=profile.birth_date,
             created_at=profile.created_at,
             updated_at=profile.updated_at,
         )
@@ -157,15 +163,50 @@ router = APIRouter(prefix="/api/v1/identity", tags=["identity"])
 _AUTH_ERRORS = {status: ERROR_RESPONSES[status] for status in (401, 503)}
 
 
+# El msg no repite el valor: es un dato personal.
+_BIRTH_DATE_MSG = {
+    "future": "La fecha de nacimiento no puede ser futura.",
+    "too_old": "La fecha de nacimiento no es válida.",
+    "underage": "Debes ser mayor de edad para registrar tu fecha de nacimiento.",
+}
+_LOCKED = {
+    409: {"model": ErrorOut, "description": "`birth_date_locked`: la fecha ya está registrada."}
+}
+
+
 @router.get("/me", responses=_AUTH_ERRORS)
-def get_me(profile: Annotated[Profile, Depends(current_profile)]) -> ProfileOut:
+def get_me(profile: Annotated[Profile, Depends(current_profile)], response: Response) -> ProfileOut:
+    response.headers["Cache-Control"] = "no-store"  # contiene un dato personal
     return ProfileOut.from_domain(profile)
 
 
-@router.patch("/me", responses=_AUTH_ERRORS | {422: ERROR_RESPONSES[422]})
+@router.patch("/me", responses=_AUTH_ERRORS | {422: ERROR_RESPONSES[422]} | _LOCKED)
 def update_me(
     body: ProfileUpdateIn,
     user: Annotated[CurrentUser, Depends(current_user)],
     repo: RepositoryDep,
+    response: Response,
 ) -> ProfileOut:
-    return ProfileOut.from_domain(UpdateProfile(repo)(user.user_id, body.to_changes()))
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        profile = UpdateProfile(repo)(user.user_id, body.to_changes())
+    except BirthDateInvalid as exc:
+        raise AppError(
+            "validation_error",
+            "Datos de entrada no válidos.",
+            422,
+            [
+                {
+                    "loc": ["body", "birth_date"],
+                    "type": f"birth_date_{exc.reason}",
+                    "msg": _BIRTH_DATE_MSG[exc.reason],
+                }
+            ],
+        ) from None
+    except BirthDateLocked:
+        raise AppError(
+            "birth_date_locked",
+            "La fecha de nacimiento ya está registrada y no se puede cambiar.",
+            409,
+        ) from None
+    return ProfileOut.from_domain(profile)

@@ -27,6 +27,7 @@ from valmont.shared.config import Settings
 USER_ID = uuid4()
 ME = "/api/v1/identity/me"
 PROFILE_KEYS = {
+    "birth_date",  # T-138 (SPEC identity §13.7): ProfileOut gana la fecha
     "user_id",
     "role",
     "full_name",
@@ -307,7 +308,7 @@ def test_openapi_declares_the_common_error_format() -> None:
     operations = create_app().openapi()["paths"][ME]
 
     assert set(operations["get"]["responses"]) == {"200", "401", "503"}
-    assert set(operations["patch"]["responses"]) == {"200", "401", "422", "503"}
+    assert set(operations["patch"]["responses"]) == {"200", "401", "409", "422", "503"}  # T-138
     for operation in operations.values():
         for status, response in operation["responses"].items():
             if status != "200":
