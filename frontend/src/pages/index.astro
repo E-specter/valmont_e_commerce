@@ -9,7 +9,6 @@ import FeaturedProduct from '../components/home/FeaturedProduct.astro';
 import CollectionTile from '../components/home/CollectionTile.astro';
 import CollectionLinks from '../components/home/CollectionLinks.astro';
 import StoreBanner from '../components/home/StoreBanner.astro';
-import heroImg from '../assets/home/hero.png';
 import { home } from '../data/home';
 import { serverTransport } from '../lib/api/server';
 import { listCategories, listProducts } from '../lib/api/catalog';
@@ -31,7 +30,6 @@ const links = categories.slice(0, 4).map((c) => ({ label: c.name, href: href(c.s
     title={home.hero.title}
     ctaLabel={home.hero.ctaLabel}
     ctaHref={home.hero.ctaHref}
-    image={{ src: heroImg, alt: home.hero.imageAlt }}
   />
   <ManifestoBlock {...home.manifesto} />
   {featured && <FeaturedProduct product={featured} badge={home.featuredBadge} cta={home.featuredCta} />}

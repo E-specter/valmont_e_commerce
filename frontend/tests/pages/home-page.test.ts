@@ -357,15 +357,17 @@ describe('peticiones al backend y caché pública', () => {
 });
 
 describe('imágenes (RT-6, LCP)', () => {
-  test('el hero es eager con fetchpriority high; las demás son lazy con width y height; ninguna sin alt', async () => {
+  test('T-137 · el hero no lleva foto (solo el símbolo decorativo, sin prioridad alta); las demás son lazy con width y height; ninguna sin alt', async () => {
     const { doc } = await render();
     const imgs = [...main(doc).querySelectorAll('img')];
     expect(imgs.length).toBeGreaterThanOrEqual(ONE + ONE);
     const [hero, ...rest] = imgs;
     expect(hero.closest('section')?.querySelector('h1')).not.toBeNull();
-    expect(hero.getAttribute('loading')).toBe('eager');
-    expect(hero.getAttribute('fetchpriority')).toBe('high');
-    expect(hero.getAttribute('alt')?.length).toBeGreaterThan(NONE);
+    // D-044: el LCP pasa a ser el titular; la única imagen del hero es el símbolo de marca (alt vacío, sin fetchpriority).
+    expect(hero.getAttribute('src')).toBe('/brand/symbol.svg');
+    expect(hero.getAttribute('alt')).toBe('');
+    expect(hero.getAttribute('fetchpriority')).not.toBe('high');
+    expect(main(doc).querySelectorAll('img[fetchpriority="high"]')).toHaveLength(NONE);
     rest.forEach((img) => {
       expect(img.getAttribute('loading'), img.outerHTML).toBe('lazy');
       expect(img.getAttribute('fetchpriority')).not.toBe('high');

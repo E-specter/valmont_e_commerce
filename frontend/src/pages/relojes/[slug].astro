@@ -55,7 +55,7 @@ const description = product?.description.replace(/\s+/g, ' ').trim().slice(0, 15
         </div>
         <section class="specs" aria-labelledby="specs-title">
           <h2 id="specs-title" class="section-title">Especificaciones</h2>
-          <DefinitionList items={specRows(product)} columns={2} />
+          <DefinitionList items={specRows(product)} variant="rows" />
         </section>
         {product.related.length > 0 && (
           <section class="related" aria-labelledby="related-title">

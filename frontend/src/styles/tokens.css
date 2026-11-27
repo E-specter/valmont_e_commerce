@@ -51,6 +51,8 @@
   --weight-bold: 700;
 
   /* Escala: clamp() entre Mobile (360 px) y Desktop (1280 px); BRIEF §3 */
+  /* enlaces de colección de la portada, D-08 */
+  --text-giant: clamp(36px, calc(36px + 92 * ((100vw - 360px) / 920)), 128px);
   --text-display: clamp(54px, calc(54px + 74 * ((100vw - 360px) / 920)), 128px);
   --text-h1: clamp(42px, calc(42px + 18 * ((100vw - 360px) / 920)), 60px);
   --text-h2: clamp(32px, calc(32px + 10 * ((100vw - 360px) / 920)), 42px);

@@ -169,7 +169,7 @@ test.describe('portada / con el backend real', () => {
     expect(new Set(wide.lefts).size).toBe(THREE);
   });
 
-  test('imágenes: el hero es eager con fetchpriority high; el resto lazy con width, height y alt', async ({ page }) => {
+  test('imágenes (T-137): el hero no lleva foto (solo el símbolo decorativo, sin fetchpriority); el resto lazy con width, height y alt', async ({ page }) => {
     await openPage(page, PATH);
     const imgs = await page.locator('main img').evaluateAll((els) =>
       els.map((e) => ({
@@ -183,18 +183,20 @@ test.describe('portada / con el backend real', () => {
     );
     expect(imgs.length).toBeGreaterThanOrEqual(TWO);
     const hero = imgs.filter((i) => i.inHero);
+    // T-137 (D-044): bloque de marca; solo el símbolo, decorativo (alt vacío) y sin prioridad alta.
     expect(hero).toHaveLength(ONE);
-    expect(hero[NONE]).toMatchObject({ loading: 'eager', priority: 'high' });
+    expect(hero[NONE]).toMatchObject({ alt: '', priority: null });
+    expect(imgs.filter((i) => i.priority === 'high')).toEqual([]);
     imgs.filter((i) => !i.inHero).forEach((i) => expect(i, JSON.stringify(i)).toMatchObject({ loading: 'lazy' }));
     imgs.forEach((i) => {
       expect(Number(i.width), JSON.stringify(i)).toBeGreaterThan(NONE);
       expect(Number(i.height), JSON.stringify(i)).toBeGreaterThan(NONE);
-      expect(i.alt?.length ?? NONE, JSON.stringify(i)).toBeGreaterThan(NONE);
     });
+    imgs.filter((i) => !i.inHero).forEach((i) => expect(i.alt?.length ?? NONE, JSON.stringify(i)).toBeGreaterThan(NONE));
   });
 
   [WIDTH_PHONE, WIDTH_DESKTOP].forEach((width) => {
-    test(`a ${String(width)} px el LCP es la imagen del hero`, async ({ page }) => {
+    test(`a ${String(width)} px el LCP es el titular (T-137), no una imagen`, async ({ page }) => {
       await page.setViewportSize({ width, height: VIEWPORT_HEIGHT });
       await page.addInitScript(() => {
         (window as unknown as { __lcp: { tag: string; priority: string | null; loading: string | null }[] }).__lcp = [];
@@ -214,7 +216,7 @@ test.describe('portada / con el backend real', () => {
       await page.waitForTimeout(SETTLE_MS);
       const entries = await page.evaluate(() => (window as unknown as { __lcp: { tag: string; priority: string | null; loading: string | null }[] }).__lcp);
       expect(entries.length, 'se registró un LCP').toBeGreaterThan(NONE);
-      expect(entries.at(-ONE)).toEqual({ tag: 'IMG', priority: 'high', loading: 'eager' });
+      expect(entries.at(-ONE)).toEqual({ tag: 'H1', priority: null, loading: null });
     });
   });
 

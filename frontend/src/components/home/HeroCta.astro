@@ -1,15 +1,17 @@
 ---
 import { Image } from 'astro:assets';
 import Button from '../ui/Button.astro';
+import Checkerboard from '../ui/Checkerboard.astro';
 
 interface Props {
   title: string;
   ctaLabel: string;
   ctaHref: string;
-  image: { src: ImageMetadata | string; alt: string };
+  // Foto propia futura (sin marcas ajenas, D-044). Sin ella se muestra el bloque de marca.
+  image?: { src: ImageMetadata | string; alt: string };
 }
 const { title, ctaLabel, ctaHref, image } = Astro.props;
-// Imagen de LCP: carga inmediata y prioridad alta, nunca lazy (RNF03).
+// Con foto: es la imagen de LCP (carga inmediata, prioridad alta, nunca lazy, RNF03). Sin foto, el LCP es el titular.
 const lcp = { loading: 'eager', fetchpriority: 'high', decoding: 'async', class: 'hero__img' } as const;
 ---
 
@@ -20,7 +22,12 @@ const lcp = { loading: 'eager', fetchpriority: 'high', decoding: 'async', class:
   </div>
   <div class="hero__media">
     {
-      typeof image.src === 'string' ? (
+      !image ? (
+        <div class="hero__brand">
+          <img src="/brand/symbol.svg" width="116" height="116" alt="" decoding="async" />
+          <Checkerboard rows={2} />
+        </div>
+      ) : typeof image.src === 'string' ? (
         <img src={image.src} alt={image.alt} width="1920" height="848" {...lcp} />
       ) : (
         <Image src={image.src} alt={image.alt} widths={[640, 1024, 1600]} sizes="(min-width: 800px) 60vw, 100vw" format="webp" {...lcp} />
@@ -34,6 +41,7 @@ const lcp = { loading: 'eager', fetchpriority: 'high', decoding: 'async', class:
     .hero {
       display: grid;
       margin-inline: calc(var(--page-margin) * -1);
+      margin-block-start: var(--space-48); /* aire entre el damero y el hero (D-03) */
       background: var(--color-mint);
     }
     .hero__text {
@@ -55,6 +63,21 @@ const lcp = { loading: 'eager', fetchpriority: 'high', decoding: 'async', class:
     .hero__media {
       aspect-ratio: 16 / 9;
       background: var(--color-forest);
+    }
+    .hero__brand {
+      position: relative;
+      display: grid;
+      place-items: center;
+      height: 100%;
+      min-height: 180px;
+    }
+    .hero__brand img {
+      inline-size: clamp(88px, 28%, 200px);
+      block-size: auto;
+    }
+    .hero__brand :global(.checkerboard) {
+      position: absolute;
+      inset-block-end: 0;
     }
     .hero__media :global(.hero__img) {
       display: block;

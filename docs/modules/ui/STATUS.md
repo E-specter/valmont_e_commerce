@@ -29,7 +29,7 @@ Rango reservado del módulo: **T-116–T-139**. En uso: T-116–T-131. Libres: *
 | T-134 | fix visual B: barra de filtros alineada en escritorio y plegable en móvil, "Limpiar filtros" de 44 px (D-05, D-11) | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | READY |
 | T-135 | fix visual C: pie de tarjeta homogéneo en una fila (divisor, precio y "Ver detalles" alineados) (D-10) | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | READY |
 | T-136 | fix visual D: Jaro solo en el wordmark; botones y enlaces en la familia del brief (D-04; D-044) | frontend-dev + qa-reviewer | T-133 (pie) | BACKLOG |
-| T-137 | fix visual E: foto del hero sustituida por un bloque de marca (D-044) y ajustes menores D-03, D-06, D-07, D-08, D-12, D-13 | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | READY |
+| T-137 | fix visual E: foto del hero sustituida por un bloque de marca (D-044) y ajustes menores D-03, D-06, D-07, D-08, D-12, D-13 | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | IN_REVIEW |
 
 ### Orden y paralelismo (rutas disjuntas)
 
@@ -689,6 +689,16 @@ export function formatDateOnly(isoDate: string): string;                        
 | **T-084** backoffice de pedidos | Sin frames (`admin` no capturada) y depende de T-078/T-079 (BACKLOG). Queda en el carril de backoffice, tras el diseño desde BRIEF; no entra en esta pista. |
 
 ## 8. Traspasos
+
+#### Traspaso T-137 (implementación) — 2026-11-27 — frontend-dev
+1. Tarea: T-137 · 2. Estado: IN_REVIEW (listo para QA). Figma: no consultado.
+3. Hecho: `HeroCta` sin foto: bloque de marca (forest, `/brand/symbol.svg`, `Checkerboard rows=2`); prop `image` ahora opcional (foto propia futura, sin marcas ajenas). `hero.png` borrado (`git rm`). D-03 `margin-block-start: --space-48` en el hero. D-06 `PageTitle` en `--color-forest`. D-07 `FeaturedBanner` en ink, 50/50 (texto + bloque forest-mid con símbolo), sin CTA (P-2). D-08 manifiesto en h2 (32/36 a 375) y h1 desde 800 px; enlaces `clamp(36px…128px)` y "(demo)" con `nowrap`. D-12 `DefinitionList` variante `rows` (etiqueta/valor, desde 480 px de contenedor); la ficha la usa. D-13 asesor `align-self: flex-start`.
+4. Fuera de la lista "Puede modificar" (mínimo imprescindible): `pages/index.astro` (quita import e `image` de hero.png, que ya no existe) y `pages/relojes/[slug].astro` (`variant="rows"` en lugar de `columns={2}`). Sin tocar T-134.
+5. D-06: el título del catálogo sale forest solo con `PageTitle`; la frase de apoyo con el total vive en `pages/relojes/index.astro` (T-134): pendiente allí. D-07: el informe excluye el CTA hasta P-2; el encargo pedía CTA: se siguió el informe.
+6. Para QA: las pruebas de portada que exigen `img[fetchpriority=high]` como LCP del hero deben cambiar (ya no hay imagen; el hero lleva `<img>` decorativa del símbolo, `alt=""`). `imageAlt` eliminado de `data/home.ts`. Revisar `[data-columns='2']` de la ficha (ya no se usa ahí) y capturas 1280/375.
+6b. Corrección RT-1 (QA): `--text-giant` añadido a `tokens.css` (autorizado por el Leader); `CollectionLinks` usa `var(--text-giant)`.
+7. `cd frontend && npm run check → 0 errors, 0 warnings, 0 hints`. `NO EJECUTADO: pruebas (D-028, D-033)`.
+12. Commit: ninguno — preparado. Propuesto: `fix(ui): hero sin marca ajena y ajustes visuales menores de la revisión (T-137)`.
 
 #### Traspaso T-122 (implementación) — 2026-11-27 — frontend-dev
 1. Tarea: T-122 · 2. Estado: IN_REVIEW (listo para QA).

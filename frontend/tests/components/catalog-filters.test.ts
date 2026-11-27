@@ -383,7 +383,9 @@ describe('T-124 · FeaturedBanner', () => {
 
   test('el texto se escapa (no se interpreta HTML)', async () => {
     const html = await renderAstro(FeaturedBanner, { props: { kicker: 'k', title: '<img src=x onerror=alert(1)>' } });
-    expect(parseHtml(html).querySelectorAll('img')).toHaveLength(NONE);
+    // T-137 (D-07): el bloque de color lleva el símbolo de marca como <img> decorativa; lo inyectado no debe crear ninguna otra.
+    const injected = [...parseHtml(html).querySelectorAll('img')].filter((i) => i.getAttribute('src') !== '/brand/symbol.svg');
+    expect(injected).toHaveLength(NONE);
   });
 
   test('data/featured.ts: contenido de demostración completo y con precio en céntimos enteros (PEN)', () => {

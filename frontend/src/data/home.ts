@@ -5,7 +5,6 @@ export const home = {
     title: 'Donde la tradición relojera se encuentra con la innovación mecánica.',
     ctaLabel: 'Explorar',
     ctaHref: '/relojes',
-    imageAlt: 'Reloj mecánico de pulsera con esfera esqueletada, fotografiado de cerca sobre la muñeca.',
   },
   manifesto: {
     text: 'VALMONT es una boutique de alta relojería que reúne piezas mecánicas elegidas por su precisión, su diseño y su legado.',

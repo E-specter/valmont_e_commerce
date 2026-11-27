@@ -14,24 +14,50 @@ const { kicker, title, description, price } = Astro.props;
 ---
 
 <aside class="banner" data-demo-content aria-label="Contenido de demostración">
-  <p class="kicker">{kicker}</p>
-  <p class="title">{title}</p>
-  {description && <p class="description">{description}</p>}
-  <div class="foot">
-    {price && <Price price={price} size="lg" />}
-    <span class="demo">Contenido de demostración</span>
+  <div class="text">
+    <p class="kicker">{kicker}</p>
+    <p class="title">{title}</p>
+    {description && <p class="description">{description}</p>}
+    <div class="foot">
+      {price && <Price price={price} size="lg" />}
+      <span class="demo">Contenido de demostración</span>
+    </div>
   </div>
+  <div class="media" aria-hidden="true"><img src="/brand/symbol.svg" width="116" height="116" alt="" decoding="async" /></div>
 </aside>
 
 <style>
   @layer components {
     .banner {
+      display: grid; /* 50/50 en escritorio: texto y bloque de color en lugar de la foto (D-07) */
+      overflow: hidden;
+      border-radius: var(--radius-lg);
+      background: var(--color-ink);
+      color: var(--text-on-dark);
+    }
+    .text {
       display: grid;
+      align-content: center;
       gap: var(--space-8);
       padding: var(--space-32);
-      border-radius: var(--radius-lg);
-      background: var(--bg-surface-dark);
-      color: var(--text-on-dark);
+    }
+    .media {
+      display: grid;
+      place-items: center;
+      min-height: 120px;
+      background: var(--color-forest-mid);
+    }
+    .media img {
+      inline-size: 72px;
+      block-size: auto;
+    }
+    @media (min-width: 800px) {
+      .banner {
+        grid-template-columns: 1fr 1fr;
+      }
+      .media img {
+        inline-size: 120px;
+      }
     }
     .kicker {
       font-family: var(--font-editorial);

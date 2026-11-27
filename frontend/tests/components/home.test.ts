@@ -7,7 +7,8 @@ import FeaturedProduct from '../../src/components/home/FeaturedProduct.astro';
 import HeroCta from '../../src/components/home/HeroCta.astro';
 import ManifestoBlock from '../../src/components/home/ManifestoBlock.astro';
 import StoreBanner from '../../src/components/home/StoreBanner.astro';
-import heroImg from '../../src/assets/home/hero.png';
+// T-137: hero.png se borró (D-044); el activo de prueba para ImageMetadata es un PNG propio de las pruebas.
+import heroImg from '../helpers/fixtures/pixel.png';
 import type { ProductSummary } from '../../src/lib/api/catalog';
 import { FRONTEND } from '../helpers/css';
 import { text, ui } from '../helpers/ui';

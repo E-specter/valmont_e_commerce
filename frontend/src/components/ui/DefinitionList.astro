@@ -2,11 +2,13 @@
 interface Props {
   items: { term: string; description: string }[];
   columns?: 1 | 2;
+  // 'rows': una columna con la etiqueta a la izquierda y el valor a la derecha (ficha, D-12).
+  variant?: 'stacked' | 'rows';
 }
-const { items, columns = 1 } = Astro.props;
+const { items, columns = 1, variant = 'stacked' } = Astro.props;
 ---
 
-<div class="definition-list" data-columns={columns}>
+<div class="definition-list" data-columns={columns} data-variant={variant}>
   <dl>
     {
       items.map((item) => (
@@ -49,6 +51,13 @@ const { items, columns = 1 } = Astro.props;
       line-height: var(--leading-body-ui);
       color: var(--text-primary);
       overflow-wrap: anywhere;
+    }
+    @container (min-width: 480px) {
+      [data-variant='rows'] .row {
+        grid-template-columns: minmax(8rem, 1fr) 2fr;
+        column-gap: var(--space-24);
+        align-items: baseline;
+      }
     }
     @container (min-width: 560px) {
       [data-columns='2'] dl {
