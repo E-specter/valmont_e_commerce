@@ -373,6 +373,14 @@ Y la fila de `docs/agents/_registry.md`: `docs/modules/orders/ · Carpeta · SPE
 
 ## Traspasos
 
+#### Traspaso T-076 — 2026-11-26 — backend-dev
+1. Estado: IN_REVIEW. Pruebas: NO EJECUTADO (D-028, D-033).
+2. Hecho: `application.py` (`CancelMyOrder`, firma del paquete); `adapters/http.py` (`POST /orders/{order_id}/cancel`, `get_cancel_my_order`, 409 `not_cancellable` con `details {"status"}`). `domain.py`, `persistence.py` y `main.py` sin cambios.
+3. Interpretaciones: (a) orden: `get(user_id, lock=True)` (None -> `OrderNotFound`, sin caducar nada) -> `expire(user_id, order_ids=[id])` con la fila ya bloqueada; si caduca -> `NotCancellable(EXPIRED)` (409 con `status: expirado`, §7 "vigente"); luego `cancelado` -> devuelve sin cambios; otro estado -> `NotCancellable(status)`; `pendiente_pago` -> `apply` (customer, actor = user_id, sin nota), `ReleaseReservations`, auditoría `orders.status_changed` (before/after solo `status`). (b) El 409 de un vencido hace rollback de `SessionDep`, por lo que la caducidad se materializa en la siguiente lectura (R7 perezosa); en el caso de uso con falsos queda expirado. Si QA quiere persistirla en la respuesta 409, requiere cambio de transacción (escalar). (c) 404 igual que T-075.
+4. Análisis estático: `uv run ruff format --check . -> 200 files already formatted`; `uv run ruff check . -> All checks passed` (tras `--fix` de orden de imports); `uv run python -c "import valmont.main"` OK; capas (grep) vacío.
+5. Corrección (Leader/QA, CA-21): la auditoría de la cancelación lleva actor (`user_id`, `"customer"`), como `orders.created`; la caducidad del sistema sigue sin actor.
+12. Commits: ninguno, preparado. Mensaje: `feat(orders): cancelar el pedido propio sin pagar (T-076)`.
+
 #### Traspaso T-075 — 2026-11-26 — backend-dev
 1. Estado: IN_REVIEW. Pruebas: NO EJECUTADO (D-028, D-033).
 2. Hecho: `application.py` (`ExpireOverdueOrders`, `ListMyOrders`, `GetMyOrder`; `list_for_user(statuses=...)` en el puerto); `adapters/http.py` (`GET /orders` con `status` repetible, `GET /orders/{order_id}`, `OrderSummaryOut`, `OrderPageOut`, proveedores `get_expire_overdue_orders`, `get_list_my_orders`, `get_get_my_order`, `DeliveryOut` con los tres campos de R-11); `domain.py` (`Delivery(DeliveryDetails)` solo para R-11); `adapters/persistence.py` (`Delivery` en `get` y `statuses` con `IN`). `main.py` sin cambios.

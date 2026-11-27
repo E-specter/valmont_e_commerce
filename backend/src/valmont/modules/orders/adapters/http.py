@@ -29,6 +29,7 @@ from valmont.modules.inventory.application import (
 from valmont.modules.orders.adapters.persistence import SqlClock, SqlOrderRepository
 from valmont.modules.orders.adapters.pickup import SettingsPickupStore
 from valmont.modules.orders.application import (
+    CancelMyOrder,
     Clock,
     CreateOrder,
     ExpireOverdueOrders,
@@ -47,6 +48,7 @@ from valmont.modules.orders.domain import (
     DeliveryMethod,
     Fulfillment,
     IdempotencyConflict,
+    NotCancellable,
     Order,
     OrderNotFound,
     OrderStatus,
@@ -338,6 +340,16 @@ def get_get_my_order(
     return GetMyOrder(orders, expire)
 
 
+def get_cancel_my_order(
+    orders: Annotated[OrderRepository, Depends(get_orders)],
+    expire: Annotated[ExpireOverdueOrders, Depends(get_expire_overdue_orders)],
+    release: Annotated[ReleaseReservations, Depends(get_release_reservations)],
+    audit: AuditRecorderDep,
+    clock: Annotated[Clock, Depends(get_clock)],
+) -> CancelMyOrder:
+    return CancelMyOrder(orders, expire, release, audit, clock)
+
+
 def get_product_snapshots(session: SessionDep) -> SqlProductSnapshots:
     return SqlProductSnapshots(session)
 
@@ -513,5 +525,47 @@ def get_my_order(
         order = use_case(user.user_id, order_id)
     except OrderNotFound:
         raise AppError("not_found", "Pedido no encontrado.", 404) from None
+    snapshots = products.get_published([line.product_id for line in order.lines])
+    return OrderDetailOut.build(order, clock.now(), store.get(), snapshots)
+
+
+@router.post(
+    "/{order_id}/cancel",
+    response_model=OrderDetailOut,
+    responses={
+        **{s: ERROR_RESPONSES[s] for s in (401, 404, 422, 503)},
+        409: {
+            "model": ErrorOut,
+            "description": "`not_cancellable`; `details`: `status` actual del pedido.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "not_cancellable": _example(
+                            "not_cancellable",
+                            "El pedido no se puede cancelar.",
+                            {"status": "pagado"},
+                        )
+                    }
+                }
+            },
+        },
+    },
+)
+def cancel_my_order(
+    order_id: UUID,
+    user: Annotated[CurrentUser, Depends(current_user)],
+    use_case: Annotated[CancelMyOrder, Depends(get_cancel_my_order)],
+    clock: Annotated[Clock, Depends(get_clock)],
+    store: Annotated[PickupStoreProvider, Depends(get_pickup_store)],
+    products: Annotated[SqlProductSnapshots, Depends(get_product_snapshots)],
+) -> OrderDetailOut:
+    try:
+        order = use_case(user.user_id, order_id)
+    except OrderNotFound:
+        raise AppError("not_found", "Pedido no encontrado.", 404) from None
+    except NotCancellable as exc:
+        raise _conflict(
+            "not_cancellable", "El pedido no se puede cancelar.", {"status": exc.status.value}
+        ) from None
     snapshots = products.get_published([line.product_id for line in order.lines])
     return OrderDetailOut.build(order, clock.now(), store.get(), snapshots)

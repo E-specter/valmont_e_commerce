@@ -10,9 +10,11 @@ from valmont.modules.inventory.application import OrderLine as ReserveLine
 from valmont.modules.inventory.application import ReleaseReservations, ReserveStock
 from valmont.modules.orders.domain import (
     MAX_PENDING_ORDERS,
+    ActorKind,
     DeliveryDetails,
     DeliveryMethod,
     Fulfillment,
+    NotCancellable,
     Order,
     OrderLine,
     OrderNotFound,
@@ -21,6 +23,7 @@ from valmont.modules.orders.domain import (
     StatusChange,
     TooManyPendingOrders,
     build_order,
+    can_customer_cancel,
 )
 
 # Puertos y datos de lectura de orders (SPEC §6, §7; T-073) y casos de uso (T-074+).
@@ -295,3 +298,57 @@ class GetMyOrder:
         if order is None:
             raise OrderNotFound
         return order
+
+
+class CancelMyOrder:
+    """UC-ORDERS-04 (R4, R7, R10, R11): bloquea el pedido propio y luego decide el estado."""
+
+    def __init__(
+        self,
+        orders: OrderRepository,
+        expire: ExpireOverdueOrders,
+        release: ReleaseReservations,
+        audit: AuditRecorder,
+        clock: Clock,
+    ) -> None:
+        self._orders = orders
+        self._expire = expire
+        self._release = release
+        self._audit = audit
+        self._clock = clock
+
+    def __call__(self, user_id: UUID, order_id: UUID) -> Order:
+        # Pedido -> reservas -> stock (R4). Ajeno o inexistente: 404 sin caducar nada.
+        order = self._orders.get(order_id, user_id=user_id, lock=True)
+        if order is None:
+            raise OrderNotFound
+        if self._expire(user_id=user_id, order_ids=[order_id]):
+            raise NotCancellable(OrderStatus.EXPIRED)  # R7: el vencido no se cancela
+        if order.status == OrderStatus.CANCELLED:
+            return order  # idempotente
+        if not can_customer_cancel(order.status):
+            raise NotCancellable(order.status)
+        cancelled = self._orders.apply(
+            order_id,
+            StatusChange(
+                OrderStatus.PENDING_PAYMENT,
+                OrderStatus.CANCELLED,
+                ActorKind.CUSTOMER,
+                user_id,
+                None,
+                self._clock.now(),
+            ),
+        )
+        self._release(order_id)
+        self._audit.record(
+            AuditEntry(
+                "orders.status_changed",
+                "order",
+                str(order_id),
+                user_id,
+                "customer",
+                before={"status": OrderStatus.PENDING_PAYMENT.value},
+                after={"status": OrderStatus.CANCELLED.value},
+            )
+        )
+        return cancelled
