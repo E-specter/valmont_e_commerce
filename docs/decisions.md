@@ -48,6 +48,7 @@
 | D-039 | 2026-11-26 | Lista de deseos: mover al carrito desde la pantalla, tope blando de 50, despublicados visibles y marcados; lectura de producto compartida en `shared/` | APROBADA |
 | D-040 | 2026-11-26 | Pedidos: envío a domicilio y recojo en tienda, envío gratis a todo el Perú, datos sin DNI, bajo pedido con pago completo; proveedores `adapters/wiring.py` por módulo | APROBADA |
 | D-041 | 2026-11-26 | Interfaz: respuestas P-1…P-9 (cabecera, filtros estáticos, precio es-PE con D-037, pago simulado sin PAN, cookie httpOnly, estados agrupados solo en la vista, miniaturas del lector compartido, fecha de nacimiento +18, contenido de demo) | APROBADA |
+| D-042 | 2026-11-26 | Frontend: dependencias de pruebas (Vitest, happy-dom, Playwright, axe) y de sesión (`@supabase/ssr`, `supabase-js`), fuentes con la API de Astro y callback de Auth autorizado | APROBADA |
 
 ---
 
@@ -487,3 +488,13 @@
   9. **P-9 (contenido de "Nosotros"):** no se usa el texto de Figma tal cual: se redacta un contenido coherente con la marca, ficticio y señalado como de demostración, y **se retira o sustituye antes de producción** (lista de lanzamiento).
 - **Alternativas descartadas:** ampliar catalog en el MVP (P-2); 2 decimales siempre y redondeo siempre hacia arriba (P-3); botón "Simular pago" sin formulario (P-4); token en el navegador (P-5); una etiqueta por estado (P-6); imagen guardada en el pedido (P-7); sin fecha de nacimiento (P-8); contenido de Figma tal cual (P-9).
 - **Consecuencias:** ajustes en los paquetes T-074 y T-075 de orders; RF01.07 y T-113 (identity); notas para payments (T-090) y para las pantallas de VIEWS §11.
+
+### D-042 — Pista de frontend: dependencias, fuentes y callback de Auth (APROBADA, 2026-11-26)
+- **Contexto:** el plan de frontend-lead (`docs/modules/ui/STATUS.md`, T-116…T-131) necesitaba dependencias nuevas, que exigen aprobación (AGENTS.md), y un cambio en `supabase/config.toml` (puerta D-011). Estrategia de dos pistas en paralelo: el frontend solo consume endpoints ya integrados en `main`.
+- **Decisiones del usuario:**
+  1. **Pruebas del frontend (solo desarrollo, T-130):** `vitest`, `happy-dom`, `@playwright/test` (descarga Chromium fuera del repo) y `@axe-core/playwright`. No entran en la imagen de producción (`npm ci --omit=dev`).
+  2. **Sesión SSR (producción, T-126):** `@supabase/ssr` y `@supabase/supabase-js`, el par oficial para la cookie `httpOnly` de D-025 y P-5.
+  3. **Fuentes:** API de fuentes de Astro con proveedor Google. Se descargan al compilar y se sirven desde el propio sitio; el navegador no contacta a Google. Sin dependencia nueva.
+  4. **Callback de Auth:** se autoriza añadir `http://localhost:4321/auth/callback` a `additional_redirect_urls` en `supabase/config.toml` y reiniciar el Supabase local conservando los datos cuando llegue T-126 o T-127, con su ficha de auditoría.
+- **Alternativas descartadas:** solo Vitest y happy-dom (sin E2E ni a11y automática hasta T-126); aplazar la sesión (sin ingreso, carrito ni cuenta); fuentes `woff2` versionadas; preguntar de nuevo antes del callback.
+- **Consecuencias:** T-130 y T-116 READY; T-126 desbloqueada en cuanto a dependencias. Preact sigue sujeto al criterio de D-014 (T-060).

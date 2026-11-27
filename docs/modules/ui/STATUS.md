@@ -8,7 +8,7 @@ Rango reservado del módulo: **T-116–T-139**. En uso: T-116–T-131. Libres: *
 
 | ID | Título | Rol | Depende de | Estado |
 |---|---|---|---|---|
-| T-130 | Infraestructura de pruebas del frontend (Vitest, Playwright) | qa-reviewer | **aprobación del usuario de las dependencias (pregunta 9 del traspaso)** | BLOCKED (decisión del usuario) |
+| T-130 | Infraestructura de pruebas del frontend (Vitest, Playwright) | qa-reviewer | **aprobación del usuario de las dependencias (pregunta 9 del traspaso)** | READY (dependencias aprobadas, D-042) |
 | T-116 | Tokens, fuentes, `global.css`, `BaseLayout`, `StoreLayout`, `AuthLayout` y variables de entorno | frontend-dev + qa-reviewer | D-012 | READY |
 | T-117 | `ui/` lote 1A: `Icon`, `Wordmark`, `Checkerboard`, `Button`, `IconButton`, `TextLink`, `Field`, `Checkbox` | frontend-dev + qa-reviewer | T-116 | BACKLOG (READY al integrar T-116) |
 | T-118 | `ui/` lote 1B: `Card`, `Badge`, `Chip`, `Price`, `Availability`, `Notice`, `EmptyState`, `Skeleton` y `lib/format.ts` | frontend-dev + qa-reviewer | T-116 (`Icon` de T-117 solo al integrar) | BACKLOG (READY al integrar T-116) |
@@ -19,7 +19,7 @@ Rango reservado del módulo: **T-116–T-139**. En uso: T-116–T-131. Libres: *
 | T-123 | `Breadcrumb`, `Pagination`, `DefinitionList`, `ProductCard` (4 variantes) y `ProductGrid` | frontend-dev + qa-reviewer | T-117, T-118, T-120 (tipos) | BACKLOG |
 | T-124 | Catálogo `/relojes`: filtros por URL, chips, paginación y estados | frontend-dev + qa-reviewer | T-119, T-120, T-123, D-041 (P-2, P-3) | BACKLOG |
 | T-125 | Ficha `/relojes/[slug]`, galería, `BuyBox` y página 404 | frontend-dev + qa-reviewer | T-119, T-120, T-123 | BACKLOG |
-| T-126 | Sesión SSR: `@supabase/ssr`, middleware, guardia de rutas, `/auth/callback`, `/salir` y proxy `/bff/*` | frontend-dev + qa-reviewer (revisión de seguridad a fondo) | T-120; **aprobación de `@supabase/ssr` y `@supabase/supabase-js`**; D-025, D-041 (P-5); aviso de config de Supabase (§6) | BLOCKED (decisión del usuario) |
+| T-126 | Sesión SSR: `@supabase/ssr`, middleware, guardia de rutas, `/auth/callback`, `/salir` y proxy `/bff/*` | frontend-dev + qa-reviewer (revisión de seguridad a fondo) | T-120; **aprobación de `@supabase/ssr` y `@supabase/supabase-js`**; D-025, D-041 (P-5); aviso de config de Supabase (§6) | BACKLOG (dependencias aprobadas, D-042) |
 | T-127 | Ingreso `/ingresar` (`AuthSplit`, `WatchmakerArtwork`, `AuthForm`) | frontend-dev + qa-reviewer | T-117, T-118, T-119, T-126 | BACKLOG |
 | T-128 | Registro `/registro` (alta, consentimiento, estado "revisa tu correo") | frontend-dev + qa-reviewer | T-127 | BACKLOG |
 | T-129 | Cuenta `/cuenta`: perfil y cierre de sesión | frontend-dev + qa-reviewer | T-119, T-126 | BACKLOG |

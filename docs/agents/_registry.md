@@ -12,8 +12,8 @@
 | docs/setup.md | Doc | Herramientas, estructura del repo, comandos, entornos, MCP, problemas conocidos | RUNBOOK, ENVIRONMENTS, TROUBLESHOOTING | claude-leader | 2026-10-26 |
 | docs/design_ui/ | Carpeta | Guía de diseño de interfaz y marca | — | frontend-lead | 2026-10-26 |
 | docs/design_ui/DESIGN.md | Doc | Principios, tokens provisionales, componentes, flujo Figma MCP (D-031) | — | frontend-lead | 2026-11-26 |
-| docs/design_ui/BRIEF.md | Doc | pendiente (T-110/T-111): brief técnico de diseño y marca | — | frontend-lead | 2026-11-26 |
-| docs/design_ui/VIEWS.md | Doc | pendiente (T-110/T-111): inventario frame → ruta → componentes → datos/RF → estados | — | frontend-lead | 2026-11-26 |
+| docs/design_ui/BRIEF.md | Doc | brief técnico de diseño y marca (T-110, hecho)| — | frontend-lead | 2026-11-26 |
+| docs/design_ui/VIEWS.md | Doc | inventario frame → ruta → componentes → datos/RF → estados (T-111, hecho; D-041)| — | frontend-lead | 2026-11-26 |
 | .claude/settings.json | Config | Plugins del proyecto (D-035) | — | claude-leader (T-108) | 2026-11-26 |
 | .mcp.json | Config | MCP astro-docs y supabase-local (D-035) | — | claude-leader (T-108) | 2026-11-26 |
 | skills-lock.json | Config | Lock de skills de terceros (`npm run skills:install`) | — | claude-leader (T-108) | 2026-11-26 |
@@ -30,6 +30,11 @@
 | docs/modules/audit/ | Carpeta | SPEC y STATUS del módulo audit | 03-modules/audit | claude-leader | 2026-10-27 |
 | docs/modules/catalog/ | Carpeta | SPEC y STATUS del módulo catalog | 03-modules/catalog | claude-leader | 2026-10-27 |
 | docs/modules/inventory/ | Carpeta | SPEC y STATUS del módulo inventory | 03-modules/inventory | claude-leader | 2026-10-27 |
+| docs/modules/promotions/ | Carpeta | SPEC y STATUS del módulo promotions | 03-modules/promotions | claude-leader | 2026-11-26 |
+| docs/modules/cart/ | Carpeta | SPEC y STATUS del módulo cart | 03-modules/cart | claude-leader | 2026-11-26 |
+| docs/modules/wishlist/ | Carpeta | SPEC y STATUS del módulo wishlist | 03-modules/wishlist | claude-leader | 2026-11-26 |
+| docs/modules/orders/ | Carpeta | SPEC y STATUS del módulo orders | 03-modules/orders | claude-leader | 2026-11-26 |
+| docs/modules/ui/ | Carpeta | Plan y paquetes de la pista de frontend (T-116…T-139) | — | frontend-lead | 2026-11-26 |
 | docs/modules/<módulo>/ | Carpeta (se crea al especificar cada módulo) | `SPEC.md` (especificación, contrato y plan de pruebas) + `STATUS.md` (plan, tareas y traspasos) | 03-modules/* | module-coordinator | — |
 
 **Sin equivalente propio (por diseño):** QUALITY_GATES y RELEASE_CHECKLIST → skill `testing-and-quality-gates`; EVENTS_AND_STATES y DOMAIN_CONTRACTS → SPEC del módulo dueño; CHANGELOG → historial de git (D-013) + `decisions.md`.
