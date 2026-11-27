@@ -481,6 +481,11 @@ def test_only_the_profile_schemas_expose_birth_date() -> None:
     leaking_paths = {
         path
         for path, operations in schema["paths"].items()
-        if path != ME and any(n in json.dumps(operations) for n in ("birth_date", *holders))
+        # `birth_date_required` es un código de error de POST /orders (T-139), no el campo.
+        if path != ME
+        and any(
+            n in json.dumps(operations).replace("birth_date_required", "")
+            for n in ("birth_date", *holders)
+        )
     }
     assert leaking_paths == set()

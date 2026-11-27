@@ -19,6 +19,8 @@ from valmont.modules.cart.application import (
     RemoveCheckedOutItems,
 )
 from valmont.modules.identity.adapters.http import current_user
+from valmont.modules.identity.adapters.wiring import get_ensure_adult
+from valmont.modules.identity.application import BirthDateRequired, EnsureAdult, Underage
 from valmont.modules.identity.domain import CurrentUser
 from valmont.modules.inventory.adapters.wiring import get_release_reservations, get_reserve_stock
 from valmont.modules.inventory.application import (
@@ -313,8 +315,9 @@ def get_create_order(
     pickup_store: Annotated[PickupStoreProvider, Depends(get_pickup_store)],
     clock: Annotated[Clock, Depends(get_clock)],
     audit: AuditRecorderDep,
+    adult: Annotated[EnsureAdult, Depends(get_ensure_adult)],
 ) -> CreateOrder:
-    return CreateOrder(orders, prepare, remove, reserve, pickup_store, clock, audit)
+    return CreateOrder(orders, prepare, remove, reserve, pickup_store, clock, audit, adult)
 
 
 def get_expire_overdue_orders(
@@ -365,7 +368,8 @@ _PRODUCT = "00000000-0000-0000-0000-000000000001"
 _CONFLICT = {
     "model": ErrorOut,
     "description": "`empty_selection`, `checkout_blocked`, `insufficient_stock`,"
-    " `too_many_pending_orders`, `pickup_unavailable` o `idempotency_conflict`."
+    " `too_many_pending_orders`, `pickup_unavailable`, `idempotency_conflict`,"
+    " `birth_date_required` o `underage`."
     " `details`: `issues` (checkout_blocked), `product_ids` (insufficient_stock),"
     " `max` (too_many_pending_orders); sin `details` en los demás.",
     "content": {
@@ -393,6 +397,10 @@ _CONFLICT = {
                 "idempotency_conflict": _example(
                     "idempotency_conflict", "Solicitud en curso; reintente."
                 ),
+                "birth_date_required": _example(
+                    "birth_date_required", "Indica tu fecha de nacimiento para comprar."
+                ),
+                "underage": _example("underage", "Debes tener 18 años cumplidos para comprar."),
             }
         }
     },
@@ -430,6 +438,12 @@ def _translated() -> Iterator[None]:
         raise _conflict("pickup_unavailable", "El recojo en tienda no está disponible.") from None
     except IdempotencyConflict:
         raise _conflict("idempotency_conflict", "Solicitud en curso; reintente.") from None
+    except BirthDateRequired:
+        raise _conflict(
+            "birth_date_required", "Indica tu fecha de nacimiento para comprar."
+        ) from None
+    except Underage:
+        raise _conflict("underage", "Debes tener 18 años cumplidos para comprar.") from None
 
 
 IdempotencyKey = Annotated[

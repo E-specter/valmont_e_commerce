@@ -19,6 +19,7 @@ from tests.cart.cart_helpers import add_cart, add_item, add_listed, add_profile
 from tests.inventory.inventory_helpers import consume_reservations, release_reservations
 from tests.orders import orders_http_helpers as helpers
 from tests.orders.orders_admin_helpers import admin_of, admin_order
+from tests.orders.orders_age_helpers import ADULT_BIRTH, set_birth_date
 from tests.orders.orders_helpers import pickup_delivery, shipping_delivery
 from tests.orders.orders_http_helpers import (
     PICKUP,
@@ -37,6 +38,7 @@ from tests.orders.orders_transition_helpers import history_of, moved, stock_move
 from tests.promotions.promotions_helpers import add_promotion
 from valmont.modules.audit.adapters.persistence import SqlAuditRecorder
 from valmont.modules.cart.adapters.wiring import get_prepare_checkout, get_remove_checked_out_items
+from valmont.modules.identity.adapters.wiring import get_ensure_adult
 from valmont.modules.inventory.adapters.wiring import get_reserve_stock
 from valmont.modules.orders.adapters.persistence import SqlClock, SqlOrderRepository
 from valmont.modules.orders.application import (
@@ -319,6 +321,7 @@ def use_cases(session: Session) -> dict[str, Any]:
             Store(),
             clock,
             audit,
+            get_ensure_adult(session),
         ),
         "mine": GetMyOrder(orders, expire),
         "list_mine": ListMyOrders(orders, expire),
@@ -341,6 +344,7 @@ def test_the_whole_journey_by_use_cases_leaves_the_same_facts(
 ) -> None:
     session = db_session
     user, admin = add_profile(session), Actor(add_profile(session), ActorKind.ADMIN)
+    set_birth_date(session, user, ADULT_BIRTH)
     watch = add_listed(session, price=WATCH_PRICE, on_hand=3)
     cart_with(session, user, (watch, 2))
     run = use_cases(session)
@@ -393,6 +397,7 @@ def test_the_whole_journey_by_use_cases_leaves_the_same_facts(
 def test_the_cancel_journey_by_use_cases_releases_and_never_charges(db_session: Session) -> None:
     session = db_session
     user = add_profile(session)
+    set_birth_date(session, user, ADULT_BIRTH)
     watch = add_listed(session, price=WATCH_PRICE, on_hand=2)
     cart_with(session, user, (watch, 2))
     run = use_cases(session)

@@ -8,7 +8,7 @@ hasta que la segunda espera un bloqueo, así que la carrera ocurre siempre y no 
 import threading
 from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -20,6 +20,7 @@ from tests.cart.cart_helpers import add_cart, add_item, add_listed, add_profile
 from tests.cart.test_concurrency import TIMEOUT, in_transaction, race
 from tests.inventory.inventory_helpers import reserve_stock
 from tests.inventory.test_concurrency import PausingStock
+from tests.orders.orders_age_helpers import ADULT_BIRTH, set_birth_date
 from tests.orders.orders_create_helpers import NOW, Calls, FakeAudit, FakeStore
 from tests.orders.orders_helpers import shipping_delivery
 from valmont.modules.cart.adapters.persistence import SqlCartCatalog, SqlCartRepository
@@ -29,6 +30,8 @@ from valmont.modules.cart.application import (
     PrepareCheckout,
     RemoveCheckedOutItems,
 )
+from valmont.modules.identity.adapters.persistence import SqlProfileRepository
+from valmont.modules.identity.application import EnsureAdult
 from valmont.modules.inventory.adapters.persistence import (
     SqlProductPolicies,
     SqlReservationRepository,
@@ -64,10 +67,12 @@ class World:
         self.products.append(product_id)
         return product_id
 
-    def user(self, *lines: tuple[UUID, int]) -> UUID:
-        """Cliente con carrito y estas líneas seleccionadas, en este orden de creación."""
+    def user(self, *lines: tuple[UUID, int], birth_date: date | None = ADULT_BIRTH) -> UUID:
+        """Cliente con carrito y estas líneas seleccionadas, en este orden de creación. Por
+        defecto es mayor de edad (T-139); `birth_date=None` lo deja sin fecha."""
         with Session(self.engine) as session, session.begin():
             user_id = add_profile(session)
+            set_birth_date(session, user_id, birth_date)
             cart_id = add_cart(session, user_id)
             for n, (product, quantity) in enumerate(lines):
                 add_item(
@@ -143,6 +148,7 @@ def create_order(session: Session, reserve: ReserveStock | None = None) -> Creat
         FakeStore(calls),
         SqlClock(session),
         FakeAudit(calls),
+        EnsureAdult(SqlProfileRepository(session)),
     )
 
 

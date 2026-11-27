@@ -18,8 +18,10 @@ from sqlalchemy.orm import Session
 from tests.cart.cart_helpers import add_cart, add_item, add_listed, carts_of
 from tests.cart.test_http_cart_db import Shop
 from tests.identity.identity_helpers import InMemoryProfiles, make_token, use_test_auth
+from tests.orders.orders_age_helpers import ADULT_BIRTH, set_birth_date
 from valmont.main import create_app
 from valmont.modules.identity.adapters.http import get_profile_repository
+from valmont.modules.identity.domain import Role
 from valmont.shared.config import get_settings
 from valmont.shared.db import get_session
 
@@ -56,6 +58,12 @@ def money(amount: int) -> dict[str, Any]:
 class OrderShop(Shop):
     app: FastAPI
     monkeypatch: pytest.MonkeyPatch
+
+    def user(self, role: Role = Role.CUSTOMER) -> UUID:
+        """Cliente de prueba con fecha de nacimiento de adulto (T-139): `POST /orders` la exige."""
+        user_id = super().user(role)
+        set_birth_date(self.session, user_id, ADULT_BIRTH)
+        return user_id
 
     def set_store(self, **values: str) -> None:
         """Datos de la boutique en el entorno de `Settings` (sin argumentos: ninguno)."""

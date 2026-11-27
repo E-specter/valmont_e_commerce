@@ -141,6 +141,16 @@
 
 ## Traspasos
 
+### Traspaso T-139 (backend-dev) — IN_REVIEW
+1. Tarea: T-139. 2. Estado: IN_REVIEW (implementado, sin probar).
+3. Hecho: `orders/application.py`: `CreateOrder(..., audit, adult: EnsureAdult)` (último, obligatorio) y `self._adult(user_id, now)` tras `find_by_key` y antes de `PickupUnavailable`/`PrepareCheckout`. `orders/adapters/http.py`: `get_create_order` con `adult` (`Depends(get_ensure_adult)`), `_translated` (`BirthDateRequired` → 409 `birth_date_required`; `Underage` → 409 `underage`, sin `details`), descripción y ejemplos del 409.
+4. Firmas: exactamente las del paquete.
+5. Estático: `uv run ruff format .` → 273 files left unchanged; `uv run ruff check .` → All checks passed!; `import valmont.main` → ok.
+6. NO EJECUTADO: pruebas (D-028, D-033). Los constructores de `CreateOrder` en `tests/orders/` deben recibir `adult` (lo hace QA).
+7. Seguridad: ni fecha ni edad en errores, logs ni auditoría; excepciones sin datos; sin cambios en R4/R8. Rollback: el 409 sale como `AppError` dentro de la misma ruta, igual que los demás.
+8. Nota: orders/http.py no fija `Cache-Control: no-store` en ningún error (no hay patrón); no lo añadí. Si se quiere, es decisión de QA/Leader.
+9. Commits: ninguno — preparado (`orders/application.py`, `orders/adapters/http.py`, este STATUS). Mensaje: `feat(orders): exigir mayoría de edad al crear el pedido (T-139)`.
+
 ### Traspaso T-138 (backend-dev) — IN_REVIEW
 1. Tarea: T-138. 2. Estado: IN_REVIEW (implementado, sin probar; pruebas de QA pendientes).
 3. Hecho: `domain.py` (constantes, `BirthDateInvalid/Locked`, `AgeRequirementError/BirthDateRequired/Underage`, `lima_today`, `parse_birth_date`, `age_on`, `check_birth_date_range`, `is_adult`, `Profile.birth_date`); `application.py` (`set_birth_date_if_unset`, `UpdateProfile` con `birth_date`, `EnsureAdult`, `__all__`); `persistence.py` (columna, CHECK, `set_birth_date_if_unset` atómico); `wiring.py` nuevo (`get_ensure_adult`); `http.py` (`birth_date` en In/Out, `no-store`, 422 `birth_date_future|too_old`, 409 `birth_date_locked`); migración `0012`.

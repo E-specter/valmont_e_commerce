@@ -19,11 +19,18 @@ def python_files(root: Path) -> list[Path]:
     return [p for p in root.rglob("*.py") if "__pycache__" not in p.parts]
 
 
+def mentions_birth_date(path: Path) -> bool:
+    """El dato (`birth_date`) no sale de identity. El error `birth_date_required` y su excepción
+    `BirthDateRequired` sí (T-139, SPEC §13.7): son el nombre de un código, no el dato."""
+    text = re.sub(r"birth_?date_?required", "", path.read_text("utf-8"), flags=re.I)
+    return re.search(r"birth_?date", text, re.I) is not None
+
+
 def test_birth_date_appears_only_inside_identity() -> None:
     offenders = [
         str(path.relative_to(MODULES))
         for path in python_files(MODULES)
-        if IDENTITY not in path.parents and re.search(r"birth_?date", path.read_text("utf-8"), re.I)
+        if IDENTITY not in path.parents and mentions_birth_date(path)
     ]
 
     assert offenders == []
@@ -34,7 +41,7 @@ def test_birth_date_is_absent_from_shared_and_main() -> None:
     offenders = [
         str(path.relative_to(src))
         for path in [src / "main.py", *python_files(src / "shared")]
-        if re.search(r"birth_?date", path.read_text("utf-8"), re.I)
+        if mentions_birth_date(path)
     ]
 
     assert offenders == []
@@ -51,8 +58,8 @@ def identity_imports(path: Path) -> list[tuple[str, set[str]]]:
 
 
 def test_other_modules_import_from_identity_only_what_the_spec_allows() -> None:
-    # Hoy orders solo usa current_user/CurrentUser (T-016); T-139 añadirá EnsureAdult y los dos
-    # errores. Nadie importa el perfil completo, el repositorio ni la fila.
+    # Orders usa current_user/CurrentUser (T-016) y, desde T-139, EnsureAdult y los dos errores.
+    # Nadie importa el perfil completo, el repositorio ni la fila.
     forbidden = {
         "Profile",
         "ProfileRow",

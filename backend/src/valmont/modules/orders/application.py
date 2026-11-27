@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 from valmont.modules.audit.application import AuditEntry, AuditRecorder
 from valmont.modules.cart.application import EmptySelection, PrepareCheckout, RemoveCheckedOutItems
+from valmont.modules.identity.application import EnsureAdult
 from valmont.modules.inventory.application import (
     ConsumeReservations,
     ReleaseReservations,
@@ -164,6 +165,7 @@ class CreateOrder:
         pickup_store: PickupStoreProvider,
         clock: Clock,
         audit: AuditRecorder,
+        adult: EnsureAdult,
     ) -> None:
         self._orders = orders
         self._prepare = prepare
@@ -172,6 +174,7 @@ class CreateOrder:
         self._pickup_store = pickup_store
         self._clock = clock
         self._audit = audit
+        self._adult = adult
 
     def __call__(
         self, user_id: UUID, idempotency_key: str, delivery: DeliveryDetails
@@ -179,6 +182,7 @@ class CreateOrder:
         now = self._clock.now()  # el mismo para el pedido y las reservas (R6)
         if existing := self._orders.find_by_key(user_id, idempotency_key):
             return CreatedOrder(existing, False)
+        self._adult(user_id, now)  # RF01.07: antes de tocar el carrito o el stock
         if delivery.delivery_method == DeliveryMethod.PICKUP and self._pickup_store.get() is None:
             raise PickupUnavailable
         try:

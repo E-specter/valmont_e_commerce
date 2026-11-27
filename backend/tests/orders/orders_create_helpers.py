@@ -210,6 +210,22 @@ class FakeAudit:
 
 
 @dataclass
+class FakeAdult:
+    """`EnsureAdult` falso (T-139): por defecto deja pasar; `error` simula `BirthDateRequired` o
+    `Underage`. Anota cada llamada. Solo escribe en `calls` si se le pasa el registro común."""
+
+    calls: Calls
+    error: Exception | None = None
+    args: list[tuple[UUID, datetime]] = field(default_factory=list)
+
+    def __call__(self, user_id: UUID, now: datetime) -> None:
+        self.calls.append("adult")
+        self.args.append((user_id, now))
+        if self.error is not None:
+            raise self.error
+
+
+@dataclass
 class Harness:
     calls: Calls
     orders: FakeOrders
@@ -220,23 +236,34 @@ class Harness:
     store: FakeStore
     audit: FakeAudit
     use_case: CreateOrder
+    adult: Any = None
 
     def effects(self) -> list[str]:
         """Llamadas que escriben algo: reservar, guardar, vaciar el carrito, auditar."""
         return [c for c in self.calls if c in ("reserve", "add", "remove", "audit")]
 
 
-def harness(*lines: CheckoutLine, store: PickupStore | None = STORE) -> Harness:
+def harness(
+    *lines: CheckoutLine,
+    store: PickupStore | None = STORE,
+    adult: Any = None,
+    log_adult: bool = False,
+    clock: Any = None,
+) -> Harness:
+    """`adult`: el `EnsureAdult` (real o falso); por defecto un falso que deja pasar. Sus llamadas
+    entran en `calls` solo con `log_adult=True`, para no alterar el orden que comprueban las
+    pruebas existentes. `clock`: sustituye al reloj falso."""
     calls = Calls()
     orders = FakeOrders(calls)
     prepare = FakePrepare(calls, result=checkout_of(*lines) if lines else None)
     remove = FakeRemove(calls)
     reserve = FakeReserve(calls)
-    clock = FakeClock(calls)
+    clock = clock or FakeClock(calls)
     pickup = FakeStore(calls, store)
     audit = FakeAudit(calls)
-    use_case = CreateOrder(orders, prepare, remove, reserve, pickup, clock, audit)  # type: ignore[arg-type]
-    return Harness(calls, orders, prepare, remove, reserve, clock, pickup, audit, use_case)
+    adult = adult or FakeAdult(calls if log_adult else Calls())
+    use_case = CreateOrder(orders, prepare, remove, reserve, pickup, clock, audit, adult)  # type: ignore[arg-type]
+    return Harness(calls, orders, prepare, remove, reserve, clock, pickup, audit, use_case, adult)
 
 
 def run(h: Harness, user: UUID, key: str = KEY, delivery: DeliveryDetails | None = None) -> Any:

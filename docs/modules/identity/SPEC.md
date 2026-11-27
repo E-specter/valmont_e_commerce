@@ -259,7 +259,7 @@ app.profiles  (+)
 - [ ] **CA-IDENTITY-15** (R13; RF01.07): `POST /orders` con carrito válido: sin fecha → 409 `birth_date_required`; menor → 409 `underage`; adulto → 201 como hoy. En los dos 409 no hay fila en `orders`, no se reserva stock, el carrito queda intacto y no hay entrada de auditoría; `details` es `null`.
 - [ ] **CA-IDENTITY-16** (R13, orden): un menor con carrito vacío recibe `underage` (no `empty_selection`); con `pickup` sin boutique, `underage`; repetir la clave de un pedido existente → 200 sin invocar `EnsureAdult`.
 - [ ] **CA-IDENTITY-17** (migración): `upgrade 0012` añade la columna `NULL` y los perfiles existentes quedan en `NULL`; `downgrade 0011` la quita; `alembic check` sin diferencias; `valmont_app` puede escribir `birth_date` (`tests/test_app_role.py`).
-- [ ] **CA-IDENTITY-18** (aislamiento): `grep -rn birth_date backend/src/valmont/modules` solo da resultados dentro de `modules/identity/`; orders solo importa `EnsureAdult`, `BirthDateRequired` y `Underage`.
+- [ ] **CA-IDENTITY-18** (aislamiento): `grep -rn birth_date backend/src/valmont/modules` solo da resultados dentro de `modules/identity/`, salvo los nombres del error `BirthDateRequired` y del código `birth_date_required` en orders (el dato nunca sale de identity); orders solo importa `EnsureAdult`, `BirthDateRequired` y `Underage`. Una entrada inválida (`Idempotency-Key` o cuerpo) responde 422 antes que el 409 de edad, porque FastAPI valida antes de ejecutar el caso de uso (T-139).
 
 ### 13.11 Plan de pruebas (las escribe qa-reviewer, D-033)
 
