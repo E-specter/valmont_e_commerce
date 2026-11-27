@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/axe';
-import { collectConsoleErrors } from './helpers/page';
+import { collectConsoleErrors, openFilters } from './helpers/page';
 import { sequence } from './helpers/ui-a';
 
 // T-124 · E2E de /relojes CONTRA EL BACKEND REAL (:8000, semilla `demo-…` con 12 productos). Los totales esperados no se
@@ -219,6 +219,7 @@ test.describe('filtros contra la API real', () => {
 test.describe('formulario de filtros', () => {
   test('etiquetas accesibles, fieldset con legend y botón Aplicar', async ({ page }) => {
     await open(page, PATH);
+    await openFilters(page);
     await expect(page.getByRole('group', { name: 'Filtrar y ordenar' })).toHaveCount(ONE);
     const labels = ['Colección', 'Movimiento', 'Material de caja', 'Precio desde (S/)', 'Precio hasta (S/)', 'Ordenar por', 'Solo disponibles'];
     await Promise.all(labels.map((l) => expect(page.getByLabel(l, { exact: true }), l).toHaveCount(ONE)));
@@ -227,6 +228,7 @@ test.describe('formulario de filtros', () => {
 
   test('elegir un valor NO envía el formulario (WCAG 3.2.2): solo "Aplicar" navega', async ({ page }) => {
     await open(page, PATH);
+    await openFilters(page);
     await page.getByLabel('Colección', { exact: true }).selectOption('demo-buceo');
     await page.getByLabel('Solo disponibles', { exact: true }).check();
     await page.waitForTimeout(SETTLE_MS);
@@ -235,6 +237,7 @@ test.describe('formulario de filtros', () => {
 
   test('aplicar con el formulario refleja los filtros en la URL y coincide con la API', async ({ page, request }) => {
     await open(page, PATH);
+    await openFilters(page);
     await page.getByLabel('Colección', { exact: true }).selectOption('demo-buceo');
     await page.getByLabel('Movimiento', { exact: true }).selectOption('automatic');
     await page.getByLabel('Precio desde (S/)', { exact: true }).fill('1000');
@@ -251,6 +254,7 @@ test.describe('formulario de filtros', () => {
 
   test('enviar el formulario sin tocar nada vuelve al listado completo, sin avisos', async ({ page, request }) => {
     await open(page, PATH);
+    await openFilters(page);
     await Promise.all([page.waitForURL((u) => u.pathname === PATH && u.search !== ''), page.getByRole('button', { name: 'Aplicar' }).click()]);
     await expect(notice(page)).toHaveCount(NONE);
     expect(await countOf(page)).toBe((await apiList(request)).total);
@@ -258,6 +262,7 @@ test.describe('formulario de filtros', () => {
 
   test('Enter dentro de un campo de precio envía el formulario', async ({ page }) => {
     await open(page, PATH);
+    await openFilters(page);
     await page.getByLabel('Precio hasta (S/)', { exact: true }).fill('4000');
     await Promise.all([page.waitForURL((u) => u.searchParams.get('price_max') === '4000'), page.getByLabel('Precio hasta (S/)', { exact: true }).press('Enter')]);
   });
@@ -271,6 +276,7 @@ test.describe('formulario de filtros', () => {
 
   test('con una búsqueda activa, aplicar un filtro conserva q', async ({ page, request }) => {
     await open(page, `${PATH}?q=demo`);
+    await openFilters(page);
     await expect(page.getByLabel('Ordenar por', { exact: true })).toHaveValue('relevance');
     await page.getByLabel('Colección', { exact: true }).selectOption('demo-buceo');
     await Promise.all([page.waitForURL((u) => u.searchParams.get('category') === 'demo-buceo'), page.getByRole('button', { name: 'Aplicar' }).click()]);
@@ -281,6 +287,7 @@ test.describe('formulario de filtros', () => {
 
   test('el formulario funciona con el teclado: Tab llega a todos los controles sin pasar por los estáticos', async ({ page }) => {
     await open(page, PATH);
+    await openFilters(page);
     const visited = await sequence(Array.from({ length: TABS }), async () => {
       await page.keyboard.press('Tab');
       return page.evaluate(() => {
@@ -299,6 +306,7 @@ test.describe('formulario sin JavaScript', () => {
 
   test('aplica filtros con un GET completo y la URL queda compartible', async ({ page, request }) => {
     await open(page, PATH);
+    await openFilters(page);
     await page.getByLabel('Colección', { exact: true }).selectOption('demo-buceo');
     await page.getByLabel('Solo disponibles', { exact: true }).check();
     await page.getByLabel('Precio hasta (S/)', { exact: true }).fill('8000');

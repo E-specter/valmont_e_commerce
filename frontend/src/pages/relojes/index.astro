@@ -68,7 +68,7 @@ const total = result?.total;
   </PageTitle>
   <div class="stack">
   <FeaturedBanner {...featured} />
-  <FilterBar categories={categories} movements={attrs.movements} materials={attrs.case_materials} query={query} />
+  <FilterBar categories={categories} movements={attrs.movements} materials={attrs.case_materials} query={query} open={Boolean(rangeError || invalid || failure === 'validation')} />
   <ActiveFilters chips={chips} clearHref="/relojes" />
   </div>
 

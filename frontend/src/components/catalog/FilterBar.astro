@@ -16,8 +16,10 @@ interface Props {
   materials: AttributeValue[];
   query: CatalogQuery;
   action?: string;
+  /** Fuerza el plegable abierto en móvil (p. ej. error de validación); con filtros activos ya se abre. */
+  open?: boolean;
 }
-const { categories, movements, materials, query, action = '/relojes' } = Astro.props;
+const { categories, movements, materials, query, action = '/relojes', open = false } = Astro.props;
 
 const selects = [
   { id: 'f-category', name: 'category', label: 'Colección', all: 'Todas', value: query.category, options: categories.map((c) => [c.slug, c.name]) },
@@ -32,16 +34,27 @@ const sorts: [string, string][] = [
 ];
 // Con búsqueda el orden por defecto del servidor es relevancia; sin `sort` en la URL se marca la primera opción.
 const sortValue = query.sort ?? (query.q ? 'relevance' : '');
+// Filtros del formulario activos (la búsqueda `q` no es un control de la barra).
+const activeCount = [query.category, query.movement, query.case_material, query.price_min_soles, query.price_max_soles, query.sort, query.available].filter(
+  (v) => v !== undefined && v !== null && v !== '' && v !== false,
+).length;
 ---
 
 <div class="filterbar">
+  <!-- < 800 px: plegable nativo sin JS; ≥ 800 px la barra se ve desplegada y se oculta el resumen -->
+  <details class="filters" open={open || activeCount > 0}>
+    <summary>
+      <span>Filtros</span>
+      {activeCount > 0 && <span class="count">{activeCount} {activeCount === 1 ? 'activo' : 'activos'}</span>}
+      <Icon name="chevron-down" size={16} />
+    </summary>
   <form method="get" action={action} class="form">
     <fieldset>
       <legend>Filtrar y ordenar</legend>
       {query.q && <input type="hidden" name="q" value={query.q} />}
       {
         selects.map((s) => (
-          <div class="field">
+          <div class="field wide">
             <label for={s.id}>{s.label}</label>
             <div class="select">
               <select id={s.id} name={s.name}>
@@ -60,7 +73,7 @@ const sortValue = query.sort ?? (query.q ? 'relevance' : '');
       }
       <Field id="f-price-min" name="price_min" label="Precio desde (S/)" type="number" inputmode="numeric" min={0} value={query.price_min_soles?.toString()} />
       <Field id="f-price-max" name="price_max" label="Precio hasta (S/)" type="number" inputmode="numeric" min={0} value={query.price_max_soles?.toString()} />
-      <div class="field">
+      <div class="field wide">
         <label for="f-sort">Ordenar por</label>
         <div class="select">
           <select id="f-sort" name="sort">
@@ -69,13 +82,14 @@ const sortValue = query.sort ?? (query.q ? 'relevance' : '');
           <Icon name="chevron-down" size={16} />
         </div>
       </div>
-      <Checkbox id="f-available" name="available" value="1" label="Solo disponibles" checked={query.available} />
       <div class="actions">
+        <Checkbox id="f-available" name="available" value="1" label="Solo disponibles" checked={query.available} />
         <Button type="submit" variant="dark">Aplicar</Button>
         <TextLink href={action}>Limpiar filtros</TextLink>
       </div>
     </fieldset>
   </form>
+  </details>
 
   <div class="static" data-demo-content>
     <div class="fake" aria-disabled="true">
@@ -99,12 +113,71 @@ const sortValue = query.sort ?? (query.q ? 'relevance' : '');
     }
     fieldset {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       align-items: end;
       gap: var(--space-16);
       margin: 0;
       padding: 0;
       border: 0;
+    }
+    .wide {
+      grid-column: 1 / -1;
+    }
+    @media (min-width: 800px) {
+      fieldset {
+        grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+      }
+      .wide {
+        grid-column: auto;
+      }
+    }
+    summary {
+      display: flex;
+      align-items: center;
+      gap: var(--space-8);
+      min-block-size: var(--touch-target);
+      padding-inline: var(--space-16);
+      border: 1px solid var(--stroke-control);
+      border-radius: var(--radius-md);
+      font-weight: var(--weight-bold);
+      cursor: pointer;
+      list-style: none;
+    }
+    summary::-webkit-details-marker {
+      display: none;
+    }
+    summary :global(.icon) {
+      margin-inline-start: auto;
+      transition: transform var(--dur-state) var(--ease);
+    }
+    details[open] > summary :global(.icon) {
+      transform: rotate(180deg);
+    }
+    summary:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    .count {
+      font-size: var(--text-caption);
+      font-weight: var(--weight-regular, 400);
+      color: var(--text-secondary);
+    }
+    details[open] > form {
+      margin-block-start: var(--space-16);
+    }
+    /* Escritorio: siempre desplegado. Sin soporte de ::details-content el resumen sigue siendo el control. */
+    @media (min-width: 800px) {
+      @supports selector(::details-content) {
+        summary {
+          display: none;
+        }
+        details::details-content {
+          content-visibility: visible;
+        }
+        details > form {
+          margin-block-start: 0;
+        }
+      }
     }
     legend {
       padding: 0;
@@ -155,10 +228,16 @@ const sortValue = query.sort ?? (query.q ? 'relevance' : '');
       outline-offset: var(--focus-offset);
     }
     .actions {
+      grid-column: 1 / -1;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: var(--space-16);
+    }
+    .actions :global(.textlink) {
+      display: inline-flex;
+      align-items: center;
+      min-block-size: var(--touch-target);
     }
     .static {
       display: flex;

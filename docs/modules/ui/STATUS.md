@@ -690,6 +690,15 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-134 (implementación) — 2026-11-27 — frontend-dev
+1. Tarea: T-134 (D-05, D-11) · 2. Estado: IN_REVIEW. 3. Hecho: `FilterBar` envuelto en `<details class="filters">` sin JS; `<summary>` "Filtros" + "N activos"; abierto si hay filtros activos u `open`. Precios en 2 columnas en móvil; fila de acciones única (casilla + Aplicar + Limpiar). "Limpiar filtros" 44 px.
+4. Archivos: `components/catalog/FilterBar.astro`, `pages/relojes/index.astro` (solo pasa `open`), esta STATUS. `ActiveFilters` sin cambios.
+5. Decisiones: en >= 800 px el resumen se oculta y `details::details-content{content-visibility:visible}` fuerza la barra desplegada; solo bajo `@supports selector(::details-content)`, si no, el resumen sigue siendo un plegable usable. Prop opcional aditiva `open?` en `FilterBar` (para error de validación; las demás no cambian).
+6. Medidas (dev, 375 px): primer reloj a 809 px de scroll con plegado (antes ~1400 según REVIEW); resumen 44 px; con filtros activos abre y muestra "2 activos". 1280 px: Aplicar, Limpiar y casilla en la misma fila (top 813, alto 44); selects alineados (top 747).
+7. Figma: no consultado. 8. Análisis estático: `npm run check` -> 0 errors, 0 warnings. NO EJECUTADO: pruebas (D-028, D-033).
+9. Para QA: revisar `e2e/catalog*.spec.ts` que asuman los filtros visibles a 375 sin filtros activos (ahora cerrados; hay que abrir el `summary`). Foco visible y estado nativo del `details`.
+10. Commit: ninguno, preparado. Mensaje: `fix(ui): barra de filtros alineada y plegable en móvil (T-134)`.
+
 #### Traspaso T-137 (implementación) — 2026-11-27 — frontend-dev
 1. Tarea: T-137 · 2. Estado: IN_REVIEW (listo para QA). Figma: no consultado.
 3. Hecho: `HeroCta` sin foto: bloque de marca (forest, `/brand/symbol.svg`, `Checkerboard rows=2`); prop `image` ahora opcional (foto propia futura, sin marcas ajenas). `hero.png` borrado (`git rm`). D-03 `margin-block-start: --space-48` en el hero. D-06 `PageTitle` en `--color-forest`. D-07 `FeaturedBanner` en ink, 50/50 (texto + bloque forest-mid con símbolo), sin CTA (P-2). D-08 manifiesto en h2 (32/36 a 375) y h1 desde 800 px; enlaces `clamp(36px…128px)` y "(demo)" con `nowrap`. D-12 `DefinitionList` variante `rows` (etiqueta/valor, desde 480 px de contenedor); la ficha la usa. D-13 asesor `align-self: flex-start`.

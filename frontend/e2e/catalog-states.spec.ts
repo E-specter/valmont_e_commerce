@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/axe';
-import { collectConsoleErrors } from './helpers/page';
+import { collectConsoleErrors, openFilters } from './helpers/page';
 import { LEAK, startSite, startStub, type Site, type Stub } from './helpers/stub-site';
 
 // T-124 · estados que el backend real no produce con 12 productos: paginación (60 relojes simulados), 422, 5xx, JSON roto,
@@ -130,6 +130,7 @@ test.describe('paginación (60 relojes simulados, 24 por página)', () => {
 
   test('cambiar un filtro desde el formulario reinicia page a 1', async ({ page }) => {
     await page.goto(`${site.url}${PATH}?page=2`);
+    await openFilters(page);
     await page.getByLabel('Colección', { exact: true }).selectOption('cat-b');
     await Promise.all([page.waitForURL((u) => u.searchParams.get('category') === 'cat-b'), page.getByRole('button', { name: 'Aplicar' }).click()]);
     expect(new URL(page.url()).searchParams.has('page')).toBe(false);

@@ -19,3 +19,13 @@ export function collectExternalRequests(page: Page, ownOrigin = `http://localhos
   });
   return external;
 }
+
+/**
+ * T-134 · en < 800 px la barra de filtros va en un `<details>` cerrado sin filtros activos; en escritorio el resumen
+ * está oculto y la barra siempre se ve. Abre el resumen solo si es visible y el plegable sigue cerrado.
+ */
+export async function openFilters(page: Page): Promise<void> {
+  const details = page.locator('details:has(form)').first();
+  const summary = details.locator('summary').first();
+  if ((await summary.isVisible()) && !(await details.evaluate((d) => (d as HTMLDetailsElement).open))) await summary.click();
+}
