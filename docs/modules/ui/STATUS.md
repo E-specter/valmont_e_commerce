@@ -785,3 +785,4 @@ Plan completo en este documento. Estado: IN_REVIEW. Sin pruebas ejecutadas (plan
 - **N-3 (T-124):** `listProducts` reenvía al servidor cualquier clave extra (`{ ...f }`). El catálogo construye la consulta con la lista cerrada de filtros a partir de `searchParams`.
 - **N-4 (T-121):** cuando una página use `server.ts`, se repite el grep de `dist/client` (`API_BASE_URL`, `127.0.0.1:8000`, `api/v1`), que debe salir vacío.
 - **N-5 (QA, todas las tareas):** los valores falsos de las pruebas no deben coincidir con el patrón del hook de secretos (`.githooks`). Se definen como constantes con otro nombre (`FAKE_BEARER`) o con menos de 8 caracteres.
+- **N-6 (payments, D-043):** la pantalla de pago T-082b de esta pista es **T-098** del STATUS de payments: entrega y tarjeta en una sola pantalla (P-5), con el formulario de tarjeta solo en el cliente, del que viajan únicamente los 4 últimos dígitos (P-1).

@@ -34,6 +34,7 @@
 | docs/modules/cart/ | Carpeta | SPEC y STATUS del módulo cart | 03-modules/cart | claude-leader | 2026-11-26 |
 | docs/modules/wishlist/ | Carpeta | SPEC y STATUS del módulo wishlist | 03-modules/wishlist | claude-leader | 2026-11-26 |
 | docs/modules/orders/ | Carpeta | SPEC y STATUS del módulo orders | 03-modules/orders | claude-leader | 2026-11-26 |
+| docs/modules/payments/ | Carpeta | SPEC y STATUS del módulo payments | 03-modules/payments | claude-leader | 2026-11-27 |
 | docs/modules/ui/ | Carpeta | Plan y paquetes de la pista de frontend (T-116…T-139) | — | frontend-lead | 2026-11-26 |
 | docs/modules/<módulo>/ | Carpeta (se crea al especificar cada módulo) | `SPEC.md` (especificación, contrato y plan de pruebas) + `STATUS.md` (plan, tareas y traspasos) | 03-modules/* | module-coordinator | — |
 

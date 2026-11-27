@@ -102,10 +102,10 @@
 
 | ID | Requisito | Prioridad | Estado |
 |---|---|---|---|
-| RF05.01 | Registrar intentos de pago simulados asociados a un pedido. | MVP | PROPUESTO |
-| RF05.02 | Registrar el resultado de cada intento y actualizar el estado de pago del pedido. | MVP | PROPUESTO |
-| RF05.03 | Hacer idempotente el registro del resultado: el mismo resultado repetido no duplica efectos. | MVP | PROPUESTO |
-| RF05.04 | No almacenar datos sensibles de tarjetas (RN-11). | MVP | PROPUESTO |
+| RF05.01 | Registrar intentos de pago simulados asociados a un pedido. | MVP | APROBADO (D-043) |
+| RF05.02 | Registrar el resultado de cada intento y actualizar el estado de pago del pedido. | MVP | APROBADO (D-043) |
+| RF05.03 | Hacer idempotente el registro del resultado: el mismo resultado repetido no duplica efectos. | MVP | APROBADO (D-043) |
+| RF05.04 | No almacenar datos sensibles de tarjetas (RN-11). | MVP | APROBADO (D-043) |
 | RF05.05 | Registrar un reembolso simulado cuando un administrador cancela un pedido pagado (RN-08). | MVP | APROBADO |
 
 ### RF06 — Productos e inventario · módulos `catalog`, `inventory`

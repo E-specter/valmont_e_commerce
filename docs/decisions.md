@@ -49,6 +49,7 @@
 | D-040 | 2026-11-26 | Pedidos: envío a domicilio y recojo en tienda, envío gratis a todo el Perú, datos sin DNI, bajo pedido con pago completo; proveedores `adapters/wiring.py` por módulo | APROBADA |
 | D-041 | 2026-11-26 | Interfaz: respuestas P-1…P-9 (cabecera, filtros estáticos, precio es-PE con D-037, pago simulado sin PAN, cookie httpOnly, estados agrupados solo en la vista, miniaturas del lector compartido, fecha de nacimiento +18, contenido de demo) | APROBADA |
 | D-042 | 2026-11-26 | Frontend: dependencias de pruebas (Vitest, happy-dom, Playwright, axe) y de sesión (`@supabase/ssr`, `supabase-js`), fuentes con la API de Astro y callback de Auth autorizado | APROBADA |
+| D-043 | 2026-11-27 | Pagos simulados: resultado por los 4 últimos dígitos (matiza D-041 P-4), hasta 5 rechazos, mensaje detallado en la demo, `card_last4` guardado, pago en una sola pantalla, sin vista de administración | APROBADA |
 
 ---
 
@@ -498,3 +499,16 @@
   4. **Callback de Auth:** se autoriza añadir `http://localhost:4321/auth/callback` a `additional_redirect_urls` en `supabase/config.toml` y reiniciar el Supabase local conservando los datos cuando llegue T-126 o T-127, con su ficha de auditoría.
 - **Alternativas descartadas:** solo Vitest y happy-dom (sin E2E ni a11y automática hasta T-126); aplazar la sesión (sin ingreso, carrito ni cuenta); fuentes `woff2` versionadas; preguntar de nuevo antes del callback.
 - **Consecuencias:** T-130 y T-116 READY; T-126 desbloqueada en cuanto a dependencias. Preact sigue sujeto al criterio de D-014 (T-060).
+
+### D-043 — Pagos simulados (APROBADA, 2026-11-27)
+- **Contexto:** SPEC de payments (T-090) con un puerto de pasarela y un adaptador simulado (D-041 P-4). Faltaban las preguntas de negocio P-1…P-6 de su §12.
+- **Decisiones del usuario:**
+  1. **P-1, simulación:** regla determinista sobre los **4 últimos dígitos** de la tarjeta, como las tarjetas de prueba (0002 rechazada, 9995 sin fondos, 0069 vencida, 0119 pasarela caída; el resto se aprueba). **Matiza D-041 P-4:** el número completo y el CVV siguen sin salir del navegador; solo viajan los 4 últimos dígitos, un dato truncado que PCI DSS permite guardar.
+  2. **P-2, reintentos:** hasta **5 rechazos** por pedido. A partir del quinto, el pedido no admite más intentos (dentro de su ventana de 30 minutos).
+  3. **P-3, mensaje:** detallado por motivo en el simulador. Con un proveedor real se pasa a uno genérico.
+  4. **P-4, `card_last4`:** se guarda en cada intento para mostrar "terminada en …" y para la trazabilidad. No aparece en logs ni en la auditoría.
+  5. **P-5, flujo:** una sola pantalla con entrega y tarjeta. Al confirmar se crea el pedido y se paga, en dos llamadas. El detalle de un pedido pendiente ofrece "Pagar" para retomarlo antes de que venza.
+  6. **P-6, administración:** sin vista de intentos en el MVP. El detalle del pedido ya muestra el pago, el reembolso y el historial.
+- **Alternativas descartadas:** escenario elegido en desarrollo y resultado al azar (P-1); sin tope o un solo reintento (P-2); siempre genérico (P-3); no guardar `card_last4` (P-4); dos pasos (P-5); `GET` de administración (P-6).
+- **Consecuencias:** SPEC de payments aprobada; RF05.01…RF05.04 aprobados; T-091 y T-092 READY; E-P2 registrada en `modules.md` §3; la pantalla T-082b de ui es T-098 de payments.
+

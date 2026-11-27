@@ -1,5 +1,5 @@
 # payments — Especificación
-> Estado: PROPUESTO (alcance pendiente del Leader y de las preguntas de negocio P-1…P-6 de §12; contrato §7 pendiente de backend-lead y frontend-lead) · Requisitos: RF05.01–RF05.05 · Reglas: RN-08, RN-09, RN-10, RN-11, RN-15 · Decisiones: D-016, D-017, D-040 (E-3), D-041 (P-4) · Dueño: backend · Última actualización: 2026-11-27 module-coordinator (T-090)
+> Estado: APROBADA (D-043: P-1…P-6 resueltas por el usuario el 2026-11-27; contrato §7 aprobado por el Leader) · Requisitos: RF05.01–RF05.05 · Reglas: RN-08, RN-09, RN-10, RN-11, RN-15 · Decisiones: D-016, D-017, D-040 (E-3), D-041 (P-4) · Dueño: backend · Última actualización: 2026-11-27 module-coordinator (T-090)
 
 ## 1. Problema y alcance
 
@@ -247,6 +247,8 @@ Las escribe `qa-reviewer` (D-033) en `backend/tests/payments/` (más `backend/te
 - **Casos de borde obligatorios:** importe por encima de 2³¹; pedido de una sola línea Bajo pedido; `expires_at` igual a `now` (vencido) y un segundo antes (vigente); clave repetida en otro pedido; `0119` seguido de un pago correcto con la misma clave; tope alcanzado y luego repetir una clave anterior; cliente con tres pedidos sin pagar pagando el segundo; pedido pagado y cancelado por el administrador.
 
 ## 12. Preguntas abiertas
+
+> **Resueltas en D-043 (2026-11-27):** P-1 A (4 últimos dígitos), P-2 B (5 rechazos), P-3 A (detallado en la demo), P-4 A (se guarda `card_last4`), P-5 A (una sola pantalla), P-6 A (sin vista de administración). Las hipótesis P-1…P-6 de esta SPEC pasan a ser decisiones.
 
 Las preguntas de negocio no las resuelve este módulo; cada una lleva una hipótesis conservadora con la que el plan avanza y que se invierte sin rehacer el resto.
 
