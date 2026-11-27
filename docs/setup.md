@@ -61,7 +61,7 @@ Procedimiento completo: skill `version-control`.
 | Consola SQL | `docker exec -it supabase_db_valmont psql -U postgres` |
 | Studio · Mailpit (correos de Auth) | http://127.0.0.1:54323 · http://127.0.0.1:54324 |
 
-Servicios activos: Postgres 17, Auth (GoTrue), Kong, PostgREST, Storage (bucket público `products`, 5 MiB, JPEG/PNG/WebP; D-019), Studio, pg-meta y Mailpit. Apagados en `supabase/config.toml`: realtime, edge runtime y analytics. `backend/.env` se crea a partir de `backend/.env.example`.
+Servicios activos: Postgres 17, Auth (GoTrue), Kong, PostgREST, Storage (bucket público `products`, 5 MiB, JPEG/PNG/WebP; D-019), Studio, pg-meta y Mailpit. Apagados en `supabase/config.toml`: realtime, edge runtime y analytics. `backend/.env` se crea a partir de `backend/.env.example`. `frontend/.env` (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `API_BASE_URL`; nunca la `service_role`) lo genera `scripts/review-up.sh` si no existe, a partir de `frontend/.env.example` y `npx supabase status`; sin él, el sitio público funciona y las rutas con sesión responden 500 genérico (T-126).
 
 ### Backend (`cd backend`)
 
