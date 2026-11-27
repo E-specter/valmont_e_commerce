@@ -10,8 +10,8 @@
 | T-092 | Dominio de payments, puertos (`PaymentGateway`, `PaymentAttemptRepository`) y adaptador simulado | backend-dev + qa-reviewer | T-090 aprobada (alcance y P-1, P-2, P-4) | DONE (2d596a2) |
 | T-093 | Migración `0011`, fila y repositorio SQL de intentos | backend-dev + qa-reviewer | T-092; E-P2 registrada | DONE (0d0fdd1) |
 | T-094 | Pagar un pedido (`PayOrder`) y `POST /payments/orders/{id}/attempts` | backend-dev + qa-reviewer | T-091, T-093 | DONE (ec34d3a) |
-| T-095 | Consultar los intentos (`GetOrderPayments`) y `GET /payments/orders/{id}/attempts` | backend-dev + qa-reviewer | T-094 | IN_REVIEW |
-| T-096 | Integración transversal y auditoría de seguridad del backend de payments | qa-reviewer (con Opus, decisions.md) | T-091…T-095 | BACKLOG |
+| T-095 | Consultar los intentos (`GetOrderPayments`) y `GET /payments/orders/{id}/attempts` | backend-dev + qa-reviewer | T-094 | DONE (fbd006a) |
+| T-096 | Integración transversal y auditoría de seguridad del backend de payments | qa-reviewer (con Opus, decisions.md) | T-091…T-095 | READY |
 | T-097 | Cliente de API de payments (`frontend/src/lib/api/payments.ts`) y tipos | frontend-dev + qa-reviewer | T-094, T-095 integradas; contrato §7 aprobado | BACKLOG (no READY: sin contrato aprobado ni backend) |
 | T-098 | Pantalla de pago: formulario de tarjeta solo cliente, estados y reintento (la `T-082b` de la pista `ui`) | frontend-dev + qa-reviewer | T-097, T-082a (checkout y creación del pedido), T-111, componentes `ui/` (T-117…T-119) | BACKLOG (no READY: sin diseño de pago cerrado) |
 
