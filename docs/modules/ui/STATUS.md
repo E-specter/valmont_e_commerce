@@ -691,6 +691,26 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-127 (correcciones tras QA) — 2026-11-27 — frontend-dev
+- Contraste: el formulario va sobre `forest` (VIEWS §4.3; sin consulta a Figma). Prop aditiva y opcional `tone?: 'light'|'dark'` (por defecto `light`) en `layout/PageTitle.astro` y `ui/Field.astro`; `dark` usa solo tokens existentes (menta, marfil, `--color-red-soft` para el error). `AuthForm` pasa `tone="dark"`.
+- POST con cuerpo no formulario: 415 (antes 500). Con sesión, 303 con `Cache-Control: private, no-store` (Response manual).
+- `AuthForm` ya no importa de `lib/server`: el mensaje 503 vive en `src/lib/auth-messages.ts` (`auth-errors.ts` lo reexporta); `next` llega validado desde la página.
+- RT-1: `font-size` del arte con token; `toFixed` sustituido por `Math.round`.
+- `npm run check → 0 errors, 0 warnings (181 files)`; pruebas NO EJECUTADAS. Preparado, sin commit; mensaje: `feat(ui): pantalla de ingreso (T-127)`.
+
+#### Traspaso T-127 (implementación) — 2026-11-27 — frontend-dev
+1. Tarea: T-127 · 2. Estado: IN_REVIEW (listo para QA). Figma: no se consultó; nodos ya documentados en VIEWS §4.3 y BRIEF §12 (D-031, cuota).
+3. Hecho: `pages/ingresar.astro` (SSR, GET|POST `/ingresar?next=`), `components/auth/{AuthSplit,WatchmakerArtwork,AuthForm}.astro`, `islands/password-toggle.ts`, `lib/server/auth-errors.ts`. Sin cambios en `ui/**`, `layout/**`, `layouts/**`, `middleware.ts`; sin tokens nuevos ni `assets/auth` (arte en SVG inline).
+4. `AuthSplit` envuelve `AuthLayout` (título por variante) y reenvía slots `art` y por defecto; el `AuthLayout` existente ya oculta el arte bajo 800 px.
+5. POST: Origin igual a `url.origin` (si no, 403, como `/salir`); `next` por `safeNext` (fallback `/cuenta`), también el del campo oculto; ya autenticado, 303 sin formulario. 422 por campo (`novalidate`, valida el servidor); credenciales 401, correo sin confirmar 403, límite 429, red/5xx/`AuthConfigError` 503 con "Reintentar" (enlace a `/ingresar?next=`). Éxito, 303 a `next`. `Cache-Control: private, no-store`.
+6. Contraseña: sin `value`, no se registra; sin `console`. Mismo mensaje para correo inexistente y contraseña errónea (cualquier 4xx no listado cae en 401 genérico).
+7. `Notice` de error con `tabindex="-1" autofocus` (foco sin JS). El ojo (`IconButton`, `data-password-toggle`, `aria-controls="password"`) queda oculto por CSS hasta que la isla lo activa; alterna `type`, `aria-pressed` y `aria-label`; idempotente (`data-ready`).
+8. Sin "Recuérdame" ni "¿Olvidaste…?" (H-18). "Crear cuenta Valmont +" apunta a `/registro?next=`.
+9. Desviaciones: `mapAuthError` acepta además `message?: string` (la prueba de QA `tests/lib/auth-errors.test.ts:94` lo pasa; sin ello `npm run check` falla). Añadido `SERVICE_UNAVAILABLE_MESSAGE` (export). `AuthForm` valida `next` otra vez. El arte es una interpretación SVG de `32:585` (sin captura de Figma): revisar contra el frame.
+10. Pendiente de QA: `AuthLayout` no pinta `SiteFooter` ni damero propio (el damero menta va al final del formulario); revisar visualmente.
+11. Evidencia: `npm run check → 0 errors, 0 warnings, 0 hints (175 files)` (análisis estático, no cuenta). NO EJECUTADO: pruebas ni build (D-028, D-033).
+12. Commit: ninguno, preparado. Mensaje: `feat(ui): pantalla de ingreso (T-127)`.
+
 #### Traspaso T-126 (implementación) — 2026-11-27 — frontend-dev
 1. Tarea: T-126 · 2. Estado: IN_REVIEW (listo para QA, revisión de seguridad a fondo). Figma: no aplica.
 3. Hecho: `lib/server/{guard,supabase,session}.ts`, `middleware.ts`, `env.d.ts` (`Session`, `App.Locals`), `lib/api/browser.ts`, `pages/bff/[...path].ts`, `pages/auth/callback.ts`, `pages/salir.ts`, `.env.example`, `astro.config.mjs` (`SUPABASE_ANON_KEY` obligatoria, sin `shortcut`), `scripts/review-up.sh` (genera `frontend/.env`).

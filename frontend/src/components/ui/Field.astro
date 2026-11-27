@@ -22,15 +22,16 @@ interface Props {
   min?: number;
   max?: number;
   pattern?: string;
+  tone?: 'light' | 'dark';
 }
-const { id, name, label, type = 'text', error, hint, iconLeft, required, disabled, readonly, ...input } = Astro.props;
+const { id, name, label, type = 'text', error, hint, iconLeft, required, disabled, readonly, tone = 'light', ...input } = Astro.props;
 const hintId = hint ? `${id}-hint` : undefined;
 const errorId = error ? `${id}-error` : undefined;
 const describedby = [hintId, errorId].filter(Boolean).join(' ') || undefined;
 const hasAction = Astro.slots.has('action');
 ---
 
-<div class="field" data-invalid={error ? '' : undefined}>
+<div class="field" data-tone={tone} data-invalid={error ? '' : undefined}>
   <label for={id}>{label}{required && <span aria-hidden="true"> *</span>}</label>
   <div class="box" data-icon={iconLeft ? '' : undefined} data-action={hasAction ? '' : undefined}>
     {iconLeft && <Icon name={iconLeft} size={20} />}
@@ -138,6 +139,13 @@ const hasAction = Astro.slots.has('action');
     .hint {
       color: var(--text-secondary);
       font-size: var(--text-caption);
+    }
+    /* Sobre fondo oscuro (forest): textos de ayuda y error en marfil/rojo suave */
+    .field[data-tone='dark'] :is(.hint, .error) {
+      color: var(--color-red-soft);
+    }
+    .field[data-tone='dark'] .hint {
+      color: var(--text-on-dark);
     }
     .error {
       display: flex;

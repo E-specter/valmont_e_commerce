@@ -1,0 +1,69 @@
+---
+import AuthForm from '../components/auth/AuthForm.astro';
+import AuthSplit from '../components/auth/AuthSplit.astro';
+import WatchmakerArtwork from '../components/auth/WatchmakerArtwork.astro';
+import { SERVICE_UNAVAILABLE_MESSAGE } from '../lib/auth-messages';
+import { mapAuthError } from '../lib/server/auth-errors';
+import { safeNext } from '../lib/server/guard';
+
+export const prerender = false;
+
+const { request, url, locals } = Astro;
+
+const NO_STORE = 'private, no-store';
+Astro.response.headers.set('Cache-Control', NO_STORE);
+const MSG_PASSWORD_REQUIRED = 'Ingresa tu contraseña';
+const FALLBACK = '/cuenta';
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+let next = safeNext(url.searchParams.get('next'), FALLBACK);
+let email = '';
+let errors: { form?: string; email?: string; password?: string } = {};
+
+// Astro.redirect() descarta las cabeceras: la respuesta se arma a mano.
+const see = (to: string) => new Response(null, { status: 303, headers: { Location: to, 'Cache-Control': NO_STORE } });
+
+if (locals.session) return see(next);
+
+if (request.method === 'POST') {
+  // Misma comprobación de Origin que /salir.
+  if (request.headers.get('origin') !== url.origin) return new Response(null, { status: 403 });
+
+  // Cuerpo que no es un formulario (JSON, text/plain): 415, nunca 500.
+  let data: FormData;
+  try {
+    data = await request.formData();
+  } catch {
+    return new Response(null, { status: 415, headers: { 'Cache-Control': NO_STORE } });
+  }
+  const str = (k: string) => (typeof data.get(k) === 'string' ? (data.get(k) as string) : '');
+  next = safeNext(str('next') || url.searchParams.get('next'), FALLBACK);
+  email = str('email').trim().slice(0, 320);
+  const password = str('password');
+
+  if (!EMAIL_RE.test(email)) errors.email = email ? 'Ingresa un correo válido' : 'Ingresa tu correo';
+  if (!password || password.length > 1024) errors.password = MSG_PASSWORD_REQUIRED;
+
+  if (errors.email || errors.password) {
+    errors.form = 'Revisa los campos marcados.';
+    Astro.response.status = 422;
+  } else {
+    try {
+      const { error } = await locals.supabase.auth.signInWithPassword({ email, password });
+      if (!error) return see(next);
+      const mapped = mapAuthError(error);
+      Astro.response.status = mapped.status;
+      errors = { form: mapped.message };
+    } catch {
+      // Sin configuración (AuthConfigError) o fallo inesperado: error genérico, sin trazas ni datos.
+      Astro.response.status = 503;
+      errors = { form: SERVICE_UNAVAILABLE_MESSAGE };
+    }
+  }
+}
+---
+
+<AuthSplit variant="login">
+  <WatchmakerArtwork slot="art" variant="movement" />
+  <AuthForm mode="login" email={email} errors={errors} next={next} />
+</AuthSplit>

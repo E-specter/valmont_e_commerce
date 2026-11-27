@@ -1,0 +1,100 @@
+---
+// Arte decorativo del split de autenticación (Figma 32:585): movimiento de reloj dibujado en SVG.
+interface Props {
+  variant: 'movement' | 'mainspring';
+}
+const { variant } = Astro.props;
+const ticks = Array.from({ length: 60 }, (_, i) => i);
+const spiral = Array.from({ length: 181 }, (_, i) => {
+  const a = (i / 180) * Math.PI * 10;
+  const r = 20 + i * 0.7;
+  return `${i === 0 ? 'M' : 'L'}${Math.round(200 + r * Math.cos(a))} ${Math.round(200 + r * Math.sin(a))}`;
+}).join('');
+---
+
+<figure class="art" data-variant={variant} aria-hidden="true">
+  <svg viewBox="0 0 400 400" focusable="false">
+    {
+      variant === 'movement' ? (
+        <>
+          <circle class="line" cx="200" cy="200" r="180" />
+          <circle class="line soft" cx="200" cy="200" r="150" />
+          <circle class="line soft" cx="200" cy="200" r="90" stroke-dasharray="4 6" />
+          <circle class="line" cx="200" cy="200" r="30" />
+          <circle class="ruby" cx="200" cy="200" r="8" />
+          {ticks.map((i) => (
+            <line
+              class="line"
+              x1="200"
+              y1={i % 5 === 0 ? 24 : 30}
+              x2="200"
+              y2="38"
+              transform={`rotate(${i * 6} 200 200)`}
+            />
+          ))}
+          <text class="num" x="200" y="74" text-anchor="middle">XII</text>
+          <text class="num" x="336" y="212" text-anchor="middle">III</text>
+          <text class="num" x="200" y="344" text-anchor="middle">VI</text>
+          <text class="num" x="64" y="212" text-anchor="middle">IX</text>
+        </>
+      ) : (
+        <>
+          <circle class="line" cx="200" cy="200" r="180" />
+          <path class="line" d={spiral} />
+          <circle class="ruby" cx="200" cy="200" r="10" />
+        </>
+      )
+    }
+  </svg>
+  <figcaption>
+    <span>Instrumento relojero de precisión</span>
+    <span>Calibre Valmont 2026 · 24 rubíes</span>
+  </figcaption>
+</figure>
+
+<style>
+  @layer components {
+    .art {
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: var(--space-32);
+      block-size: 100%;
+      min-block-size: 32rem;
+      margin: 0;
+      padding: var(--space-48) var(--page-margin);
+      background: var(--bg-surface-dark);
+      color: var(--color-mint);
+    }
+    svg {
+      inline-size: min(100%, 30rem);
+      block-size: auto;
+    }
+    .line {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.5;
+    }
+    .soft {
+      opacity: 0.6;
+    }
+    .ruby {
+      fill: var(--color-red);
+    }
+    .num {
+      fill: var(--color-ivory);
+      font-family: var(--font-editorial);
+      font-size: var(--text-body-ui);
+    }
+    figcaption {
+      display: grid;
+      gap: var(--space-4);
+      text-align: center;
+      font-family: var(--font-editorial);
+      font-size: var(--text-caption);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--color-ivory);
+    }
+  }
+</style>

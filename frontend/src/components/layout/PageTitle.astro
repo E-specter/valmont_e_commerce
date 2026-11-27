@@ -5,12 +5,13 @@ interface Props {
   description?: string;
   align?: 'start' | 'center';
   level?: 1 | 2;
+  tone?: 'light' | 'dark';
 }
-const { title, kicker, description, align = 'start', level = 1 } = Astro.props;
+const { title, kicker, description, align = 'start', level = 1, tone = 'light' } = Astro.props;
 const Heading = level === 1 ? 'h1' : 'h2';
 ---
 
-<header class="pagetitle" data-align={align} data-level={level}>
+<header class="pagetitle" data-align={align} data-level={level} data-tone={tone}>
   {kicker && <p class="pagetitle__kicker">{kicker}</p>}
   <Heading class="pagetitle__title">{title}</Heading>
   {description && <p class="pagetitle__description">{description}</p>}
@@ -55,6 +56,14 @@ const Heading = level === 1 ? 'h1' : 'h2';
       font-size: var(--text-body-editorial);
       line-height: var(--leading-body-editorial);
       color: var(--text-secondary);
+    }
+    /* Sobre fondo oscuro (forest): marfil y menta, ≥ 4,5:1 */
+    .pagetitle[data-tone='dark'] .pagetitle__kicker {
+      color: var(--color-mint);
+    }
+    .pagetitle[data-tone='dark'] .pagetitle__title,
+    .pagetitle[data-tone='dark'] .pagetitle__description {
+      color: var(--text-on-dark);
     }
     .pagetitle__meta:empty {
       display: none;

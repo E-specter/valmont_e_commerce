@@ -1,0 +1,14 @@
+---
+import AuthLayout from '../../layouts/AuthLayout.astro';
+
+interface Props {
+  variant: 'login' | 'register';
+}
+const { variant } = Astro.props;
+const title = variant === 'login' ? 'Ingresar · Valmont' : 'Crear cuenta · Valmont';
+---
+
+<AuthLayout title={title} variant={variant}>
+  <slot name="art" slot="art" />
+  <slot />
+</AuthLayout>
