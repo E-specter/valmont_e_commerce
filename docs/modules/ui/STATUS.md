@@ -690,6 +690,16 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-135 (implementación) — 2026-11-27 — frontend-dev
+1. Tarea: T-135 (D-10) · 2. Estado: IN_REVIEW (listo para QA). Figma: no consultado.
+3. Hecho (solo `catalog/ProductCard.astro`; `ProductGrid` sin cambios): `Availability` sale del pie y pasa al cuerpo, en su propia línea; el pie queda precio (izq.) + "Ver detalles" (der.) en una fila sin wrap. El `.price` del pie reserva la 2.ª línea (original + ahorro) con `min-block-size` desde tokens, así el pie mide igual con o sin descuento. `wishlist` y `compact` conservan `flex-wrap`; `compact` sin reserva. Props y enlace extendido intactos.
+4. Medidas (top de `.foot`/precio/"Ver detalles", px, dev :4338, backend main):
+   - Antes: `/dev/products` 1280 store `993/972/993` y 800 `989/970` (±19-21 px por una tarjeta con descuento/disponibilidad larga); `/relojes` 1280 `2284/2305/2305`.
+   - Después: `/relojes` 1280 y 800, y `/dev/products` store/related/wishlist 1280 y 800: top de pie, precio y "Ver detalles" idénticos en cada fila (diferencia 0 px).
+5. Evidencia: `npm run check → 0 errors, 0 warnings, 0 hints`. Medición con Playwright ad hoc (script temporal borrado). NO EJECUTADO: pruebas ni build (D-033). CLS: no medido; imagen con `aspect-ratio` y pie de altura reservada.
+6. Riesgo: la reserva de 2.ª línea usa `--leading-body-ui`; si el original envuelve a 3 líneas en tarjetas muy estrechas (<~240 px) vuelve a desalinear. Disponibilidad movida sobre el divisor (cambia el orden visual vs. antes).
+12. Commit: ninguno — preparado. Mensaje propuesto: `fix(ui): pie de tarjeta de producto alineado en la rejilla (T-135)`.
+
 #### Traspaso T-134 (implementación) — 2026-11-27 — frontend-dev
 1. Tarea: T-134 (D-05, D-11) · 2. Estado: IN_REVIEW. 3. Hecho: `FilterBar` envuelto en `<details class="filters">` sin JS; `<summary>` "Filtros" + "N activos"; abierto si hay filtros activos u `open`. Precios en 2 columnas en móvil; fila de acciones única (casilla + Aplicar + Limpiar). "Limpiar filtros" 44 px.
 4. Archivos: `components/catalog/FilterBar.astro`, `pages/relojes/index.astro` (solo pasa `open`), esta STATUS. `ActiveFilters` sin cambios.

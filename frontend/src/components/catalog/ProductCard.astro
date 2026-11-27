@@ -58,6 +58,7 @@ const hasAction = Astro.slots.has('action');
     </Heading>
     {variant !== 'compact' && <p class="category">Colección {product.category.name}</p>}
     {spec && <p class="spec">{spec}</p>}
+    {variant !== 'compact' && <Availability availability={product.availability} />}
     <div class="foot">
       <Price
         price={product.price}
@@ -65,7 +66,6 @@ const hasAction = Astro.slots.has('action');
         discountAmount={product.discount_amount}
         size={variant === 'compact' ? 'sm' : 'md'}
       />
-      {variant !== 'compact' && <Availability availability={product.availability} />}
       {
         (variant === 'store' || variant === 'related') && (
           <span class="more" aria-hidden="true">
@@ -162,18 +162,31 @@ const hasAction = Astro.slots.has('action');
     }
     .product-card .foot {
       display: flex;
-      flex-wrap: wrap;
-      align-items: center;
+      flex-wrap: nowrap;
+      align-items: flex-start;
+      justify-content: space-between;
       gap: var(--space-8) var(--space-16);
+      /* Pie al fondo del cuerpo: divisor, precio y "Ver detalles" alinean entre tarjetas de una fila (D-10) */
       margin-block-start: auto;
       padding-block-start: var(--space-12);
       border-top: 1px solid var(--stroke-soft);
+    }
+    /* Reserva la 2.ª línea del precio (original + ahorro) aunque no haya descuento, para que el pie mida igual en toda la fila */
+    .product-card:not([data-variant='compact']) .foot .price {
+      align-content: flex-start;
+      min-block-size: calc(
+        var(--text-body-editorial) * var(--leading-body-editorial) + var(--text-body-ui) * var(--leading-body-ui)
+      );
     }
     .product-card .more {
       display: inline-flex;
       align-items: center;
       gap: var(--space-8);
       margin-inline-start: auto;
+      flex: none;
+      white-space: nowrap;
+      /* misma altura de línea que el precio para que ambos arranquen a la misma altura */
+      line-height: var(--leading-body-editorial);
       font-family: var(--font-editorial);
       font-size: var(--text-body-ui);
       letter-spacing: 0.04em;
@@ -206,7 +219,11 @@ const hasAction = Astro.slots.has('action');
       flex: none;
       width: 100px;
     }
+    .product-card[data-variant='wishlist'] .foot {
+      flex-wrap: wrap;
+    }
     .product-card[data-variant='compact'] .foot {
+      flex-wrap: wrap;
       border-top: 0;
       padding-block-start: 0;
     }
