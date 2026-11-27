@@ -21,9 +21,9 @@ Rango reservado del módulo: **T-116–T-139**. En uso: T-116–T-131. Libres: *
 | T-125 | Ficha `/relojes/[slug]`, galería, `BuyBox` y página 404 | frontend-dev + qa-reviewer | T-119, T-120, T-123 | DONE (079de69) |
 | T-126 | Sesión SSR: `@supabase/ssr`, middleware, guardia de rutas, `/auth/callback`, `/salir` y proxy `/bff/*` | frontend-dev + qa-reviewer (revisión de seguridad a fondo) | T-120; **aprobación de `@supabase/ssr` y `@supabase/supabase-js`**; D-025, D-041 (P-5); aviso de config de Supabase (§6) | DONE (5a1e137) |
 | T-127 | Ingreso `/ingresar` (`AuthSplit`, `WatchmakerArtwork`, `AuthForm`) | frontend-dev + qa-reviewer | T-117, T-118, T-119, T-126 | DONE (7d712fe) |
-| T-128 | Registro `/registro` (alta, consentimiento, estado "revisa tu correo") | frontend-dev + qa-reviewer | T-127 | BACKLOG |
+| T-128 | Registro `/registro` (alta, consentimiento, estado "revisa tu correo") | frontend-dev + qa-reviewer | T-127 | DONE (4849483) |
 | T-129 | Cuenta `/cuenta`: perfil y cierre de sesión | frontend-dev + qa-reviewer | T-119, T-126 | DONE (8fd9aec) |
-| T-131 | Fecha de nacimiento en el registro (+18) | frontend-dev + qa-reviewer | T-113 (identity, sin hacer), T-128 | BLOCKED (T-113) |
+| T-131 | Fecha de nacimiento en el registro (+18) | frontend-dev + qa-reviewer | T-113 (identity, sin hacer), T-128 | DONE (4849483, dentro de T-128) |
 | T-132 | fix: orden de capas CSS declarado en `BaseLayout` (en producción `components` quedaba debajo de `reset`) y textos largos en migas, `BuyBox` | frontend-dev + qa-reviewer | T-116 | DONE (73f2459) |
 | T-133 | fix visual A: cabecera y pie: damero de dos filas, wordmark más grande compatible con P-1, pie en móvil y contacto sin Jaro (D-01, D-02, D-09, D-14; D-044) | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | DONE (48ffdd5) |
 
