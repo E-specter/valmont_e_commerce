@@ -206,6 +206,15 @@ IDs reservados del módulo: T-090–T-099. En uso: T-090–T-098; **libre: T-099
 
 ## Traspasos
 
+#### Traspaso T-091 y T-092 — 2026-11-27 — backend-dev
+1. Estado final: IN_REVIEW (ambas). Sin commit.
+2. Cambios: T-091 `orders/adapters/wiring.py` con `get_get_payable_order` y `get_confirm_order_payment` (firmas del paquete; construyen con `SqlOrderRepository`, `SqlClock`, inventory y `AuditRecorderDep`; sin commit). T-092 dominio, puertos y `SimulatedGateway` (D-043 sobre `card_last4`).
+3. Archivos: `backend/src/valmont/modules/orders/adapters/wiring.py`; `backend/src/valmont/modules/payments/{__init__,domain,application}.py`, `adapters/{__init__,simulated_gateway}.py`; este STATUS.
+4. Decisiones: ninguna. `TooManyAttempts(max_attempts=5)` por defecto; `InvalidPaymentMethod` y `ValueError` sin el valor en el mensaje; regex con `fullmatch` (`\n` final no pasa).
+5. Evidencia: `uv run ruff format --check . → 232 files already formatted`; `uv run ruff check . → All checks passed!`; import de `valmont.main` y de ambos módulos → ok; capas (grep) → vacío. NO EJECUTADO: pruebas (D-028, D-033).
+6. Riesgos: `orders.adapters.wiring` importa `audit.adapters.http` (como pide el paquete); sin pruebas de BD hasta QA.
+7. Siguiente: qa-reviewer verifica; T-093 (migración y repositorio).
+
 #### Traspaso T-090 — 2026-11-27 — module-coordinator
 1. Estado final: IN_REVIEW. SPEC y STATUS propuestos; no hay código.
 2. Cambios: `docs/modules/payments/SPEC.md` (alcance, 5 UC, 15 reglas PAYMENTS-R1…R15, dominio, `0011`, contrato API, puerto de pasarela, 18 CA, plan de pruebas con ronda Opus) y este STATUS (plan T-091…T-098, paquetes completos de T-091…T-094, resumidos de T-095…T-098).
