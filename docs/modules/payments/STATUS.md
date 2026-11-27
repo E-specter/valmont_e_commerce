@@ -6,9 +6,9 @@
 | ID | Título | Rol | Depende de | Estado |
 |---|---|---|---|---|
 | T-090 | SPEC y plan de payments | module-coordinator | RF05, RN-08, RN-11, D-016, D-017, D-040 (E-3), D-041 (P-4) | DONE |
-| T-091 | Costura de orders: `modules/orders/adapters/wiring.py` con `get_get_payable_order` y `get_confirm_order_payment` (R-13 de orders) | backend-dev + qa-reviewer | excepción (7), T-077 (DONE) | READY (no depende del contrato de payments) |
-| T-092 | Dominio de payments, puertos (`PaymentGateway`, `PaymentAttemptRepository`) y adaptador simulado | backend-dev + qa-reviewer | T-090 aprobada (alcance y P-1, P-2, P-4) | READY |
-| T-093 | Migración `0011`, fila y repositorio SQL de intentos | backend-dev + qa-reviewer | T-092; E-P2 registrada | BACKLOG |
+| T-091 | Costura de orders: `modules/orders/adapters/wiring.py` con `get_get_payable_order` y `get_confirm_order_payment` (R-13 de orders) | backend-dev + qa-reviewer | excepción (7), T-077 (DONE) | DONE (ca73b56) |
+| T-092 | Dominio de payments, puertos (`PaymentGateway`, `PaymentAttemptRepository`) y adaptador simulado | backend-dev + qa-reviewer | T-090 aprobada (alcance y P-1, P-2, P-4) | DONE (2d596a2) |
+| T-093 | Migración `0011`, fila y repositorio SQL de intentos | backend-dev + qa-reviewer | T-092; E-P2 registrada | READY |
 | T-094 | Pagar un pedido (`PayOrder`) y `POST /payments/orders/{id}/attempts` | backend-dev + qa-reviewer | T-091, T-093 | BACKLOG |
 | T-095 | Consultar los intentos (`GetOrderPayments`) y `GET /payments/orders/{id}/attempts` | backend-dev + qa-reviewer | T-094 | BACKLOG |
 | T-096 | Integración transversal y auditoría de seguridad del backend de payments | qa-reviewer (con Opus, decisions.md) | T-091…T-095 | BACKLOG |
