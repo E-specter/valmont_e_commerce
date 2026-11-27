@@ -10,7 +10,7 @@ Transversal: no es un módulo con SPEC propia. Cada paquete corrige hallazgos de
 | T-018a | Cabeceras `no-store` y `nosniff` en toda la API y límite de tamaño del cuerpo (413) | backend-dev + qa-reviewer | ninguna | DONE (a75e77c) |
 | T-018b | Logs y fallos de infraestructura: `sqlalchemy.engine` en WARNING, sin `DETAIL` de PostgreSQL, `X-Request-ID` solo UUID, JWKS no-JSON → 503 | backend-dev + qa-reviewer | ninguna | DONE (a75e77c) |
 | T-018c | `Idempotency-Key` solo UUID, una definición en `shared/` (orders y payments) | backend-dev + qa-reviewer | **D-H1** (contrato, Leader + frontend-lead) | DONE (45ae4c1) |
-| T-018d | Texto de entrada: rechazar controles bidireccionales y caracteres invisibles; nombres sin parte visible | backend-dev + qa-reviewer | **D-H2** (cambio en 6 módulos, Leader) | PROPUESTO |
+| T-018d | Texto de entrada: rechazar controles bidireccionales y caracteres invisibles; nombres sin parte visible | backend-dev + qa-reviewer | **D-H2** (cambio en 6 módulos, Leader) | DONE (297a8d8) |
 | T-018f | Limpieza de archivos huérfanos de Storage (`dry-run` por defecto) | backend-dev + qa-reviewer | ninguna | DONE (42af4eb) |
 
 | T-018e | Límites de longitud en el OpenAPI (solo documentación) | backend-dev + qa-reviewer | ninguna | DONE (45ae4c1) |
@@ -438,3 +438,4 @@ Plan y paquetes escritos; sin código. Resumen en el traspaso al Leader (respues
 - **R-8 (decisión del Leader, 2026-11-27):** se mantiene la conversión a sRGB con `ImageCms` (lcms2 incluido en la rueda de Pillow): solo el administrador sube imágenes y la entrada está acotada (5 MiB y 25 MP); un perfil ICC roto se asume sRGB.
 - **T-018h (añadidos tras T-018f):** fijar `connect_timeout` en `get_engine()` (con la BD caída el script se cuelga >90 s); el temporizador diario del script de limpieza (ficha D-011); MENOR: un archivo suelto en la raíz del bucket se trataría como candidato (no es el layout `<product_id>/<image_id>.<ext>`).
 - **T-018j (DONE, temporizador systemd):** `deploy/systemd/valmont-storage-cleanup.{service,timer}` y `valmont-alert@.service`; se activa en el servidor al desplegar (T-018h). Requisito: `deploy/.env` legible por el usuario del servicio.
+- **T-018d, riesgos aceptados (Leader):** ZWJ y ZWNJ se rechazan (afecta a nombres en persa o escrituras índicas y a emojis compuestos); el filtro `q` de inventario es más estricto que el de orders.
