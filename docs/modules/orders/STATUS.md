@@ -14,8 +14,8 @@
 | T-076 | Cancelar el pedido propio (`CancelMyOrder`) y `POST /orders/{id}/cancel` | backend-dev + qa-reviewer | T-075 | DONE (780a33e) |
 | T-077 | Puerto para payments: `GetPayableOrder` y `ConfirmOrderPayment` | backend-dev + qa-reviewer | T-075 | DONE (39c503a) |
 | T-078 | Administración: listado y detalle (`ListAdminOrders`, `GetAdminOrder`) y 2 `GET` | backend-dev + qa-reviewer | T-075 | DONE (b31df9e) |
-| T-079 | Administración: transiciones y cancelación con reembolso simulado (`TransitionOrder`) y `POST …/transitions` | backend-dev + qa-reviewer | T-078 | READY |
-| T-080 | Integración transversal y revisión de seguridad del backend de orders | qa-reviewer (con Opus en la ronda final, decisions.md) | T-074…T-079 | BACKLOG |
+| T-079 | Administración: transiciones y cancelación con reembolso simulado (`TransitionOrder`) y `POST …/transitions` | backend-dev + qa-reviewer | T-078 | DONE (9e98c42) |
+| T-080 | Integración transversal y revisión de seguridad del backend de orders | qa-reviewer (con Opus en la ronda final, decisions.md) | T-074…T-079 | READY |
 | T-081 | Cliente de API de orders (`frontend/src/lib/api/orders.ts`) y tipos | frontend-dev + qa-reviewer | contrato §7 aprobado; T-074…T-079 integradas | BACKLOG (no READY: sin contrato aprobado) |
 | T-082 | Pantalla de entrega y confirmación del pedido (checkout) | frontend-dev + qa-reviewer | T-081, T-111 (VIEWS.md y Figma), T-060 | BACKLOG (no READY: sin diseño) |
 | T-083 | Mis pedidos, detalle con historial, cancelar y "volver a comprar" (account) | frontend-dev + qa-reviewer | T-081, T-111 | BACKLOG (no READY: sin diseño) |
