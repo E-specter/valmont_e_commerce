@@ -131,6 +131,8 @@ Cada componente tendrá un `.env.example` sin valores reales cuando aparezca la 
 
 ## Limpieza automática de Storage (producción)
 
+> **Requisito (QA de T-018j):** `docker compose -f deploy/compose.yml exec` lee `deploy/.env` para interpolar, y `generate-env.sh` lo crea con permisos 0600 para quien lo ejecutó. El usuario del servicio (`valmont`) debe poder leerlo: genéralo con ese usuario, o usa `chown valmont deploy/.env`, o un grupo con `chmod 640`. Si no, el servicio fallará al probarlo.
+
 Solo en el servidor de producción (T-018j, D-047 D-H4). Borra cada día a las 03:30 (hora del servidor) las imágenes de Storage sin fila en `product_images` y con más de 24 h (script de T-018f). Archivos: `deploy/systemd/valmont-storage-cleanup.{service,timer}` y `valmont-alert@.service`.
 
 - **Requisitos:** stack de `deploy/compose.yml` arrancado; un usuario sin privilegios (`valmont`) en el grupo `docker`; ajustar `WorkingDirectory=` (marcador `/opt/valmont`, la raíz del repo desplegado) y `User=`/`Group=` si difieren. Sin secretos en los archivos: las variables ya están en el contenedor `backend`.
