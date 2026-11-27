@@ -1,6 +1,7 @@
 // Formato de importes y fechas en es-PE (D-041 P-3, D-037). Solo formatea: nunca calcula (RN-09).
-// Money es el mismo tipo que exportará lib/api/http.ts (T-120); se repite aquí para no depender de él.
-export type Money = { amount: number; currency: 'PEN' };
+import type { Money } from './api/http';
+
+export type { Money };
 
 const TIME_ZONE = 'America/Lima';
 

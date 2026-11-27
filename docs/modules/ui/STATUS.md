@@ -684,6 +684,19 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-123 (implementación) — 2026-11-27 — frontend-dev
+1. Tarea: T-123 · 2. Estado: IN_REVIEW (listo para QA).
+3. Hecho: `Breadcrumb`, `Pagination`, `DefinitionList`, `ProductCard` (4 variantes), `ProductGrid`, `specLine` y `/dev/products` (404 fuera de DEV). Firmas del paquete sin cambios. N-1: `format.ts` importa `Money` de `lib/api/http.ts` y lo reexporta (`export type { Money }`) para no tocar `Price.astro` (protegido); mismo comportamiento.
+4. Archivos: `frontend/src/components/ui/{Breadcrumb,Pagination,DefinitionList}.astro`, `frontend/src/components/catalog/{ProductCard,ProductGrid}.astro`, `.../catalog/spec-line.ts`, `frontend/src/pages/dev/products.astro`, `frontend/src/lib/format.ts`, esta STATUS.
+5. Estático: `npm run check -> 0 errors, 0 warnings, 0 hints (75 files)`. NO EJECUTADO: build y pruebas (D-033).
+6. Contrato: solo tipos de `ProductSummary`; sin cambios en `lib/api/**`.
+7. Decisiones: enlace extendido (`a::after` sobre el `h*`), un solo `<a>`; "Ver detalles"/"Descubrir" son `span aria-hidden`. Slot `action` va sobre la imagen con `z-index` (lo rellena T-069). `priority` solo da `loading="eager"` + `fetchpriority="high"`; `ProductGrid` lo activa en las 3 primeras de `store`. Sin imagen (`main_image.url` vacía): bloque con `role="img"`. Paginación: página fuera de rango se acota; hueco de 1 página se rellena, mayor = elipsis `aria-hidden`; anterior/siguiente deshabilitados = `span aria-disabled`; a <800 px solo la flecha (el texto queda para lectores de pantalla). Rejilla por container query (600 px = 2, 960 px = 3); `compact` siempre 1 columna. `ProductCard` usa `<style is:global>` porque la raíz es `Card` (clase por prop).
+8. Seguridad: texto como texto, sin `set:html`; sin `fetch`; importes solo vía `Price`.
+9. Figma: NO consultado en esta ejecución (cuota, D-031); se usó lo documentado en `BRIEF.md` §7/§12.5 y `VIEWS.md` §4.5. Pendiente la comparación visual de frontend-lead (RT-10) con `51:395`, `55:497`, `40:706`, `40:753`, `51:336`, `51:554`.
+10. Para QA: Container API sobre cada componente; la elipsis es `li[aria-hidden]`; `/dev/products` en http://localhost:4321/dev/products.
+11b. Corrección tras rechazo de QA: texto de Anterior/Siguiente oculto solo a la vista (no `display: none`) bajo 800 px; `pagers[0]` con total 10; migas con `min-width` 44 px. `npm run check` sin errores.
+12. Commits: ninguno, preparado. Mensaje: `feat(ui): tarjeta y rejilla de producto, migas, paginación y lista de definiciones (T-123)`.
+
 #### Traspaso T-119 (implementación) — 2026-11-27 — frontend-dev
 1. Tarea: T-119 · 2. Estado: IN_REVIEW (listo para QA).
 3. Hecho: `SiteHeader` (full/compact), `SiteFooter`, `PageTitle`, `lib/site.ts`, cableado en `StoreLayout` y `AuthLayout` (cabecera compact) y `/dev/layout` (404 fuera de DEV). Firmas del paquete sin cambios.

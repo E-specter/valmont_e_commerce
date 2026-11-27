@@ -1,0 +1,54 @@
+---
+import ProductCard from './ProductCard.astro';
+import type { ProductSummary } from '../../lib/api/catalog';
+
+interface Props {
+  products: ProductSummary[];
+  variant?: 'store' | 'related' | 'wishlist' | 'compact';
+  label: string;
+  headingLevel?: 2 | 3 | 4;
+}
+const { products, variant = 'store', label, headingLevel } = Astro.props;
+---
+
+<div class="product-grid" data-variant={variant}>
+  <ul aria-label={label}>
+    {
+      products.map((product, i) => (
+        <li>
+          <ProductCard product={product} variant={variant} headingLevel={headingLevel} priority={i < 3 && variant === 'store'} />
+        </li>
+      ))
+    }
+  </ul>
+</div>
+
+<style>
+  @layer components {
+    .product-grid {
+      container-type: inline-size;
+    }
+    ul {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--space-24);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    li {
+      min-width: 0;
+    }
+    /* La compacta es una lista vertical a cualquier ancho */
+    @container (min-width: 600px) {
+      [data-variant]:not([data-variant='compact']) ul {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    @container (min-width: 960px) {
+      [data-variant]:not([data-variant='compact']) ul {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+  }
+</style>
