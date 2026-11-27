@@ -87,6 +87,8 @@
   --radius-md: 8px;
   --radius-lg: 16px;
   --radius-pill: 999px;
+  --size-dot: 10px;
+  --stroke-dot: 1.5px;
   --shadow-overlay: 0 8px 24px rgb(0 18 9 / 0.18);
 
   /* Foco [BRIEF §7]: ink sobre marfil o amarillo; amarillo sobre verde (.on-dark) */

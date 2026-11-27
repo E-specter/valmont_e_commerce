@@ -11,7 +11,7 @@ Rango reservado del módulo: **T-116–T-139**. En uso: T-116–T-131. Libres: *
 | T-130 | Infraestructura de pruebas del frontend (Vitest, Playwright) | qa-reviewer | **aprobación del usuario de las dependencias (pregunta 9 del traspaso)** | DONE (eaa407b) |
 | T-116 | Tokens, fuentes, `global.css`, `BaseLayout`, `StoreLayout`, `AuthLayout` y variables de entorno | frontend-dev + qa-reviewer | D-012 | DONE (7459771) |
 | T-117 | `ui/` lote 1A: `Icon`, `Wordmark`, `Checkerboard`, `Button`, `IconButton`, `TextLink`, `Field`, `Checkbox` | frontend-dev + qa-reviewer | T-116 | DONE (92f6727) |
-| T-118 | `ui/` lote 1B: `Card`, `Badge`, `Chip`, `Price`, `Availability`, `Notice`, `EmptyState`, `Skeleton` y `lib/format.ts` | frontend-dev + qa-reviewer | T-116 (`Icon` de T-117 solo al integrar) | READY |
+| T-118 | `ui/` lote 1B: `Card`, `Badge`, `Chip`, `Price`, `Availability`, `Notice`, `EmptyState`, `Skeleton` y `lib/format.ts` | frontend-dev + qa-reviewer | T-116 (`Icon` de T-117 solo al integrar) | IN_REVIEW |
 | T-119 | `SiteHeader`, `SiteFooter`, `PageTitle`, `lib/site.ts` y cableado de los layouts | frontend-dev + qa-reviewer | T-117, T-118, D-041 (P-1) | BACKLOG |
 | T-120 | Cliente de API del servidor (`lib/api/http.ts`, `server.ts`, `catalog.ts`) | frontend-dev + qa-reviewer | T-116 (esquema de variables) | READY |
 | T-121 | Portada `/` (SSR con caché corta) | frontend-dev + qa-reviewer | T-118, T-119, T-120, D-041 (P-2) | BACKLOG |
@@ -683,6 +683,30 @@ export function formatDateOnly(isoDate: string): string;                        
 | **T-084** backoffice de pedidos | Sin frames (`admin` no capturada) y depende de T-078/T-079 (BACKLOG). Queda en el carril de backoffice, tras el diseño desde BRIEF; no entra en esta pista. |
 
 ## 8. Traspasos
+
+#### Traspaso T-118 (implementación) — 2026-11-26 — frontend-dev
+1. Tarea: T-118 · 2. Estado: IN_REVIEW (listo para QA).
+3. Hecho: `Card`, `Badge`, `Chip`, `Price`, `Availability`, `Notice`, `EmptyState`, `Skeleton`, `availability.ts`, `lib/format.ts` y `/dev/ui-b` (404 fuera de DEV). Firmas del paquete sin cambios.
+4. Archivos: `frontend/src/components/ui/{Card,Badge,Chip,Price,Availability,Notice,EmptyState,Skeleton}.astro`, `ui/availability.ts`, `frontend/src/lib/format.ts`, `frontend/src/pages/dev/ui-b.astro`.
+5. Estático: `npm run check → 0 errors, 0 warnings, 0 hints (55 files)`. Comprobado a mano en Node 26: `formatMoney` 8450000/1062550/5/0 → "S/ 84,500", "S/ 10,625.50", "S/ 0.05", "S/ 0" y fechas del contrato (no cuenta como evidencia). NO EJECUTADO: build y pruebas (D-033).
+6. Figma: no se consultó ningún nodo; BRIEF §7 ya documenta los valores (D-031). Notice, EmptyState y Skeleton salen de tokens.
+7. Decisiones de implementación (para QA y frontend-lead):
+   - `Money` se declara en `lib/format.ts` (mismo tipo que exportará `lib/api/http.ts`, T-120); al integrar T-120 se puede reexportar.
+   - `formatDate(..., 'datetime')` concatena fecha + ", " + hora porque `Intl` emite "a las"; el 'date' usa `Intl` directo.
+   - `availabilityLabel`: con `lead_time_days === 1` dice "1 día" (el paquete decía "N días"). Exporta también los tipos `Availability`/`AvailabilityStatus`.
+   - `Price`: el original y "Ahorras" se muestran cada uno si su prop no es nula (no exige ambos); `<del>` lleva `<span class="sr-only">Precio original </span>`.
+   - `Badge`: sin `tone`, `kind="product"` es amarillo; status y count, outline.
+   - `Chip`: siempre `<span class="chip">` envolvente; el interior (`.main`) es `a`/`button`/`span`. `a` activo: `aria-current="true"`; `button` activo: `aria-pressed="true"`; `span`: `aria-disabled="true"` siempre. Removible: `<a class="remove" aria-label="Quitar filtro {label}">` con `Icon x`. El activo añade una marca ✓ por CSS.
+   - `Notice`: `role="alert"` solo en `error`; icono por tono (info, check-circle, x-circle, alert-triangle); `actions` solo se pinta si hay slot.
+   - `Skeleton`: `aria-hidden="true"`, `style` con `--sk-w`/`--sk-h`; `lines` aplica solo a `line` (última barra al 60 %).
+   - `Availability`: con `showLabel={false}` el texto queda `sr-only`; el punto cambia de forma/relleno por estado.
+8. Riesgos: contraste del texto `--color-forest-mid` en "Ahorras" sobre marfil (11,95) y badge `plum`/blanco (no medido en BRIEF §11) pendientes de axe en `/dev/ui-b`; el área táctil de `Chip` se amplía con `::after`.
+9. Revisión manual: http://localhost:4321/dev/ui-b
+10. Siguiente: qa-reviewer (Container API, axe, `npm run build`); T-119/T-123 consumen estos componentes.
+11. Bloqueos: ninguno.
+    Corrección tras QA modo A: `Chip` con `min-width`/`min-height` 44 px en `.main` y `.remove` (margen negativo mantiene la píldora compacta); `formatMoney` con `BigInt` y cadena decimal para `Intl` (sin `amount / 100`).
+    Corrección 2 tras QA: `decimal` tipado como `${number}` en `formatMoney` (ts 2769); tokens `--size-dot` y `--stroke-dot` en `tokens.css` (autorizado) usados por `Availability`.
+12. Commit: ninguno — preparado. Propuesto: `feat(ui): superficies, estado, avisos y formato de precios (T-118)`.
 
 #### Traspaso T-117 (implementación) — 2026-11-26 — frontend-dev
 1. Tarea: T-117 · 2. Estado: IN_REVIEW (listo para QA).

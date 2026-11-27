@@ -1,0 +1,84 @@
+---
+import type { HTMLAttributes } from 'astro/types';
+import Icon from './Icon.astro';
+import type { IconName } from './icons';
+
+interface Props extends HTMLAttributes<'div'> {
+  tone?: 'info' | 'success' | 'error' | 'warning';
+  title?: string;
+}
+const { tone = 'info', title, class: className, ...rest } = Astro.props;
+const icons: Record<NonNullable<Props['tone']>, IconName> = {
+  info: 'info',
+  success: 'check-circle',
+  error: 'x-circle',
+  warning: 'alert-triangle',
+};
+---
+
+<div class:list={['notice', className]} data-tone={tone} role={tone === 'error' ? 'alert' : 'status'} {...rest}>
+  <Icon name={icons[tone]} size={24} />
+  <div class="body">
+    {title && <strong class="title">{title}</strong>}
+    <div class="text"><slot /></div>
+  </div>
+  {
+    Astro.slots.has('actions') && (
+      <div class="actions">
+        <slot name="actions" />
+      </div>
+    )
+  }
+</div>
+
+<style>
+  @layer components {
+    .notice {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: var(--space-12);
+      padding: var(--space-12) var(--space-16);
+      border: 1px solid var(--stroke-strong);
+      border-inline-start-width: var(--space-8);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      font-size: var(--text-body-ui);
+      line-height: var(--leading-body-ui);
+    }
+    .notice[data-tone='success'] {
+      background: var(--color-mint-soft);
+    }
+    .notice[data-tone='warning'] {
+      border-color: var(--color-ink);
+      background: var(--color-yellow);
+    }
+    .notice[data-tone='error'] {
+      border-color: var(--color-red-strong);
+      background: var(--color-red-soft);
+    }
+    .notice[data-tone='error'] :global(.icon),
+    .notice[data-tone='error'] .title {
+      color: var(--color-red-strong);
+    }
+    .body {
+      flex: 1 1 14rem;
+      min-width: 0;
+    }
+    .title {
+      display: block;
+      font-weight: var(--weight-semibold);
+    }
+    .text :global(p) {
+      margin: 0;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-8);
+    }
+  }
+</style>
