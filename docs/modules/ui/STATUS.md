@@ -18,12 +18,13 @@ Rango reservado del módulo: **T-116–T-139**. En uso: T-116–T-131. Libres: *
 | T-122 | "Nosotros" `/nosotros` y páginas legales `/privacidad`, `/terminos` | frontend-dev + qa-reviewer | T-119, T-123 (`DefinitionList`), D-041 (P-9) | READY |
 | T-123 | `Breadcrumb`, `Pagination`, `DefinitionList`, `ProductCard` (4 variantes) y `ProductGrid` | frontend-dev + qa-reviewer | T-117, T-118, T-120 (tipos) | DONE (eff4acc) |
 | T-124 | Catálogo `/relojes`: filtros por URL, chips, paginación y estados | frontend-dev + qa-reviewer | T-119, T-120, T-123, D-041 (P-2, P-3) | READY |
-| T-125 | Ficha `/relojes/[slug]`, galería, `BuyBox` y página 404 | frontend-dev + qa-reviewer | T-119, T-120, T-123 | READY |
+| T-125 | Ficha `/relojes/[slug]`, galería, `BuyBox` y página 404 | frontend-dev + qa-reviewer | T-119, T-120, T-123 | DONE (079de69) |
 | T-126 | Sesión SSR: `@supabase/ssr`, middleware, guardia de rutas, `/auth/callback`, `/salir` y proxy `/bff/*` | frontend-dev + qa-reviewer (revisión de seguridad a fondo) | T-120; **aprobación de `@supabase/ssr` y `@supabase/supabase-js`**; D-025, D-041 (P-5); aviso de config de Supabase (§6) | BACKLOG (dependencias aprobadas, D-042) |
 | T-127 | Ingreso `/ingresar` (`AuthSplit`, `WatchmakerArtwork`, `AuthForm`) | frontend-dev + qa-reviewer | T-117, T-118, T-119, T-126 | BACKLOG |
 | T-128 | Registro `/registro` (alta, consentimiento, estado "revisa tu correo") | frontend-dev + qa-reviewer | T-127 | BACKLOG |
 | T-129 | Cuenta `/cuenta`: perfil y cierre de sesión | frontend-dev + qa-reviewer | T-119, T-126 | BACKLOG |
 | T-131 | Fecha de nacimiento en el registro (+18) | frontend-dev + qa-reviewer | T-113 (identity, sin hacer), T-128 | BLOCKED (T-113) |
+| T-132 | fix: orden de capas CSS declarado en `BaseLayout` (en producción `components` quedaba debajo de `reset`) y textos largos en migas, `BuyBox` | frontend-dev + qa-reviewer | T-116 | DONE (73f2459) |
 
 ### Orden y paralelismo (rutas disjuntas)
 
