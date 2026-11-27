@@ -59,6 +59,13 @@ describe('RT-1 · valores sueltos', () => {
   });
 });
 
+/** `<style>` válido de un componente o layout: empieza por `@layer components {` o es solo una declaración de orden `@layer a, b;`. */
+function isAllowedLayerStyle(css: string): boolean {
+  if (/^@layer\s+components\s*\{/.test(css)) return true;
+  const orderOnly = css.startsWith('@layer ') && css.endsWith(';') && css.indexOf(';') === css.length - 1 && !css.includes('{') && !css.includes('}');
+  return orderOnly;
+}
+
 describe('RT-1 · <style> de componentes dentro de @layer components', () => {
   const components = nonTokens.filter(
     (f) => f.endsWith('.astro') && /[\\/](layouts|components)[\\/]/.test(f),
@@ -68,7 +75,21 @@ describe('RT-1 · <style> de componentes dentro de @layer components', () => {
     const src = readFileSync(file, 'utf8');
     const styles = [...src.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1].trim());
     // Cada bloque <style> empieza por @layer components (o declara solo @layer en su interior).
-    expect(styles.filter((s) => !/^@layer\s+components\s*\{/.test(s))).toEqual([]);
+    expect(styles.filter((s) => !isAllowedLayerStyle(s))).toEqual([]);
+  });
+
+  // T-132: una declaración de solo orden (`@layer a, b;`, sin reglas) también vale; cualquier regla fuera de `@layer components` no.
+  test('una declaración de solo orden de capas pasa', () => {
+    expect(isAllowedLayerStyle('@layer reset, tokens, base, components, utilities;')).toBe(true);
+  });
+
+  test.each([
+    ['reglas sueltas', 'body { margin: 0 }'],
+    ['reglas en otra capa', '@layer base { body { margin: 0 } }'],
+    ['orden y reglas mezcladas', '@layer reset, base; body { margin: 0 }'],
+    ['orden con bloque vacío', '@layer reset, base {}'],
+  ])('un bloque con %s falla', (_name, css) => {
+    expect(isAllowedLayerStyle(css)).toBe(false);
   });
 });
 
