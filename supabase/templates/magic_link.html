@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Tu enlace de acceso</title></head>
+<body style="margin:0;padding:0;background:#FFFDE4;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFDE4;">
+    <tr><td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#FFFFFF;border:1px solid #002312;">
+        <tr><td style="background:#002312;padding:24px 32px;font-family:Arial,Helvetica,sans-serif;font-size:28px;font-weight:bold;letter-spacing:1px;color:#FFFDE4;">VALMONT</td></tr>
+        <tr><td style="padding:32px;font-family:Arial,Helvetica,sans-serif;color:#0F0F0F;font-size:16px;line-height:24px;">
+          <h1 style="margin:0 0 16px;font-size:22px;line-height:28px;color:#002312;">Tu enlace de acceso</h1>
+          <p style="margin:0 0 16px;">Usa este enlace para iniciar sesión en Valmont. Es de un solo uso y caduca en poco tiempo.</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr>
+            <td style="background:#FFD900;border:1px solid #0F0F0F;">
+              <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 24px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:#0F0F0F;text-decoration:none;">Iniciar sesión</a>
+            </td></tr></table>
+          <p style="margin:0 0 8px;font-size:14px;line-height:20px;color:#5B645D;">Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+          <p style="margin:0 0 24px;font-size:14px;line-height:20px;word-break:break-all;"><a href="{{ .ConfirmationURL }}" style="color:#002312;">{{ .ConfirmationURL }}</a></p>
+          <p style="margin:0;font-size:14px;line-height:20px;color:#5B645D;">Si no solicitaste este correo, puedes ignorarlo con tranquilidad: tu cuenta no cambiará.</p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;border-top:1px solid #002312;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#5B645D;">Valmont · Alta relojería mecánica para el mundo moderno.</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
