@@ -7,8 +7,8 @@ Transversal: no es un módulo con SPEC propia. Cada paquete corrige hallazgos de
 
 | ID | Título | Rol | Depende de | Estado |
 |---|---|---|---|---|
-| T-018a | Cabeceras `no-store` y `nosniff` en toda la API y límite de tamaño del cuerpo (413) | backend-dev + qa-reviewer | ninguna | READY |
-| T-018b | Logs y fallos de infraestructura: `sqlalchemy.engine` en WARNING, sin `DETAIL` de PostgreSQL, `X-Request-ID` solo UUID, JWKS no-JSON → 503 | backend-dev + qa-reviewer | ninguna | READY |
+| T-018a | Cabeceras `no-store` y `nosniff` en toda la API y límite de tamaño del cuerpo (413) | backend-dev + qa-reviewer | ninguna | DONE (a75e77c) |
+| T-018b | Logs y fallos de infraestructura: `sqlalchemy.engine` en WARNING, sin `DETAIL` de PostgreSQL, `X-Request-ID` solo UUID, JWKS no-JSON → 503 | backend-dev + qa-reviewer | ninguna | DONE (a75e77c) |
 | T-018c | `Idempotency-Key` solo UUID, una definición en `shared/` (orders y payments) | backend-dev + qa-reviewer | **D-H1** (contrato, Leader + frontend-lead) | PROPUESTO |
 | T-018d | Texto de entrada: rechazar controles bidireccionales y caracteres invisibles; nombres sin parte visible | backend-dev + qa-reviewer | **D-H2** (cambio en 6 módulos, Leader) | PROPUESTO |
 | T-018e | Límites de longitud en el OpenAPI (solo documentación) | backend-dev + qa-reviewer | ninguna | READY |
