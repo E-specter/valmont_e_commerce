@@ -58,7 +58,8 @@ describe('T-118 · archivos del paquete', () => {
 
   test('sin dependencia nueva (RT-9)', () => {
     const pkg = JSON.parse(read('package.json')) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
-    const expected = ['@astrojs/node', 'astro'];
+    // T-126 (D-042): únicas dependencias nuevas aprobadas, el par oficial de la sesión SSR.
+    const expected = ['@astrojs/node', '@supabase/ssr', '@supabase/supabase-js', 'astro'];
     expect(Object.keys(pkg.dependencies).sort()).toEqual(expected);
   });
 });

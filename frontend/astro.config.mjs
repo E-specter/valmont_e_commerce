@@ -21,13 +21,14 @@ export default defineConfig({
     { provider: google, name: 'Geist', cssVariable: '--f-geist', weights: ['400 700'], styles: ['normal'], subsets: ['latin'], fallbacks: ['system-ui', 'sans-serif'] },
   ],
 
-  // Solo servidor y secretas: ninguna PUBLIC_*. SUPABASE_ANON_KEY no se valida en el build
-  // (validateSecrets=false): solo en tiempo de ejecución de las rutas que la importan (T-126).
+  // Solo servidor y secretas: ninguna PUBLIC_*. Los secretos no se validan en el build
+  // (validateSecrets=false por defecto): el código de sesión comprueba la clave al usarla.
   env: {
     schema: {
       API_BASE_URL: envField.string({ context: 'server', access: 'secret', default: 'http://127.0.0.1:8000' }),
       SUPABASE_URL: envField.string({ context: 'server', access: 'secret', default: 'http://127.0.0.1:54321' }),
-      // shortcut: opcional hasta T-126 (sesión SSR), que la vuelve obligatoria y review-up.sh genera frontend/.env
+      // shortcut: opcional en el esquema para que ningún import de astro:env falle al cargar; la clave es obligatoria
+      // en la práctica y su ausencia acaba en AuthConfigError (500 genérico solo en rutas con sesión).
       SUPABASE_ANON_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
     },
   },

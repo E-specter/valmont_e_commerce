@@ -292,11 +292,12 @@ describe('SiteHeader · variante full', () => {
     expect(h.querySelector('[aria-live], [role="status"], output, [data-count]')).toBeNull();
   });
 
+  const FAKE_BEARER = 'bearer-value-for-tests-0001';
   test('invariante de caché pública: la salida no cambia con una sesión en locals', async () => {
     const anonymous = await renderAstro(SiteHeader as Component, { props: { currentPath: '/' } });
     const session = await renderAstro(SiteHeader as Component, {
       props: { currentPath: '/' },
-      locals: { user: { id: 'u-1', email: 'cliente@example.com', name: 'Cliente Prueba' }, session: { id: 's-1' } },
+      locals: { session: { userId: 'u-1', email: 'cliente@example.com', accessToken: FAKE_BEARER, expiresAt: 4102444800 }, supabase: {} as never },
     });
     expect(session).toBe(anonymous);
     expect(session).not.toContain('cliente@example.com');

@@ -17,9 +17,10 @@ const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])
 describe('API_BASE_URL y secretos', () => {
   const allSrc = walk(SRC).filter((f) => /\.(ts|tsx|js|mjs|astro|svelte|vue|jsx)$/.test(f));
 
-  test('API_BASE_URL solo se importa de astro:env/server y solo en server.ts', () => {
+  // T-126 (desviación aceptada por el Leader): el proxy `/bff` fija su destino con API_BASE_URL (contrato 3.3).
+  test('API_BASE_URL solo se importa de astro:env/server y solo en server.ts y en el proxy /bff', () => {
     const users = allSrc.filter((f) => code(read(f)).includes('API_BASE_URL')).map(rel);
-    expect(users).toEqual(['src/lib/api/server.ts']);
+    expect(users).toEqual(['src/lib/api/server.ts', 'src/pages/bff/[...path].ts']);
     expect(code(read(join(API, 'server.ts')))).toMatch(/import\s*\{[^}]*\bAPI_BASE_URL\b[^}]*\}\s*from\s*['"]astro:env\/server['"]/);
   });
 
@@ -112,9 +113,10 @@ describe('server.ts no llega al navegador', () => {
 });
 
 describe('un único punto de acceso a la API', () => {
-  test('fetch( solo aparece en server.ts dentro de lib/api', () => {
+  // T-126: `browser.ts` (contrato 3.3) es el transporte de las islas hacia /bff.
+  test('fetch( solo aparece en server.ts y browser.ts dentro de lib/api', () => {
     const users = walk(API).filter((f) => /\bfetch\s*\(/.test(code(read(f)))).map(rel);
-    expect(users).toEqual(['src/lib/api/server.ts']);
+    expect(users).toEqual(['src/lib/api/browser.ts', 'src/lib/api/server.ts']);
   });
 
   test('el transporte no reintenta ni hace bucles de reintento', () => {

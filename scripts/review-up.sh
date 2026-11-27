@@ -26,6 +26,24 @@ esac
 sleep 2
 
 (cd frontend && npm install --no-audit --no-fund --silent)
+# T-126: la sesión SSR exige SUPABASE_ANON_KEY. Se genera frontend/.env una sola vez (nunca se sobrescribe)
+# y solo con la clave anónima: jamás la service_role. La salida de `supabase status` no se imprime.
+env_created=0
+if [ ! -f frontend/.env ]; then
+  st="$(npx --no-install supabase status -o env 2>/dev/null | tr -d '\r' || true)"
+  val() { printf '%s\n' "$st" | sed -n "s/^$1=\"\{0,1\}\([^\"]*\)\"\{0,1\}\$/\1/p" | head -n1; }
+  anon="$(val ANON_KEY)"; [ -n "$anon" ] || anon="$(val PUBLISHABLE_KEY)"
+  url="$(val API_URL)"; [ -n "$url" ] || url="http://127.0.0.1:54321"
+  if [ -n "$anon" ]; then
+    printf 'SUPABASE_URL=%s\nSUPABASE_ANON_KEY=%s\nAPI_BASE_URL=http://127.0.0.1:8000\n' "$url" "$anon" >frontend/.env
+    env_created=1
+  else
+    echo "No se pudo generar frontend/.env (supabase status sin ANON_KEY); créalo desde frontend/.env.example." >&2
+  fi
+  unset st anon
+fi
+# Astro lee .env al arrancar: si acabamos de crearlo, el servidor en marcha debe reiniciarse.
+if [ "$env_created" = 1 ]; then (cd frontend && npx astro dev stop >/dev/null 2>&1 </dev/null || true); fi
 # Sin stderr redirigido, el proceso de astro hereda la tubería y quien llama nunca ve el EOF.
 up http://localhost:4321 || (cd frontend && npx astro dev --background >/dev/null 2>&1)
 
