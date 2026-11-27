@@ -29,7 +29,7 @@ Rango reservado del módulo: **T-116–T-139**. En uso: T-116–T-131. Libres: *
 
 | T-134 | fix visual B: barra de filtros alineada en escritorio y plegable en móvil, "Limpiar filtros" de 44 px (D-05, D-11) | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | DONE (cc0c7fb) |
 | T-135 | fix visual C: pie de tarjeta homogéneo en una fila (divisor, precio y "Ver detalles" alineados) (D-10) | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | DONE (f4d723e) |
-| T-136 | fix visual D: Jaro solo en el wordmark; botones y enlaces en la familia del brief (D-04; D-044) | frontend-dev + qa-reviewer | T-133 (pie) | READY |
+| T-136 | fix visual D: Jaro solo en el wordmark; botones y enlaces en la familia del brief (D-04; D-044) | frontend-dev + qa-reviewer | T-133 (pie) | IN_REVIEW |
 | T-137 | fix visual E: foto del hero sustituida por un bloque de marca (D-044) y ajustes menores D-03, D-06, D-07, D-08, D-12, D-13 | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | DONE (948e515) |
 
 ### Orden y paralelismo (rutas disjuntas)
@@ -690,6 +690,25 @@ export function formatDateOnly(isoDate: string): string;                        
 | **T-084** backoffice de pedidos | Sin frames (`admin` no capturada) y depende de T-078/T-079 (BACKLOG). Queda en el carril de backoffice, tras el diseño desde BRIEF; no entra en esta pista. |
 
 ## 8. Traspasos
+
+### T-136 · frontend-dev · IN_REVIEW (Jaro solo en el wordmark, D-044)
+Cambio solo de familia, peso, tamaño y espaciado de letra; sin lógica.
+
+| Archivo | Antes | Ahora |
+|---|---|---|
+| ui/Button | Jaro 20 px | Phudu 600, 16 px (`--text-body-ui`), tracking 0.02em, mayúsculas |
+| catalog/ProductCard `.cta` | Jaro 20 px | Phudu 600, 16 px, tracking 0.02em, mayúsculas |
+| home/CollectionLinks | Jaro | Phudu 700 |
+| home/FeaturedProduct h2 | Jaro 400 | Phudu 700 |
+| pages/nosotros `.awards__block` | Jaro | Phudu 700 |
+| ui/Badge `product` | Jaro | Geist 700 |
+| layout/SiteHeader nav | Jaro 20 px | Geist 600, 16 px, tracking 0.04em; mayúsculas se mantienen (BRIEF §3: MAYÚSCULAS en navegación) |
+| ui/Wordmark, SiteFooter `.site-footer__mark` | Jaro | Jaro (sin cambio; la regla es solo el wordmark) |
+
+- Pie: se quitó el flex de >=800 px; los enlaces siguen en la rejilla de 2 columnas, sin huérfanos.
+- `grep font-brand` fuera de tokens.css: solo Wordmark y `.site-footer__mark`. `dev/tokens.astro` intacta.
+- `npm run check → 0 errors, 0 warnings, 0 hints` (no cuenta como evidencia). NO EJECUTADO: pruebas ni vista en navegador (D-033).
+- Para QA: comprobar desbordamiento a 360/375/800/1280 (Phudu 700 es ancha en CollectionLinks gigantes, FeaturedProduct h2 y nosotros). Pruebas existentes (`ui-actions`, `t133-header-footer`) pueden esperar `--font-brand` en botón/nav: revisar, no tocadas.
 
 #### Traspaso T-133 (implementación) — 2026-11-27 — frontend-dev
 1. Tarea: T-133 · 2. Estado: IN_REVIEW (listo para QA). Figma: no consultado (D-031, cuota; D-02 y D-09 ya documentados en REVIEW-2026-11-27).
