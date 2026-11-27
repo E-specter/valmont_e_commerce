@@ -311,3 +311,5 @@ No se inventa nada: cada hueco es un campo o endpoint que la vista pide y el con
 8. Existentes que esta tarea desbloquea: **T-054** (promociones en `Price`), **T-060** (carrito), **T-069** (wishlist), **T-081…T-084** (pantallas de orders: checkout, confirmación, mis pedidos, detalle).
 9. `ChatWidget` (cuando exista el contrato de assistant).
 10. Backoffice: se diseña desde el brief (sin frames); fuera de este alcance.
+
+**Plan numerado (T-116, 2026-11-26):** los puntos 1–6 son los paquetes T-116…T-131 de [`docs/modules/ui/STATUS.md`](../modules/ui/STATUS.md). Aclaraciones respecto a §2: la portada, el ingreso y el registro se sirven **bajo demanda** (la portada lee las categorías reales; ingreso y registro son un `POST` de la propia página que fija la cookie de sesión); `Breadcrumb` y `Pagination` (lote 2) se adelantan a T-123 porque catálogo y ficha los necesitan. Los puntos 7–10 se reparten entre T-060, T-069, T-081…T-084 y los IDs libres T-132…T-139.
