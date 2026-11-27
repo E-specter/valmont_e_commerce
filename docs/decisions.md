@@ -52,6 +52,7 @@
 | D-043 | 2026-11-27 | Pagos simulados: resultado por los 4 últimos dígitos (matiza D-041 P-4), hasta 5 rechazos, mensaje detallado en la demo, `card_last4` guardado, pago en una sola pantalla, sin vista de administración | APROBADA |
 | D-044 | 2026-11-27 | Revisión visual: foto del hero sustituida (marca ajena), Jaro solo en el wordmark, símbolo de la guía de marca, wordmark de cabecera más grande compatible con P-1 | APROBADA |
 | D-045 | 2026-11-27 | Fecha de nacimiento: obligatoria en el registro, fijable una vez, menores no se registran, clientes antiguos la completan antes de comprar; edad comprobada al crear el pedido | APROBADA |
+| D-046 | 2026-11-27 | Backoffice diseñado en Figma por frontend-lead desde el brief (opción 1); el usuario aprueba los frames antes de implementar | APROBADA |
 
 ---
 
@@ -533,4 +534,10 @@
   4. **P-IDENTITY-7:** un **menor de 18 años no se registra**: el formulario lo impide y no se guarda su fecha.
 - **Decisión del Leader (P-IDENTITY-8):** la mayoría de edad se comprueba **solo al crear el pedido**, antes de preparar el carrito y reservar stock. Como la fecha no se puede cambiar libremente, comprobarla también al pagar no aporta nada. Orders recibe el puerto `EnsureAdult` y devuelve 409 `birth_date_required` o `underage`.
 - **Consecuencias:** SPEC de identity §13 aprobada; T-138 (backend de identity) READY; T-139 (orders exige la edad) tras T-138; T-131 (registro) se amplía a `/auth/callback`, a Mi cuenta (cliente sin fecha) y al checkout (los dos 409).
+
+### D-046 — Diseño del backoffice en Figma (APROBADA, 2026-11-27)
+- **Contexto:** el frame de administración del archivo de Figma (`189:309`) se descartó en T-111 por tener otro diseño y una estructura pobre; las pantallas de administración (p. ej. T-084) quedaban en BACKLOG "sin diseño".
+- **Decisión del usuario:** opción 1. frontend-lead diseña **en el archivo de Figma** (`xRC4mg5JmdqlZ6mbv97kGO`, MCP) los frames base del backoffice a partir de BRIEF §1 y §7 (contexto backoffice: verde dominante, amarillo como señal, sidebar fijo de 260 px, Geist, densidad alta, KPI, tablas, alertas, elevación por color, tablero 07 `125:14038`). El usuario los aprueba o corrige en Figma; después se extraen a `VIEWS.md` y se implementan como la tienda (D-031).
+- **Alternativas descartadas:** especificar solo por escrito en `VIEWS.md` (no se ve hasta construirlo); que el usuario diseñe en Figma.
+- **Consecuencias:** tarea T-140 (diseño del backoffice en Figma, frontend-lead); las pantallas de administración (T-084 y las de catálogo, inventario, promociones y reportes) pasan a depender de T-140 aprobada.
 
