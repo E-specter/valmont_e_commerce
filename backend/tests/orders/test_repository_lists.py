@@ -65,7 +65,7 @@ def test_list_for_user_returns_only_the_own_orders_newest_first(db_session: Sess
     newest = stored_order(db_session, user_id=me, now=at(20))
     stored_order(db_session, user_id=other, now=at(30))  # ajeno: no aparece ni cuenta
 
-    page = repository.list_for_user(me, status=None, page=1, page_size=20)
+    page = repository.list_for_user(me, statuses=None, page=1, page_size=20)
 
     assert isinstance(page, OrderPage)
     assert [s.id for s in page.items] == [newest.id, middle.id, oldest.id]
@@ -79,7 +79,7 @@ def test_orders_created_at_the_same_instant_are_ordered_by_id_descending(
     me = add_profile(db_session)
     ids = [stored_order(db_session, user_id=me, now=at(0)).id for _ in range(4)]
 
-    page = repository.list_for_user(me, status=None, page=1, page_size=20)
+    page = repository.list_for_user(me, statuses=None, page=1, page_size=20)
 
     assert [s.id for s in page.items] == sorted(ids, reverse=True)
 
@@ -92,7 +92,7 @@ def test_the_summary_carries_the_fields_of_the_listing(db_session: Session) -> N
     ]
     order = named(db_session, f"Ana {letters()}", lines=lines, now=at(5))
 
-    (summary,) = repository.list_for_user(order.user_id, status=None, page=1, page_size=20).items
+    (summary,) = repository.list_for_user(order.user_id, statuses=None, page=1, page_size=20).items
 
     assert isinstance(summary, OrderSummary)
     assert summary.id == order.id and summary.number == order.number
@@ -109,7 +109,7 @@ def test_the_summary_of_a_pickup_order_has_no_district(db_session: Session) -> N
     repository = SqlOrderRepository(db_session)
     order = pickup_order(db_session)
 
-    (summary,) = repository.list_for_user(order.user_id, status=None, page=1, page_size=20).items
+    (summary,) = repository.list_for_user(order.user_id, statuses=None, page=1, page_size=20).items
 
     assert summary.district is None and summary.recipient_name == order.delivery.recipient_name
 
@@ -119,7 +119,7 @@ def test_the_summary_total_above_two_to_the_thirty_first_is_exact(db_session: Se
     line = real_line(db_session, quantity=2, list_price=3_500_000_000, unit_price=3_000_000_000)
     order = stored_order(db_session, lines=[line])
 
-    (summary,) = repository.list_for_user(order.user_id, status=None, page=1, page_size=20).items
+    (summary,) = repository.list_for_user(order.user_id, statuses=None, page=1, page_size=20).items
 
     assert summary.total_amount == 6_000_000_000
 
@@ -134,7 +134,9 @@ def test_list_for_user_filters_by_status(db_session: Session) -> None:
     repository.apply(cancelled.id, change(PENDING, CANCELLED, kind=ActorKind.CUSTOMER, actor_id=me))
 
     def listed(status: OrderStatus | None) -> tuple[list[Any], int]:
-        page = repository.list_for_user(me, status=status, page=1, page_size=20)
+        page = repository.list_for_user(
+            me, statuses=None if status is None else {status}, page=1, page_size=20
+        )
         return [s.id for s in page.items], page.total
 
     assert listed(PENDING) == ([pending.id], 1)
@@ -149,7 +151,7 @@ def test_list_for_user_paginates_with_the_real_total(db_session: Session) -> Non
     me = add_profile(db_session)
     ordered = [stored_order(db_session, user_id=me, now=at(n)).id for n in range(5)][::-1]
 
-    pages = [repository.list_for_user(me, status=None, page=p, page_size=2) for p in (1, 2, 3)]
+    pages = [repository.list_for_user(me, statuses=None, page=p, page_size=2) for p in (1, 2, 3)]
 
     assert [[s.id for s in p.items] for p in pages] == [ordered[:2], ordered[2:4], ordered[4:]]
     assert [p.total for p in pages] == [5, 5, 5]
@@ -163,14 +165,14 @@ def test_a_page_beyond_the_last_is_empty_with_the_real_total(db_session: Session
     for n in range(3):
         stored_order(db_session, user_id=me, now=at(n))
 
-    page = repository.list_for_user(me, status=None, page=4, page_size=2)
+    page = repository.list_for_user(me, statuses=None, page=4, page_size=2)
 
     assert page.items == () and (page.total, page.page, page.page_size) == (3, 4, 2)
 
 
 def test_a_customer_without_orders_gets_an_empty_page(db_session: Session) -> None:
     page = SqlOrderRepository(db_session).list_for_user(
-        add_profile(db_session), status=None, page=1, page_size=20
+        add_profile(db_session), statuses=None, page=1, page_size=20
     )
 
     assert page.items == () and page.total == 0
@@ -181,7 +183,7 @@ def test_list_for_user_does_not_leak_orders_of_another_user_by_status(db_session
     me, other = add_profile(db_session), add_profile(db_session)
     stored_order(db_session, user_id=other)
 
-    page = repository.list_for_user(me, status=PENDING, page=1, page_size=20)
+    page = repository.list_for_user(me, statuses={PENDING}, page=1, page_size=20)
 
     assert page.items == () and page.total == 0
 
@@ -406,7 +408,7 @@ def test_the_listing_functions_do_not_modify_anything(db_session: Session) -> No
     repository = SqlOrderRepository(db_session)
     order = stored_order(db_session, now=BASE - timedelta(days=2))  # vencido hace dos días
 
-    repository.list_for_user(order.user_id, status=None, page=1, page_size=20)
+    repository.list_for_user(order.user_id, statuses=None, page=1, page_size=20)
     repository.list_all(admin_query(q=order.delivery.recipient_name))
 
     assert scalar(db_session, "SELECT status FROM app.orders WHERE id = :id", id=order.id) == (

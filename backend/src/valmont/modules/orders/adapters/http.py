@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Response
+from fastapi import APIRouter, Depends, Header, Query, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from valmont.modules.audit.adapters.http import AuditRecorderDep
@@ -20,13 +20,20 @@ from valmont.modules.cart.application import (
 )
 from valmont.modules.identity.adapters.http import current_user
 from valmont.modules.identity.domain import CurrentUser
-from valmont.modules.inventory.adapters.wiring import get_reserve_stock
-from valmont.modules.inventory.application import InsufficientStock, ReserveStock
+from valmont.modules.inventory.adapters.wiring import get_release_reservations, get_reserve_stock
+from valmont.modules.inventory.application import (
+    InsufficientStock,
+    ReleaseReservations,
+    ReserveStock,
+)
 from valmont.modules.orders.adapters.persistence import SqlClock, SqlOrderRepository
 from valmont.modules.orders.adapters.pickup import SettingsPickupStore
 from valmont.modules.orders.application import (
     Clock,
     CreateOrder,
+    ExpireOverdueOrders,
+    GetMyOrder,
+    ListMyOrders,
     OrderRepository,
     PickupStore,
     PickupStoreProvider,
@@ -34,12 +41,14 @@ from valmont.modules.orders.application import (
 from valmont.modules.orders.domain import (
     MAX_PENDING_ORDERS,
     ActorKind,
+    Delivery,
     DeliveryDetails,
     DeliveryInvalid,
     DeliveryMethod,
     Fulfillment,
     IdempotencyConflict,
     Order,
+    OrderNotFound,
     OrderStatus,
     PickupUnavailable,
     TooManyPendingOrders,
@@ -246,10 +255,9 @@ class OrderDetailOut(BaseModel):
                 address_line=d.address_line,
                 reference=d.reference,
                 pickup_store=pickup,
-                # El dominio aún no los trae (llegan con las transiciones del administrador).
-                carrier=None,
-                tracking_code=None,
-                shipped_at=None,
+                carrier=d.carrier if isinstance(d, Delivery) else None,
+                tracking_code=d.tracking_code if isinstance(d, Delivery) else None,
+                shipped_at=d.shipped_at if isinstance(d, Delivery) else None,
             ),
             refund=refund,
             history=[
@@ -260,6 +268,24 @@ class OrderDetailOut(BaseModel):
             ],
             can_cancel=can_customer_cancel(order.status),
         )
+
+
+class OrderSummaryOut(BaseModel):
+    id: UUID
+    number: str
+    status: OrderStatus
+    total: Money
+    item_count: int
+    created_at: datetime
+    expires_at: datetime | None
+    estimated_delivery_on: str | None
+
+
+class OrderPageOut(BaseModel):
+    items: list[OrderSummaryOut]
+    total: int
+    page: int
+    page_size: int
 
 
 # --- Proveedores ---
@@ -287,6 +313,29 @@ def get_create_order(
     audit: AuditRecorderDep,
 ) -> CreateOrder:
     return CreateOrder(orders, prepare, remove, reserve, pickup_store, clock, audit)
+
+
+def get_expire_overdue_orders(
+    orders: Annotated[OrderRepository, Depends(get_orders)],
+    release: Annotated[ReleaseReservations, Depends(get_release_reservations)],
+    audit: AuditRecorderDep,
+    clock: Annotated[Clock, Depends(get_clock)],
+) -> ExpireOverdueOrders:
+    return ExpireOverdueOrders(orders, release, audit, clock)
+
+
+def get_list_my_orders(
+    orders: Annotated[OrderRepository, Depends(get_orders)],
+    expire: Annotated[ExpireOverdueOrders, Depends(get_expire_overdue_orders)],
+) -> ListMyOrders:
+    return ListMyOrders(orders, expire)
+
+
+def get_get_my_order(
+    orders: Annotated[OrderRepository, Depends(get_orders)],
+    expire: Annotated[ExpireOverdueOrders, Depends(get_expire_overdue_orders)],
+) -> GetMyOrder:
+    return GetMyOrder(orders, expire)
 
 
 def get_product_snapshots(session: SessionDep) -> SqlProductSnapshots:
@@ -403,5 +452,66 @@ def create_order(
     if not result.created:
         response.status_code = 200
     order = result.order
+    snapshots = products.get_published([line.product_id for line in order.lines])
+    return OrderDetailOut.build(order, clock.now(), store.get(), snapshots)
+
+
+@router.get(
+    "",
+    response_model=OrderPageOut,
+    responses={s: ERROR_RESPONSES[s] for s in (401, 422, 503)},
+)
+def list_my_orders(
+    user: Annotated[CurrentUser, Depends(current_user)],
+    use_case: Annotated[ListMyOrders, Depends(get_list_my_orders)],
+    status: Annotated[list[OrderStatus] | None, Query()] = None,
+    page: Annotated[int, Query(ge=1, le=1000)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=50)] = 20,
+) -> OrderPageOut:
+    result = use_case(
+        user.user_id,
+        statuses=frozenset(status) if status else None,
+        page=page,
+        page_size=page_size,
+    )
+    return OrderPageOut(
+        items=[
+            OrderSummaryOut(
+                id=o.id,
+                number=format_order_number(o.number),
+                status=o.status,
+                total=_money(o.total_amount),
+                item_count=o.item_count,
+                created_at=o.created_at,
+                expires_at=o.expires_at if o.status == OrderStatus.PENDING_PAYMENT else None,
+                estimated_delivery_on=(
+                    o.estimated_delivery_on.isoformat() if o.estimated_delivery_on else None
+                ),
+            )
+            for o in result.items
+        ],
+        total=result.total,
+        page=result.page,
+        page_size=result.page_size,
+    )
+
+
+@router.get(
+    "/{order_id}",
+    response_model=OrderDetailOut,
+    responses={s: ERROR_RESPONSES[s] for s in (401, 404, 422, 503)},
+)
+def get_my_order(
+    order_id: UUID,
+    user: Annotated[CurrentUser, Depends(current_user)],
+    use_case: Annotated[GetMyOrder, Depends(get_get_my_order)],
+    clock: Annotated[Clock, Depends(get_clock)],
+    store: Annotated[PickupStoreProvider, Depends(get_pickup_store)],
+    products: Annotated[SqlProductSnapshots, Depends(get_product_snapshots)],
+) -> OrderDetailOut:
+    try:
+        order = use_case(user.user_id, order_id)
+    except OrderNotFound:
+        raise AppError("not_found", "Pedido no encontrado.", 404) from None
     snapshots = products.get_published([line.product_id for line in order.lines])
     return OrderDetailOut.build(order, clock.now(), store.get(), snapshots)

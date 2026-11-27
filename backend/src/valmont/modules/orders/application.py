@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 from valmont.modules.audit.application import AuditEntry, AuditRecorder
 from valmont.modules.cart.application import EmptySelection, PrepareCheckout, RemoveCheckedOutItems
 from valmont.modules.inventory.application import OrderLine as ReserveLine
-from valmont.modules.inventory.application import ReserveStock
+from valmont.modules.inventory.application import ReleaseReservations, ReserveStock
 from valmont.modules.orders.domain import (
     MAX_PENDING_ORDERS,
     DeliveryDetails,
@@ -15,6 +15,7 @@ from valmont.modules.orders.domain import (
     Fulfillment,
     Order,
     OrderLine,
+    OrderNotFound,
     OrderStatus,
     PickupUnavailable,
     StatusChange,
@@ -79,7 +80,12 @@ class OrderRepository(Protocol):
     ) -> Order | None: ...
 
     def list_for_user(
-        self, user_id: UUID, *, status: OrderStatus | None, page: int, page_size: int
+        self,
+        user_id: UUID,
+        *,
+        statuses: Collection[OrderStatus] | None,
+        page: int,
+        page_size: int,
     ) -> OrderPage: ...
 
     def list_all(self, query: AdminOrderQuery) -> OrderPage: ...
@@ -213,3 +219,79 @@ class CreateOrder:
             )
         )
         return CreatedOrder(order, True)
+
+
+class ExpireOverdueOrders:
+    """UC-ORDERS-05 (R7): materializa los vencidos; solo quien cambia la fila libera y audita."""
+
+    def __init__(
+        self,
+        orders: OrderRepository,
+        release: ReleaseReservations,
+        audit: AuditRecorder,
+        clock: Clock,
+    ) -> None:
+        self._orders = orders
+        self._release = release
+        self._audit = audit
+        self._clock = clock
+
+    def __call__(
+        self,
+        *,
+        user_id: UUID | None = None,
+        order_ids: Collection[UUID] | None = None,
+        limit: int = 200,
+    ) -> list[Order]:
+        expired = self._orders.expire_overdue(
+            self._clock.now(), user_id=user_id, order_ids=order_ids, limit=limit
+        )
+        for order in expired:
+            self._release(order.id)
+            self._audit.record(
+                AuditEntry(
+                    "orders.status_changed",
+                    "order",
+                    str(order.id),
+                    before={"status": OrderStatus.PENDING_PAYMENT.value},
+                    after={"status": OrderStatus.EXPIRED.value},
+                )
+            )
+        return expired
+
+
+class ListMyOrders:
+    """UC-ORDERS-02 (R7, R12, R17)."""
+
+    def __init__(self, orders: OrderRepository, expire: ExpireOverdueOrders) -> None:
+        self._orders = orders
+        self._expire = expire
+
+    def __call__(
+        self,
+        user_id: UUID,
+        *,
+        statuses: frozenset[OrderStatus] | None,
+        page: int,
+        page_size: int,
+    ) -> OrderPage:
+        # shortcut: solo 200 vencidos por lectura; el resto, en la siguiente.
+        self._expire(user_id=user_id)
+        return self._orders.list_for_user(
+            user_id, statuses=statuses, page=page, page_size=page_size
+        )
+
+
+class GetMyOrder:
+    """UC-ORDERS-03 (R7, R12): ajeno o inexistente, el mismo OrderNotFound."""
+
+    def __init__(self, orders: OrderRepository, expire: ExpireOverdueOrders) -> None:
+        self._orders = orders
+        self._expire = expire
+
+    def __call__(self, user_id: UUID, order_id: UUID) -> Order:
+        self._expire(user_id=user_id, order_ids=[order_id])
+        order = self._orders.get(order_id, user_id=user_id)
+        if order is None:
+            raise OrderNotFound
+        return order

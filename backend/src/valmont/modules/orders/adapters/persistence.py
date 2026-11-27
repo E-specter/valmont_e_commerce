@@ -30,6 +30,7 @@ from valmont.modules.orders.application import AdminOrderQuery, OrderPage, Order
 from valmont.modules.orders.domain import (
     _LIMA,
     ActorKind,
+    Delivery,
     DeliveryDetails,
     DeliveryMethod,
     Fulfillment,
@@ -200,6 +201,25 @@ def _history_values(order_id: UUID, change: StatusChange) -> dict[str, Any]:
         "note": change.note,
         "created_at": change.at,
     }
+
+
+def _delivery(row: DeliveryRow) -> DeliveryDetails:
+    """`Delivery` solo si hay datos de envío; si no, `DeliveryDetails` (igual que el de `add`)."""
+    common: dict[str, Any] = {
+        "delivery_method": DeliveryMethod(row.delivery_method),
+        "recipient_name": row.recipient_name,
+        "phone": row.phone,
+        "department": row.department,
+        "province": row.province,
+        "district": row.district,
+        "address_line": row.address_line,
+        "reference": row.reference,
+    }
+    if row.carrier is None and row.tracking_code is None and row.shipped_at is None:
+        return DeliveryDetails(**common)
+    return Delivery(
+        **common, carrier=row.carrier, tracking_code=row.tracking_code, shipped_at=row.shipped_at
+    )
 
 
 def _escape_like(value: str) -> str:
@@ -452,16 +472,7 @@ class SqlOrderRepository:
                 )
                 for line in lines
             ),
-            delivery=DeliveryDetails(
-                delivery_method=DeliveryMethod(delivery.delivery_method),
-                recipient_name=delivery.recipient_name,
-                phone=delivery.phone,
-                department=delivery.department,
-                province=delivery.province,
-                district=delivery.district,
-                address_line=delivery.address_line,
-                reference=delivery.reference,
-            ),
+            delivery=_delivery(delivery),
             shipping_amount=row.shipping_amount,
             created_at=row.created_at,
             expires_at=row.expires_at,
@@ -484,11 +495,16 @@ class SqlOrderRepository:
         )
 
     def list_for_user(
-        self, user_id: UUID, *, status: OrderStatus | None, page: int, page_size: int
+        self,
+        user_id: UUID,
+        *,
+        statuses: Collection[OrderStatus] | None,
+        page: int,
+        page_size: int,
     ) -> OrderPage:
         conditions = [OrderRow.user_id == user_id]
-        if status is not None:
-            conditions.append(OrderRow.status == status.value)
+        if statuses is not None:
+            conditions.append(OrderRow.status.in_([s.value for s in statuses]))
         return self._page(conditions, page, page_size)
 
     def list_all(self, query: AdminOrderQuery) -> OrderPage:

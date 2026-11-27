@@ -221,6 +221,22 @@ class DeliveryDetails:
             put("reference", reference or None)
 
 
+@dataclass(frozen=True)
+class Delivery(DeliveryDetails):
+    """Entrega leída de la BD: añade los datos de envío (SPEC §5, R-11)."""
+
+    carrier: str | None = None
+    tracking_code: str | None = None
+    shipped_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.delivery_method == DeliveryMethod.PICKUP:
+            for name in ("carrier", "tracking_code", "shipped_at"):
+                if getattr(self, name) is not None:
+                    raise DeliveryInvalid(name, "No aplica al recojo en tienda.")
+
+
 # --- Pedido ---
 
 

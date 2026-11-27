@@ -373,6 +373,14 @@ Y la fila de `docs/agents/_registry.md`: `docs/modules/orders/ · Carpeta · SPE
 
 ## Traspasos
 
+#### Traspaso T-075 — 2026-11-26 — backend-dev
+1. Estado: IN_REVIEW. Pruebas: NO EJECUTADO (D-028, D-033).
+2. Hecho: `application.py` (`ExpireOverdueOrders`, `ListMyOrders`, `GetMyOrder`; `list_for_user(statuses=...)` en el puerto); `adapters/http.py` (`GET /orders` con `status` repetible, `GET /orders/{order_id}`, `OrderSummaryOut`, `OrderPageOut`, proveedores `get_expire_overdue_orders`, `get_list_my_orders`, `get_get_my_order`, `DeliveryOut` con los tres campos de R-11); `domain.py` (`Delivery(DeliveryDetails)` solo para R-11); `adapters/persistence.py` (`Delivery` en `get` y `statuses` con `IN`). `main.py` sin cambios.
+3. Interpretaciones: (a) `GetMyOrder` expira con `user_id` + `order_ids=[id]` y luego `get(..., user_id=)`; no hay lectura previa. (b) Auditoría de caducidad `orders.status_changed`, sin actor, `before {status: pendiente_pago}`, `after {status: expirado}`. (c) 404 con `AppError("not_found", "Pedido no encontrado.", 404)`. (d) `status` vacío o ausente = todos (`None`); `page` 1-1000, `page_size` 1-50 (20). (e) `Delivery` en `pickup` con carrier, tracking o shipped_at lanza `DeliveryInvalid`.
+4. Análisis estático: `uv run ruff format --check . → 191 files already formatted`; `uv run ruff check . → All checks passed!`; `uv run python -c "import valmont.main"` OK; capas (grep) vacío.
+3b. Corrección del Leader: el repositorio devuelve `DeliveryDetails` si carrier, tracking_code y shipped_at son los tres `NULL` y `Delivery` si alguno tiene valor (igualdad con T-073); `DeliveryOut` ya trata ambos casos.
+5. Entrega: ninguno (sin commit) — preparado. Mensaje propuesto: `feat(orders): consultar mis pedidos y caducidad de los vencidos (T-075)`.
+
 #### Traspaso T-074 — 2026-11-26 — backend-dev
 1. Estado: IN_REVIEW. Sin pruebas ejecutadas por mí (D-033).
 2. Hecho: `application.py` (`PickupStore`, `PickupStoreProvider`, `CreatedOrder`, `CreateOrder`), `adapters/pickup.py` (`SettingsPickupStore`; nombre, dirección u horario vacíos o en blanco = `None`), `adapters/http.py` (router, `CreateOrderIn`/`ShippingIn`/`PickupIn` por unión discriminada, `OrderDetailOut` y anidados, proveedores `get_orders`, `get_clock`, `get_pickup_store`, `get_create_order`, `get_product_snapshots`), `main.py` (una línea: registro del router).
