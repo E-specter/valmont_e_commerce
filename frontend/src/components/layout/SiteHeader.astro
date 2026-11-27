@@ -1,0 +1,244 @@
+---
+import Checkerboard from '../ui/Checkerboard.astro';
+import IconButton from '../ui/IconButton.astro';
+import Wordmark from '../ui/Wordmark.astro';
+import { SITE } from '../../lib/site';
+
+interface Props {
+  variant?: 'full' | 'compact';
+  currentPath?: string;
+}
+const { variant = 'full', currentPath = Astro.url.pathname } = Astro.props;
+const full = variant === 'full';
+
+const path = currentPath.replace(/(.)\/$/, '$1');
+const isCurrent = (href: string) => path === href || path.startsWith(`${href}/`);
+const links = [
+  ...(full ? [{ href: '/relojes', label: 'Relojes' }] : []),
+  { href: '/nosotros', label: 'Nosotros' },
+  { href: '/nosotros#contacto', label: 'Contacto' },
+];
+// Contacto es un ancla dentro de Nosotros: solo Nosotros marca la ruta actual.
+const current = (href: string) => (!href.includes('#') && isCurrent(href) ? 'page' : undefined);
+const accessCurrent = (href: string) =>
+  isCurrent(href) && !(href === '/cuenta' && isCurrent('/cuenta/lista-de-deseos')) ? 'page' : undefined;
+---
+
+<header class="site-header" data-variant={variant}>
+  <div class="site-header__bar">
+    <div class="site-header__brand">
+      <Wordmark href="/" />
+      {full && <img class="site-header__symbol" src="/brand/symbol.svg" width="32" height="32" alt="" decoding="async" />}
+      {full && <p class="site-header__tagline">{SITE.tagline}</p>}
+    </div>
+
+    {
+      full ? (
+        <>
+          <div class="site-header__actions">
+            <IconButton variant="plain" icon="heart" label="Lista de deseos" href="/cuenta/lista-de-deseos" aria-current={accessCurrent('/cuenta/lista-de-deseos')} />
+            <IconButton variant="plain" icon="shopping-bag" label="Carrito" href="/carrito" aria-current={accessCurrent('/carrito')} />
+            <IconButton variant="plain" icon="user" label="Mi cuenta" href="/cuenta" aria-current={accessCurrent('/cuenta')} />
+            <IconButton class="site-header__open" variant="outline" icon="menu" label="Abrir menú" popovertarget="menu-principal" />
+          </div>
+          <div id="menu-principal" class="site-header__menu" popover>
+            <IconButton class="site-header__close" variant="outline" icon="x" label="Cerrar menú" popovertarget="menu-principal" popovertargetaction="hide" autofocus />
+            <form class="site-header__search" role="search" method="get" action="/relojes">
+              <label class="sr-only" for="buscar">Buscar relojes</label>
+              <input id="buscar" type="search" name="q" maxlength="100" placeholder="Buscar relojes" autocomplete="off" />
+              <IconButton variant="plain" type="submit" icon="search" label="Buscar" />
+            </form>
+            <nav aria-label="Principal">
+              <ul role="list">
+                {links.map((l) => <li><a href={l.href} aria-current={current(l.href)}>{l.label}</a></li>)}
+              </ul>
+            </nav>
+          </div>
+        </>
+      ) : (
+        <nav aria-label="Principal">
+          <ul role="list">
+            {links.map((l) => <li><a href={l.href} aria-current={current(l.href)}>{l.label}</a></li>)}
+          </ul>
+        </nav>
+      )
+    }
+  </div>
+  {full && <Checkerboard />}
+</header>
+
+{
+  full && (
+    <script>
+      // El popover ya cierra con Esc y devuelve el foco al botón; al elegir un enlace del mismo documento hay que cerrarlo a mano.
+      const menu = document.getElementById('menu-principal');
+      menu?.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => menu.hidePopover()));
+    </script>
+  )
+}
+
+<style>
+  @layer components {
+    .site-header {
+      background: var(--bg-page);
+      color: var(--text-primary);
+    }
+    .site-header[data-variant='compact'] {
+      background: transparent;
+      color: inherit;
+    }
+    .site-header[data-variant='compact'] :global(.wordmark) {
+      color: inherit;
+    }
+    .site-header__bar {
+      display: flex;
+      align-items: center;
+      gap: var(--space-12);
+      max-inline-size: var(--container-max);
+      margin-inline: auto;
+      padding: var(--space-8) var(--page-margin);
+    }
+    .site-header__brand {
+      display: flex;
+      align-items: center;
+      gap: var(--space-16);
+      margin-inline-end: auto;
+      min-inline-size: 0;
+    }
+    .site-header__symbol {
+      inline-size: var(--space-32);
+      block-size: var(--space-32);
+    }
+    .site-header__tagline {
+      display: none;
+    }
+    .site-header__actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+    }
+    .site-header :global(.iconbtn[aria-current='page']) {
+      background: var(--color-ink);
+      color: var(--color-yellow);
+    }
+    nav ul {
+      display: flex;
+      gap: var(--space-24);
+      padding: 0;
+    }
+    nav a {
+      display: inline-flex;
+      align-items: center;
+      min-block-size: var(--touch-target);
+      font-family: var(--font-brand);
+      font-size: var(--text-body-editorial);
+      letter-spacing: var(--tracking-body-editorial);
+      text-transform: uppercase;
+      text-decoration: none;
+      color: inherit;
+    }
+    nav a:hover {
+      text-decoration: underline;
+      text-decoration-thickness: var(--stroke-dot);
+      text-underline-offset: 0.25em;
+    }
+    nav a[aria-current='page'] {
+      text-decoration: underline;
+      text-decoration-thickness: 3px;
+      text-underline-offset: 0.25em;
+    }
+
+    /* Menú móvil: popover a todo el ancho; desde tablet pasa a ser parte de la cabecera */
+    .site-header__menu {
+      inset: 0 0 auto 0;
+      inline-size: 100%;
+      max-block-size: 100dvh;
+      margin: 0;
+      padding: var(--space-16) var(--page-margin) var(--space-32);
+      border: 0;
+      border-block-end: 1px solid var(--stroke-strong);
+      overflow: auto;
+      background: var(--bg-page);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-overlay);
+    }
+    .site-header__menu::backdrop {
+      background: transparent;
+    }
+    .site-header__menu nav ul {
+      flex-direction: column;
+      gap: 0;
+    }
+    .site-header__close {
+      margin-inline-start: auto;
+    }
+    .site-header__search {
+      display: flex;
+      align-items: center;
+      gap: var(--space-8);
+      margin-block: var(--space-16);
+      padding-inline-start: var(--space-16);
+      background: var(--bg-surface);
+      border: 1px solid var(--stroke-control);
+      border-radius: var(--radius-pill);
+    }
+    .site-header__search input {
+      flex: 1;
+      min-inline-size: 0;
+      min-block-size: var(--touch-target);
+      border: 0;
+      background: transparent;
+    }
+    .site-header__search input:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    .site-header__search:focus-within {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+
+    @media (min-width: 800px) {
+      .site-header[data-variant='full'] .site-header__bar {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        column-gap: var(--space-16);
+      }
+      .site-header__tagline {
+        display: block;
+        max-inline-size: 28ch;
+        font-family: var(--font-editorial);
+        font-size: var(--text-body-editorial);
+        line-height: var(--leading-h3);
+        letter-spacing: var(--tracking-h3);
+        text-transform: uppercase;
+      }
+      .site-header__open,
+      .site-header__close {
+        display: none;
+      }
+      .site-header__menu {
+        display: contents;
+      }
+      .site-header__search {
+        grid-column: 2;
+        grid-row: 1;
+        margin-block: 0;
+        inline-size: 18rem;
+      }
+      .site-header__actions {
+        grid-column: 3;
+        grid-row: 1;
+      }
+      .site-header__menu nav {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        border-block-start: 1px solid var(--stroke-default);
+      }
+      .site-header__menu nav ul {
+        flex-direction: row;
+        gap: var(--space-32);
+      }
+    }
+  }
+</style>

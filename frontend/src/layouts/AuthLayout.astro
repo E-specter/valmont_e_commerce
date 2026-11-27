@@ -1,5 +1,6 @@
 ---
 import BaseLayout from './BaseLayout.astro';
+import SiteHeader from '../components/layout/SiteHeader.astro';
 
 interface Props {
   title: string;
@@ -12,6 +13,7 @@ const { title, description, variant } = Astro.props;
 <BaseLayout title={title} description={description} noindex>
   <slot name="head" slot="head" />
   <div class="auth on-dark" data-variant={variant}>
+    <div class="auth__header"><SiteHeader variant="compact" currentPath={Astro.url.pathname} /></div>
     <div class="auth__art">
       <slot name="art" />
     </div>
@@ -30,6 +32,9 @@ const { title, description, variant } = Astro.props;
       color: var(--text-on-dark);
     }
     /* El arte es decorativo: solo desde tablet (BRIEF §6: apilar splits) */
+    .auth__header {
+      grid-column: 1 / -1;
+    }
     .auth__art {
       display: none;
     }

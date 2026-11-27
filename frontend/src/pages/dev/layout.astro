@@ -1,0 +1,21 @@
+---
+// Muestrario de cabecera, pie y título (T-119). Solo existe en desarrollo: en producción responde 404.
+import StoreLayout from '../../layouts/StoreLayout.astro';
+import PageTitle from '../../components/layout/PageTitle.astro';
+import SiteHeader from '../../components/layout/SiteHeader.astro';
+
+export const prerender = false;
+
+if (!import.meta.env.DEV) {
+  return new Response(null, { status: 404 });
+}
+---
+
+<StoreLayout title="Cabecera, pie y título · Valmont" noindex>
+  <PageTitle kicker="Muestrario" title="Cabecera, pie y título" description="Cambia el ancho de la ventana (1280, 800, 360) y prueba el menú con el teclado.">
+    <p slot="meta">Ruta actual: /dev/layout</p>
+  </PageTitle>
+  <PageTitle level={2} align="center" title="Título de nivel 2, centrado" />
+  <h2>Cabecera compacta</h2>
+  <SiteHeader variant="compact" currentPath="/nosotros" />
+</StoreLayout>

@@ -1,5 +1,7 @@
 ---
 import BaseLayout from './BaseLayout.astro';
+import SiteHeader from '../components/layout/SiteHeader.astro';
+import SiteFooter from '../components/layout/SiteFooter.astro';
 
 interface Props {
   title: string;
@@ -13,10 +15,11 @@ const { title, description, noindex, headerVariant = 'full' } = Astro.props;
 <BaseLayout title={title} description={description} noindex={noindex}>
   <slot name="head" slot="head" />
   <div class="store" data-header-variant={headerVariant}>
-    {/* T-119 añade SiteHeader antes del main y SiteFooter después */}
+    <SiteHeader variant={headerVariant} currentPath={Astro.url.pathname} />
     <main id="contenido" tabindex="-1">
       <slot />
     </main>
+    <SiteFooter />
   </div>
 </BaseLayout>
 

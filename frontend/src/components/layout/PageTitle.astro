@@ -1,0 +1,62 @@
+---
+interface Props {
+  title: string;
+  kicker?: string;
+  description?: string;
+  align?: 'start' | 'center';
+  level?: 1 | 2;
+}
+const { title, kicker, description, align = 'start', level = 1 } = Astro.props;
+const Heading = level === 1 ? 'h1' : 'h2';
+---
+
+<header class="pagetitle" data-align={align} data-level={level}>
+  {kicker && <p class="pagetitle__kicker">{kicker}</p>}
+  <Heading class="pagetitle__title">{title}</Heading>
+  {description && <p class="pagetitle__description">{description}</p>}
+  <div class="pagetitle__meta"><slot name="meta" /></div>
+</header>
+
+<style>
+  @layer components {
+    .pagetitle {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-12);
+      padding-block: var(--space-32);
+    }
+    .pagetitle[data-align='center'] {
+      align-items: center;
+      text-align: center;
+    }
+    .pagetitle__kicker {
+      font-family: var(--font-editorial);
+      font-size: var(--text-body-editorial);
+      letter-spacing: var(--tracking-body-editorial);
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    .pagetitle__title {
+      font-family: var(--font-heading);
+      font-weight: var(--weight-bold);
+      font-size: var(--text-h1);
+      line-height: var(--leading-h1);
+      letter-spacing: var(--tracking-h1);
+      text-transform: uppercase;
+    }
+    .pagetitle[data-level='2'] .pagetitle__title {
+      font-size: var(--text-h2);
+      line-height: var(--leading-h2);
+      letter-spacing: var(--tracking-h2);
+    }
+    .pagetitle__description {
+      max-inline-size: 60ch;
+      font-size: var(--text-body-editorial);
+      line-height: var(--leading-body-editorial);
+      color: var(--text-secondary);
+    }
+    .pagetitle__meta:empty {
+      display: none;
+    }
+  }
+</style>

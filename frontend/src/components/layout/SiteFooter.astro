@@ -1,0 +1,100 @@
+---
+import Checkerboard from '../ui/Checkerboard.astro';
+import TextLink from '../ui/TextLink.astro';
+import { SITE } from '../../lib/site';
+
+const links = [
+  { href: '/relojes', label: 'Relojes' },
+  { href: '/nosotros', label: 'Nosotros' },
+  { href: '/nosotros#contacto', label: 'Contacto' },
+  { href: '/privacidad', label: 'Privacidad' },
+  { href: '/terminos', label: 'Términos' },
+];
+const tel = SITE.phone.replace(/[^\d+]/g, '');
+---
+
+<footer class="site-footer">
+  <div class="site-footer__body">
+    <nav aria-label="Pie de página">
+      <ul role="list" class="site-footer__links">
+        {links.map((l) => <li><TextLink href={l.href}>{l.label}</TextLink></li>)}
+      </ul>
+    </nav>
+    <address class="site-footer__contact">
+      <a href={`tel:${tel}`}>{SITE.phone}</a>
+      <a href={`mailto:${SITE.email}`}>{SITE.email}</a>
+      <TextLink href={SITE.instagram.href} external>{SITE.instagram.label}</TextLink>
+    </address>
+    <p class="site-footer__mark" aria-hidden="true">{SITE.name}</p>
+    <p class="site-footer__rights">© 2026 Valmont. Todos los derechos reservados.</p>
+  </div>
+  <Checkerboard />
+</footer>
+
+<style>
+  @layer components {
+    .site-footer {
+      margin-block-start: var(--space-64);
+      background: var(--bg-page);
+      color: var(--text-primary);
+    }
+    .site-footer__body {
+      container-type: inline-size;
+      display: grid;
+      gap: var(--space-32);
+      max-inline-size: var(--container-max);
+      margin-inline: auto;
+      padding: var(--space-48) var(--page-margin) var(--space-24);
+    }
+    .site-footer__links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-4) var(--space-24);
+      padding: 0;
+    }
+    .site-footer__links :global(.textlink) {
+      display: inline-flex;
+      align-items: center;
+      min-block-size: var(--touch-target);
+    }
+    .site-footer__contact {
+      display: flex;
+      flex-direction: column;
+      font-style: normal;
+      font-family: var(--font-brand);
+      font-size: var(--text-body-editorial);
+      letter-spacing: var(--tracking-body-editorial);
+      text-transform: uppercase;
+    }
+    .site-footer__contact > :global(a) {
+      display: inline-flex;
+      align-items: center;
+      min-block-size: var(--touch-target);
+    }
+    /* Wordmark gigante decorativo: ancho casi completo del contenedor (Figma 240 px sobre 1280) */
+    .site-footer__mark {
+      font-family: var(--font-brand);
+      font-size: 24cqi;
+      line-height: 0.84;
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: clip;
+      user-select: none;
+    }
+    .site-footer__rights {
+      font-size: var(--text-caption);
+      font-weight: var(--weight-bold);
+      text-transform: uppercase;
+    }
+    @media (min-width: 800px) {
+      .site-footer__body {
+        grid-template-columns: 1fr 1fr;
+      }
+      .site-footer__mark,
+      .site-footer__rights {
+        grid-column: 1 / -1;
+      }
+    }
+  }
+</style>

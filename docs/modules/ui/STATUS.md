@@ -684,6 +684,18 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-119 (implementación) — 2026-11-27 — frontend-dev
+1. Tarea: T-119 · 2. Estado: IN_REVIEW (listo para QA).
+3. Hecho: `SiteHeader` (full/compact), `SiteFooter`, `PageTitle`, `lib/site.ts`, cableado en `StoreLayout` y `AuthLayout` (cabecera compact) y `/dev/layout` (404 fuera de DEV). Firmas del paquete sin cambios.
+4. Archivos: `frontend/src/components/layout/{SiteHeader,SiteFooter,PageTitle}.astro`, `frontend/src/lib/site.ts`, `frontend/src/layouts/{StoreLayout,AuthLayout}.astro`, `frontend/src/pages/dev/layout.astro`.
+5. Estático: `npm run check -> 0 errors, 0 warnings, 0 hints (64 files)` (no cuenta como evidencia). NO EJECUTADO: build y pruebas (D-033).
+6. Figma (una vez cada uno): `1:116` (cabecera) y `1:235` (pie). Resto de nodos no consultados. Aprendido: lockup = wordmark 128 + símbolo 120 + descriptor (Staatliches 30) + línea con enlaces; los enlaces amarillos de Figma NO cumplen AA sobre marfil (RT-4): se usan en tinta. Pie: wordmark 240 px sobre 1280 (aprox. 24cqi), enlaces y contacto en columnas, damero al pie.
+7. Inferido: (a) el símbolo usa `/brand/symbol.svg` de T-116 (`<img alt="" 32x32`); mi copia de Figma `1:120` se borró y difería de la de `125:13047` (116 px, círculo y rayos frente a 120 px de trazados): usé la de T-116 por orden del Leader. (b) Menú móvil = `popover` (auto) con botón `popovertarget`, botón de cierre con `autofocus` (Esc y devolución del foco nativos) y un `<script>` de 3 líneas que lo cierra al elegir un enlace. Desde 800 px el popover es `display: contents` y el nav/búsqueda quedan en línea. (c) `compact` no lleva menú: nav inline con Nosotros y Contacto; hereda el color (sirve sobre verde en auth). (d) `aria-current` solo en Nosotros/Relojes y accesos; Contacto (ancla) nunca; `/cuenta` no se marca en `/cuenta/lista-de-deseos`. (e) Teléfono y correo con `tel:`/`mailto:`; Instagram en el pie con `external`. (f) `/dev/layout` también muestra una cabecera compact (segundo `nav` "Principal" solo en esa página de desarrollo).
+8. Riesgos: popover y `::backdrop` sin comprobar en navegador (solo `check`); con 4 botones a 360 px el wordmark puede quedar justo: revisar en E2E 360. Sin símbolo en `compact` (el paquete lo excluye).
+9-11. Sin dependencias, sin cambios de contrato ni de configuración.
+12. Commit: ninguno, preparado. Mensaje propuesto: `feat(ui): cabecera, pie y título de página de la tienda (T-119)`.
+13. Corrección tras QA: anillo de foco propio en `input` de búsqueda; `currentPath` por defecto `Astro.url.pathname`; `text-decoration-thickness` 1.5px -> `--stroke-dot`. Sin token equivalente (se dejan, RT-1 menor): `3px` del subrayado actual y `18rem` del ancho de búsqueda.
+
 #### Traspaso T-120 (implementación) — 2026-11-26 — frontend-dev
 1. Tarea: T-120 · 2. Estado: IN_REVIEW (listo para QA).
 3. Hecho: `http.ts` (tipos 3.1, `ApiError`, `toQueryString`, helper `parseResponse`), `server.ts` (`serverTransport`) y `catalog.ts` (tipos y 4 funciones) con las firmas del paquete sin cambios.

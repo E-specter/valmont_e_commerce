@@ -19,7 +19,8 @@ function commonContract(render: (extra?: { title?: string }) => Promise<Document
   test('<title> es el recibido y se escapa (sin inyección de HTML)', async () => {
     expect((await render({ title: 'Relojes | Valmont' })).title).toBe('Relojes | Valmont');
     const hostile = await render({ title: '</title><script>window.__x=1</script>' });
-    expect(hostile.querySelectorAll('script').length).toBe(0);
+    // T-119: el layout lleva el <script> del menú; solo cuenta el que inyectaría el título hostil.
+    expect([...hostile.querySelectorAll('script')].filter((s) => (s.textContent ?? '').includes('__x')).length).toBe(0);
     expect(hostile.title).toBe('</title><script>window.__x=1</script>');
   });
 
