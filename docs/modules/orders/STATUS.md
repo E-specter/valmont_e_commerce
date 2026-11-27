@@ -373,6 +373,14 @@ Y la fila de `docs/agents/_registry.md`: `docs/modules/orders/ · Carpeta · SPE
 
 ## Traspasos
 
+#### Traspaso T-077 — 2026-11-26 — backend-dev
+1. Estado: IN_REVIEW. Pruebas: NO EJECUTADO (D-028, D-033).
+2. Hecho: solo `application.py`: `PayableOrder`, `PaymentOutcome`, `GetPayableOrder`, `ConfirmOrderPayment` con las firmas del paquete. Sin HTTP, sin `wiring.py` (el paquete protege `adapters/**`): payments necesitará el proveedor, que se pide en otra tarea.
+3. Interpretaciones: (a) `GetPayableOrder`: `expire(user_id, [id])` -> `get(user_id)`; `number` = `format_order_number`. (b) `ConfirmOrderPayment`: `get(lock=True)` -> pagado o posterior = `ALREADY_PAID`; otro estado distinto de `pendiente_pago` = `OrderNotPayable`; `expires_at <= clock.now()` = expira y `EXPIRED` sin consumir; `ConsumeReservations(order_id, now)`; `ReservationExpired` = expira y `EXPIRED` sin relanzar; si no, `apply(paid=True)` (customer, actor = user_id) y auditoría `orders.status_changed` con actor y solo `status`. (c) Expirar usa `apply` (system, sin actor) + `ReleaseReservations` + auditoría sin actor, igual que R7; no se usa `ExpireOverdueOrders` (no está en el constructor). Tras `ReservationExpired`, `release` es seguro: no hubo escrituras de consumo. (d) `now` del `Clock` (R-3: borde de milisegundos cubierto por INVENTORY-R11).
+4. Análisis estático: `uv run ruff format . -> 204 files left unchanged`; `uv run ruff check . --fix -> 1 fixed (imports), 0 remaining`; `uv run python -c "import valmont.main"` OK; capas (grep) vacío.
+5. Corrección (Leader/QA, capas): `ReservationExpired` se importa de `inventory.application`, no de `inventory.domain`.
+12. Commits: ninguno, preparado. Mensaje: `feat(orders): puerto para payments con consulta y confirmación del pago (T-077)`.
+
 #### Traspaso T-076 — 2026-11-26 — backend-dev
 1. Estado: IN_REVIEW. Pruebas: NO EJECUTADO (D-028, D-033).
 2. Hecho: `application.py` (`CancelMyOrder`, firma del paquete); `adapters/http.py` (`POST /orders/{order_id}/cancel`, `get_cancel_my_order`, 409 `not_cancellable` con `details {"status"}`). `domain.py`, `persistence.py` y `main.py` sin cambios.

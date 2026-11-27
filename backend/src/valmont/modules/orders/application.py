@@ -1,15 +1,22 @@
 from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import date, datetime
+from enum import StrEnum
 from typing import Protocol
 from uuid import UUID, uuid4
 
 from valmont.modules.audit.application import AuditEntry, AuditRecorder
 from valmont.modules.cart.application import EmptySelection, PrepareCheckout, RemoveCheckedOutItems
+from valmont.modules.inventory.application import (
+    ConsumeReservations,
+    ReleaseReservations,
+    ReservationExpired,
+    ReserveStock,
+)
 from valmont.modules.inventory.application import OrderLine as ReserveLine
-from valmont.modules.inventory.application import ReleaseReservations, ReserveStock
 from valmont.modules.orders.domain import (
     MAX_PENDING_ORDERS,
+    PAID_STATUSES,
     ActorKind,
     DeliveryDetails,
     DeliveryMethod,
@@ -18,12 +25,14 @@ from valmont.modules.orders.domain import (
     Order,
     OrderLine,
     OrderNotFound,
+    OrderNotPayable,
     OrderStatus,
     PickupUnavailable,
     StatusChange,
     TooManyPendingOrders,
     build_order,
     can_customer_cancel,
+    format_order_number,
 )
 
 # Puertos y datos de lectura de orders (SPEC §6, §7; T-073) y casos de uso (T-074+).
@@ -352,3 +361,127 @@ class CancelMyOrder:
             )
         )
         return cancelled
+
+
+@dataclass(frozen=True)
+class PayableOrder:
+    order_id: UUID
+    number: str
+    status: OrderStatus
+    total_amount: int
+    expires_at: datetime
+
+
+class PaymentOutcome(StrEnum):
+    PAID = "paid"
+    ALREADY_PAID = "already_paid"
+    EXPIRED = "expired"
+
+
+class GetPayableOrder:
+    """UC-ORDERS-06 (R7): lo que payments debe cobrar; payments decide con `status`."""
+
+    def __init__(self, orders: OrderRepository, expire: ExpireOverdueOrders) -> None:
+        self._orders = orders
+        self._expire = expire
+
+    def __call__(self, user_id: UUID, order_id: UUID) -> PayableOrder:
+        self._expire(user_id=user_id, order_ids=[order_id])
+        order = self._orders.get(order_id, user_id=user_id)
+        if order is None:
+            raise OrderNotFound
+        if order.number is None:
+            raise ValueError("El pedido no tiene número")
+        return PayableOrder(
+            order.id,
+            format_order_number(order.number),
+            order.status,
+            order.total_amount,
+            order.expires_at,
+        )
+
+
+class ConfirmOrderPayment:
+    """UC-ORDERS-06 (R4, R16): marca `pagado` de forma idempotente. Sin commit: corre en la
+    transacción de payments, que debe confirmarla también con `EXPIRED`."""
+
+    def __init__(
+        self,
+        orders: OrderRepository,
+        consume: ConsumeReservations,
+        release: ReleaseReservations,
+        audit: AuditRecorder,
+        clock: Clock,
+    ) -> None:
+        self._orders = orders
+        self._consume = consume
+        self._release = release
+        self._audit = audit
+        self._clock = clock
+
+    def __call__(self, user_id: UUID, order_id: UUID) -> PaymentOutcome:
+        # Pedido -> reservas -> stock (R4). Ajeno o inexistente: OrderNotFound sin efectos.
+        order = self._orders.get(order_id, user_id=user_id, lock=True)
+        if order is None:
+            raise OrderNotFound
+        if order.status in PAID_STATUSES:
+            return PaymentOutcome.ALREADY_PAID
+        if order.status != OrderStatus.PENDING_PAYMENT:
+            raise OrderNotPayable(order.status)
+        now = self._clock.now()
+        if order.expires_at <= now:  # R6: vencido si expires_at <= now
+            self._expire(order_id, now)
+            return PaymentOutcome.EXPIRED
+        try:
+            self._consume(order_id, now)  # antes de cambiar el estado (R16)
+        except ReservationExpired:
+            self._expire(order_id, now)  # el consumo falló sin escribir: no se relanza
+            return PaymentOutcome.EXPIRED
+        self._orders.apply(
+            order_id,
+            StatusChange(
+                OrderStatus.PENDING_PAYMENT,
+                OrderStatus.PAID,
+                ActorKind.CUSTOMER,
+                user_id,
+                None,
+                now,
+            ),
+            paid=True,
+        )
+        self._audit.record(
+            AuditEntry(
+                "orders.status_changed",
+                "order",
+                str(order_id),
+                user_id,
+                "customer",
+                before={"status": OrderStatus.PENDING_PAYMENT.value},
+                after={"status": OrderStatus.PAID.value},
+            )
+        )
+        return PaymentOutcome.PAID
+
+    def _expire(self, order_id: UUID, now: datetime) -> None:
+        # Como ExpireOverdueOrders (R7): historial `system`, liberación y auditoría sin actor.
+        self._orders.apply(
+            order_id,
+            StatusChange(
+                OrderStatus.PENDING_PAYMENT,
+                OrderStatus.EXPIRED,
+                ActorKind.SYSTEM,
+                None,
+                None,
+                now,
+            ),
+        )
+        self._release(order_id)
+        self._audit.record(
+            AuditEntry(
+                "orders.status_changed",
+                "order",
+                str(order_id),
+                before={"status": OrderStatus.PENDING_PAYMENT.value},
+                after={"status": OrderStatus.EXPIRED.value},
+            )
+        )
