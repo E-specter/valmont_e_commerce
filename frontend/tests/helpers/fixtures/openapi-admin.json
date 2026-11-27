@@ -1,0 +1,3305 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "copia recortada de /openapi.json (2026-11-27, T-144)"
+ },
+ "paths": {
+  "/api/v1/orders/admin": {
+   "get": {
+    "tags": [
+     "orders"
+    ],
+    "summary": "List Orders",
+    "operationId": "list_orders_api_v1_orders_admin_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "status",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "$ref": "#/components/schemas/OrderStatus"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Status"
+      }
+     },
+     {
+      "name": "q",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 100
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Q"
+      }
+     },
+     {
+      "name": "created_from",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Created From"
+      }
+     },
+     {
+      "name": "created_to",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "format": "date"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Created To"
+      }
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 1000,
+       "minimum": 1,
+       "default": 1,
+       "title": "Page"
+      }
+     },
+     {
+      "name": "page_size",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 50,
+       "minimum": 1,
+       "default": 20,
+       "title": "Page Size"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AdminOrderPageOut"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "`unauthenticated`: falta el token o no es válido.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "`forbidden`: el rol no basta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "`validation_error`: datos de entrada no válidos.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`auth_unavailable`: no se pudo verificar el token.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/orders/admin/{order_id}": {
+   "get": {
+    "tags": [
+     "orders"
+    ],
+    "summary": "Get Order",
+    "operationId": "get_order_api_v1_orders_admin__order_id__get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "order_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Order Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AdminOrderDetailOut"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "`unauthenticated`: falta el token o no es válido.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "`forbidden`: el rol no basta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "`not_found`: el recurso no existe o no es visible.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "`validation_error`: datos de entrada no válidos.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`auth_unavailable`: no se pudo verificar el token.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/orders/admin/{order_id}/transitions": {
+   "post": {
+    "tags": [
+     "orders"
+    ],
+    "summary": "Transition Order",
+    "operationId": "transition_order_api_v1_orders_admin__order_id__transitions_post",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "order_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Order Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TransitionIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AdminOrderDetailOut"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "`unauthenticated`: falta el token o no es válido.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "`forbidden`: el rol no basta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "`not_found`: el recurso no existe o no es visible.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "`invalid_transition`; `details`: `from`, `to` y `allowed`.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "`validation_error`: datos de entrada no válidos.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`auth_unavailable`: no se pudo verificar el token.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/inventory/admin/stock": {
+   "get": {
+    "tags": [
+     "inventory-admin"
+    ],
+    "summary": "List Stock",
+    "operationId": "list_stock_api_v1_inventory_admin_stock_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "q",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 100
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Q"
+      }
+     },
+     {
+      "name": "status",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "$ref": "#/components/schemas/AvailabilityStatus"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Status"
+      }
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 1000,
+       "minimum": 1,
+       "default": 1,
+       "title": "Page"
+      }
+     },
+     {
+      "name": "page_size",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 48,
+       "minimum": 1,
+       "default": 24,
+       "title": "Page Size"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StockPageOut"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "`unauthenticated`: falta el token o no es válido.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "`forbidden`: el rol no basta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "`validation_error`: datos de entrada no válidos.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`auth_unavailable`: no se pudo verificar el token.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/catalog/admin/products": {
+   "get": {
+    "tags": [
+     "catalog-admin"
+    ],
+    "summary": "List Products",
+    "operationId": "list_products_api_v1_catalog_admin_products_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "status",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "$ref": "#/components/schemas/ProductStatus"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Status"
+      }
+     },
+     {
+      "name": "q",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 100
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Q"
+      }
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 1000,
+       "minimum": 1,
+       "default": 1,
+       "title": "Page"
+      }
+     },
+     {
+      "name": "page_size",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 48,
+       "minimum": 1,
+       "default": 24,
+       "title": "Page Size"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AdminProductPageOut"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "`unauthenticated`: falta el token o no es válido.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "`forbidden`: el rol no basta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "`validation_error`: datos de entrada no válidos.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`auth_unavailable`: no se pudo verificar el token.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "catalog-admin"
+    ],
+    "summary": "Create Product",
+    "operationId": "create_product_api_v1_catalog_admin_products_post",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ProductCreateIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AdminProductOut"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "`unauthenticated`: falta el token o no es válido.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "`forbidden`: el rol no basta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflicto: `sku_taken`, `slug_taken`.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "`validation_error`: datos de entrada no válidos.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`auth_unavailable`: no se pudo verificar el token.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/catalog/admin/products/{product_id}": {
+   "get": {
+    "tags": [
+     "catalog-admin"
+    ],
+    "summary": "Get Product",
+    "operationId": "get_product_api_v1_catalog_admin_products__product_id__get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Product Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AdminProductOut"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "`unauthenticated`: falta el token o no es válido.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "`forbidden`: el rol no basta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "`not_found`: el recurso no existe o no es visible.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "`validation_error`: datos de entrada no válidos.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`auth_unavailable`: no se pudo verificar el token.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    }
+   },
+   "patch": {
+    "tags": [
+     "catalog-admin"
+    ],
+    "summary": "Update Product",
+    "operationId": "update_product_api_v1_catalog_admin_products__product_id__patch",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Product Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ProductUpdateIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AdminProductOut"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "`unauthenticated`: falta el token o no es válido.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "`forbidden`: el rol no basta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "`not_found`: el recurso no existe o no es visible.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflicto: `sku_taken`, `slug_taken`, `slug_locked`, `publish_requirements_unmet`. `details.missing` lista lo que falta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "`validation_error`: datos de entrada no válidos.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`auth_unavailable`: no se pudo verificar el token.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/catalog/admin/products/{product_id}/publish": {
+   "post": {
+    "tags": [
+     "catalog-admin"
+    ],
+    "summary": "Publish Product",
+    "operationId": "publish_product_api_v1_catalog_admin_products__product_id__publish_post",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Product Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AdminProductOut"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "`unauthenticated`: falta el token o no es válido.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "`forbidden`: el rol no basta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "`not_found`: el recurso no existe o no es visible.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflicto: `publish_requirements_unmet`. `details.missing` lista lo que falta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "`validation_error`: datos de entrada no válidos.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`auth_unavailable`: no se pudo verificar el token.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/catalog/admin/products/{product_id}/unpublish": {
+   "post": {
+    "tags": [
+     "catalog-admin"
+    ],
+    "summary": "Unpublish Product",
+    "operationId": "unpublish_product_api_v1_catalog_admin_products__product_id__unpublish_post",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Product Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AdminProductOut"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "`unauthenticated`: falta el token o no es válido.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "`forbidden`: el rol no basta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "`not_found`: el recurso no existe o no es visible.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "`validation_error`: datos de entrada no válidos.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`auth_unavailable`: no se pudo verificar el token.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/catalog/admin/categories": {
+   "get": {
+    "tags": [
+     "catalog-admin"
+    ],
+    "summary": "List Categories",
+    "operationId": "list_categories_api_v1_catalog_admin_categories_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/AdminCategoryOut"
+         },
+         "type": "array",
+         "title": "Response List Categories Api V1 Catalog Admin Categories Get"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "`unauthenticated`: falta el token o no es válido.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "`forbidden`: el rol no basta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`auth_unavailable`: no se pudo verificar el token.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ]
+   },
+   "post": {
+    "tags": [
+     "catalog-admin"
+    ],
+    "summary": "Create Category",
+    "operationId": "create_category_api_v1_catalog_admin_categories_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CategoryIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AdminCategoryOut"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "`unauthenticated`: falta el token o no es válido.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "`forbidden`: el rol no basta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflicto: `slug_taken`.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "`validation_error`: datos de entrada no válidos.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`auth_unavailable`: no se pudo verificar el token.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ]
+   }
+  },
+  "/api/v1/catalog/admin/attributes": {
+   "get": {
+    "tags": [
+     "catalog-admin"
+    ],
+    "summary": "List Attributes",
+    "operationId": "list_attributes_api_v1_catalog_admin_attributes_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AdminAttributesOut"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "`unauthenticated`: falta el token o no es válido.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "`forbidden`: el rol no basta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`auth_unavailable`: no se pudo verificar el token.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ]
+   }
+  },
+  "/api/v1/catalog/admin/products/{product_id}/images": {
+   "post": {
+    "tags": [
+     "catalog-admin"
+    ],
+    "summary": "Upload Image",
+    "operationId": "upload_image_api_v1_catalog_admin_products__product_id__images_post",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Product Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_upload_image_api_v1_catalog_admin_products__product_id__images_post"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProductImageOut"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "`unauthenticated`: falta el token o no es válido.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "`forbidden`: el rol no basta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "`not_found`: el recurso no existe o no es visible.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "`file_too_large`: más de 5 MiB.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "415": {
+      "description": "`unsupported_media_type`: por su firma, no es JPEG, PNG ni WebP.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "`validation_error`: datos de entrada no válidos.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`auth_unavailable` o `storage_unavailable`: Auth o Storage no responden.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/catalog/admin/products/{product_id}/images/{image_id}": {
+   "patch": {
+    "tags": [
+     "catalog-admin"
+    ],
+    "summary": "Update Image",
+    "operationId": "update_image_api_v1_catalog_admin_products__product_id__images__image_id__patch",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Product Id"
+      }
+     },
+     {
+      "name": "image_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Image Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ImageUpdateIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProductImageOut"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "`unauthenticated`: falta el token o no es válido.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "`forbidden`: el rol no basta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "`not_found`: el recurso no existe o no es visible.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "`validation_error`: datos de entrada no válidos.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`auth_unavailable`: no se pudo verificar el token.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "catalog-admin"
+    ],
+    "summary": "Delete Image",
+    "operationId": "delete_image_api_v1_catalog_admin_products__product_id__images__image_id__delete",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Product Id"
+      }
+     },
+     {
+      "name": "image_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Image Id"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "401": {
+      "description": "`unauthenticated`: falta el token o no es válido.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "`forbidden`: el rol no basta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "`not_found`: el recurso no existe o no es visible.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflicto: `last_image`.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "`validation_error`: datos de entrada no válidos.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`auth_unavailable`: no se pudo verificar el token.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/catalog/admin/products/{product_id}/images/order": {
+   "put": {
+    "tags": [
+     "catalog-admin"
+    ],
+    "summary": "Reorder Images",
+    "operationId": "reorder_images_api_v1_catalog_admin_products__product_id__images_order_put",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "product_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "format": "uuid",
+       "title": "Product Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "array",
+        "items": {
+         "type": "string",
+         "format": "uuid"
+        },
+        "title": "Image Ids"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/ProductImageOut"
+         },
+         "title": "Response Reorder Images Api V1 Catalog Admin Products  Product Id  Images Order Put"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "`unauthenticated`: falta el token o no es válido.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "`forbidden`: el rol no basta.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "`not_found`: el recurso no existe o no es visible.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "`validation_error`: datos de entrada no válidos.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`auth_unavailable`: no se pudo verificar el token.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "OrderStatus": {
+    "type": "string",
+    "enum": [
+     "pendiente_pago",
+     "pagado",
+     "en_preparacion",
+     "enviado",
+     "listo_para_recojo",
+     "entregado",
+     "cancelado",
+     "expirado"
+    ],
+    "title": "OrderStatus"
+   },
+   "AdminOrderPageOut": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/AdminOrderSummaryOut"
+      },
+      "type": "array",
+      "title": "Items"
+     },
+     "total": {
+      "type": "integer",
+      "title": "Total"
+     },
+     "page": {
+      "type": "integer",
+      "title": "Page"
+     },
+     "page_size": {
+      "type": "integer",
+      "title": "Page Size"
+     }
+    },
+    "type": "object",
+    "required": [
+     "items",
+     "total",
+     "page",
+     "page_size"
+    ],
+    "title": "AdminOrderPageOut"
+   },
+   "AdminOrderSummaryOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "number": {
+      "type": "string",
+      "title": "Number"
+     },
+     "status": {
+      "$ref": "#/components/schemas/OrderStatus"
+     },
+     "total": {
+      "$ref": "#/components/schemas/Money-Output"
+     },
+     "item_count": {
+      "type": "integer",
+      "title": "Item Count"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "expires_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expires At"
+     },
+     "estimated_delivery_on": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Estimated Delivery On"
+     },
+     "user_id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "User Id"
+     },
+     "recipient_name": {
+      "type": "string",
+      "title": "Recipient Name"
+     },
+     "district": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "District"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "number",
+     "status",
+     "total",
+     "item_count",
+     "created_at",
+     "expires_at",
+     "estimated_delivery_on",
+     "user_id",
+     "recipient_name",
+     "district"
+    ],
+    "title": "AdminOrderSummaryOut"
+   },
+   "Money-Output": {
+    "properties": {
+     "amount": {
+      "type": "integer",
+      "minimum": 0,
+      "title": "Amount"
+     },
+     "currency": {
+      "type": "string",
+      "const": "PEN",
+      "title": "Currency",
+      "default": "PEN"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "amount",
+     "currency"
+    ],
+    "title": "Money",
+    "description": "Dinero en la API: céntimos enteros (sin float) y una sola moneda en el MVP."
+   },
+   "ErrorOut": {
+    "properties": {
+     "error": {
+      "$ref": "#/components/schemas/ErrorBody"
+     }
+    },
+    "type": "object",
+    "required": [
+     "error"
+    ],
+    "title": "ErrorOut",
+    "description": "Formato común de error (modules.md §4.4), para declararlo en el OpenAPI."
+   },
+   "ErrorBody": {
+    "properties": {
+     "code": {
+      "type": "string",
+      "title": "Code"
+     },
+     "message": {
+      "type": "string",
+      "title": "Message"
+     },
+     "details": {
+      "title": "Details"
+     }
+    },
+    "type": "object",
+    "required": [
+     "code",
+     "message"
+    ],
+    "title": "ErrorBody"
+   },
+   "AdminOrderDetailOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "number": {
+      "type": "string",
+      "title": "Number"
+     },
+     "status": {
+      "$ref": "#/components/schemas/OrderStatus"
+     },
+     "total": {
+      "$ref": "#/components/schemas/Money-Output"
+     },
+     "item_count": {
+      "type": "integer",
+      "title": "Item Count"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "expires_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expires At"
+     },
+     "estimated_delivery_on": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Estimated Delivery On"
+     },
+     "paid_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Paid At"
+     },
+     "expires_in_seconds": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expires In Seconds"
+     },
+     "subtotal": {
+      "$ref": "#/components/schemas/Money-Output"
+     },
+     "shipping": {
+      "$ref": "#/components/schemas/Money-Output"
+     },
+     "lines": {
+      "items": {
+       "$ref": "#/components/schemas/OrderLineOut"
+      },
+      "type": "array",
+      "title": "Lines"
+     },
+     "delivery": {
+      "$ref": "#/components/schemas/DeliveryOut"
+     },
+     "refund": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/RefundOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "history": {
+      "items": {
+       "$ref": "#/components/schemas/AdminHistoryEntryOut"
+      },
+      "type": "array",
+      "title": "History"
+     },
+     "can_cancel": {
+      "type": "boolean",
+      "title": "Can Cancel"
+     },
+     "user_id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "User Id"
+     },
+     "can_transition_to": {
+      "items": {
+       "$ref": "#/components/schemas/OrderStatus"
+      },
+      "type": "array",
+      "title": "Can Transition To"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "number",
+     "status",
+     "total",
+     "item_count",
+     "created_at",
+     "expires_at",
+     "estimated_delivery_on",
+     "paid_at",
+     "expires_in_seconds",
+     "subtotal",
+     "shipping",
+     "lines",
+     "delivery",
+     "refund",
+     "history",
+     "can_cancel",
+     "user_id",
+     "can_transition_to"
+    ],
+    "title": "AdminOrderDetailOut"
+   },
+   "OrderLineOut": {
+    "properties": {
+     "product_id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Product Id"
+     },
+     "sku": {
+      "type": "string",
+      "title": "Sku"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "image": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/OrderImageOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "quantity": {
+      "type": "integer",
+      "title": "Quantity"
+     },
+     "list_price": {
+      "$ref": "#/components/schemas/Money-Output"
+     },
+     "unit_price": {
+      "$ref": "#/components/schemas/Money-Output"
+     },
+     "discount_amount": {
+      "$ref": "#/components/schemas/Money-Output"
+     },
+     "line_total": {
+      "$ref": "#/components/schemas/Money-Output"
+     },
+     "fulfillment": {
+      "$ref": "#/components/schemas/Fulfillment"
+     },
+     "lead_time_days": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Lead Time Days"
+     }
+    },
+    "type": "object",
+    "required": [
+     "product_id",
+     "sku",
+     "name",
+     "image",
+     "quantity",
+     "list_price",
+     "unit_price",
+     "discount_amount",
+     "line_total",
+     "fulfillment",
+     "lead_time_days"
+    ],
+    "title": "OrderLineOut"
+   },
+   "OrderImageOut": {
+    "properties": {
+     "url": {
+      "type": "string",
+      "title": "Url"
+     },
+     "alt": {
+      "type": "string",
+      "title": "Alt"
+     }
+    },
+    "type": "object",
+    "required": [
+     "url",
+     "alt"
+    ],
+    "title": "OrderImageOut"
+   },
+   "Fulfillment": {
+    "type": "string",
+    "enum": [
+     "stock",
+     "made_to_order"
+    ],
+    "title": "Fulfillment"
+   },
+   "DeliveryOut": {
+    "properties": {
+     "delivery_method": {
+      "$ref": "#/components/schemas/DeliveryMethod"
+     },
+     "recipient_name": {
+      "type": "string",
+      "title": "Recipient Name"
+     },
+     "phone": {
+      "type": "string",
+      "title": "Phone"
+     },
+     "department": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Department"
+     },
+     "province": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Province"
+     },
+     "district": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "District"
+     },
+     "address_line": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Address Line"
+     },
+     "reference": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reference"
+     },
+     "pickup_store": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PickupStoreOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "carrier": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Carrier"
+     },
+     "tracking_code": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tracking Code"
+     },
+     "shipped_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Shipped At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "delivery_method",
+     "recipient_name",
+     "phone",
+     "department",
+     "province",
+     "district",
+     "address_line",
+     "reference",
+     "pickup_store",
+     "carrier",
+     "tracking_code",
+     "shipped_at"
+    ],
+    "title": "DeliveryOut"
+   },
+   "DeliveryMethod": {
+    "type": "string",
+    "enum": [
+     "shipping",
+     "pickup"
+    ],
+    "title": "DeliveryMethod"
+   },
+   "PickupStoreOut": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "address": {
+      "type": "string",
+      "title": "Address"
+     },
+     "hours": {
+      "type": "string",
+      "title": "Hours"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "address",
+     "hours"
+    ],
+    "title": "PickupStoreOut"
+   },
+   "RefundOut": {
+    "properties": {
+     "amount": {
+      "$ref": "#/components/schemas/Money-Output"
+     },
+     "at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "amount",
+     "at"
+    ],
+    "title": "RefundOut"
+   },
+   "AdminHistoryEntryOut": {
+    "properties": {
+     "from_status": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/OrderStatus"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "status": {
+      "$ref": "#/components/schemas/OrderStatus"
+     },
+     "at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "At"
+     },
+     "actor": {
+      "$ref": "#/components/schemas/ActorKind"
+     },
+     "actor_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "uuid"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Actor Id"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note"
+     }
+    },
+    "type": "object",
+    "required": [
+     "from_status",
+     "status",
+     "at",
+     "actor",
+     "actor_id",
+     "note"
+    ],
+    "title": "AdminHistoryEntryOut"
+   },
+   "ActorKind": {
+    "type": "string",
+    "enum": [
+     "customer",
+     "admin",
+     "system"
+    ],
+    "title": "ActorKind"
+   },
+   "TransitionIn": {
+    "properties": {
+     "to": {
+      "type": "string",
+      "enum": [
+       "en_preparacion",
+       "enviado",
+       "listo_para_recojo",
+       "entregado",
+       "cancelado"
+      ],
+      "title": "To"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 500,
+        "minLength": 1
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note"
+     },
+     "carrier": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 60,
+        "minLength": 1
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Carrier"
+     },
+     "tracking_code": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 60,
+        "minLength": 1
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tracking Code"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "to"
+    ],
+    "title": "TransitionIn"
+   },
+   "AvailabilityStatus": {
+    "type": "string",
+    "enum": [
+     "in_stock",
+     "low_stock",
+     "out_of_stock",
+     "on_request"
+    ],
+    "title": "AvailabilityStatus"
+   },
+   "StockPageOut": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/StockItemOut"
+      },
+      "type": "array",
+      "title": "Items"
+     },
+     "total": {
+      "type": "integer",
+      "title": "Total"
+     },
+     "page": {
+      "type": "integer",
+      "title": "Page"
+     },
+     "page_size": {
+      "type": "integer",
+      "title": "Page Size"
+     }
+    },
+    "type": "object",
+    "required": [
+     "items",
+     "total",
+     "page",
+     "page_size"
+    ],
+    "title": "StockPageOut"
+   },
+   "StockItemOut": {
+    "properties": {
+     "product_id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Product Id"
+     },
+     "sku": {
+      "type": "string",
+      "title": "Sku"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "product_status": {
+      "type": "string",
+      "enum": [
+       "draft",
+       "published"
+      ],
+      "title": "Product Status"
+     },
+     "on_hand": {
+      "type": "integer",
+      "title": "On Hand"
+     },
+     "reserved": {
+      "type": "integer",
+      "title": "Reserved"
+     },
+     "available": {
+      "type": "integer",
+      "title": "Available"
+     },
+     "status": {
+      "$ref": "#/components/schemas/AvailabilityStatus"
+     }
+    },
+    "type": "object",
+    "required": [
+     "product_id",
+     "sku",
+     "name",
+     "product_status",
+     "on_hand",
+     "reserved",
+     "available",
+     "status"
+    ],
+    "title": "StockItemOut"
+   },
+   "ProductStatus": {
+    "type": "string",
+    "enum": [
+     "draft",
+     "published"
+    ],
+    "title": "ProductStatus"
+   },
+   "AdminProductPageOut": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/AdminProductOut"
+      },
+      "type": "array",
+      "title": "Items"
+     },
+     "total": {
+      "type": "integer",
+      "title": "Total"
+     },
+     "page": {
+      "type": "integer",
+      "title": "Page"
+     },
+     "page_size": {
+      "type": "integer",
+      "title": "Page Size"
+     }
+    },
+    "type": "object",
+    "required": [
+     "items",
+     "total",
+     "page",
+     "page_size"
+    ],
+    "title": "AdminProductPageOut"
+   },
+   "AdminProductOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "slug": {
+      "type": "string",
+      "title": "Slug"
+     },
+     "sku": {
+      "type": "string",
+      "title": "Sku"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "category": {
+      "$ref": "#/components/schemas/valmont__modules__catalog__adapters__http__CategoryRefOut"
+     },
+     "price": {
+      "$ref": "#/components/schemas/Money-Output"
+     },
+     "movement": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/AttributeValueOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "case_material": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/AttributeValueOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "case_diameter_mm": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Case Diameter Mm"
+     },
+     "water_resistance_m": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Water Resistance M"
+     },
+     "main_image": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ProductImageOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "description": {
+      "type": "string",
+      "title": "Description"
+     },
+     "specs": {
+      "items": {
+       "$ref": "#/components/schemas/SpecOut"
+      },
+      "type": "array",
+      "title": "Specs"
+     },
+     "images": {
+      "items": {
+       "$ref": "#/components/schemas/ProductImageOut"
+      },
+      "type": "array",
+      "title": "Images"
+     },
+     "status": {
+      "$ref": "#/components/schemas/ProductStatus"
+     },
+     "order_policy": {
+      "$ref": "#/components/schemas/OrderPolicy"
+     },
+     "lead_time_days": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Lead Time Days"
+     },
+     "category_id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Category Id"
+     },
+     "movement_code": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Movement Code"
+     },
+     "case_material_code": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Case Material Code"
+     },
+     "published_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Published At"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Updated At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "slug",
+     "sku",
+     "name",
+     "category",
+     "price",
+     "movement",
+     "case_material",
+     "case_diameter_mm",
+     "water_resistance_m",
+     "main_image",
+     "description",
+     "specs",
+     "images",
+     "status",
+     "order_policy",
+     "lead_time_days",
+     "category_id",
+     "movement_code",
+     "case_material_code",
+     "published_at",
+     "created_at",
+     "updated_at"
+    ],
+    "title": "AdminProductOut"
+   },
+   "valmont__modules__catalog__adapters__http__CategoryRefOut": {
+    "properties": {
+     "slug": {
+      "type": "string",
+      "title": "Slug"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     }
+    },
+    "type": "object",
+    "required": [
+     "slug",
+     "name"
+    ],
+    "title": "CategoryRefOut"
+   },
+   "AttributeValueOut": {
+    "properties": {
+     "code": {
+      "type": "string",
+      "title": "Code"
+     },
+     "label": {
+      "type": "string",
+      "title": "Label"
+     }
+    },
+    "type": "object",
+    "required": [
+     "code",
+     "label"
+    ],
+    "title": "AttributeValueOut"
+   },
+   "ProductImageOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "url": {
+      "type": "string",
+      "title": "Url"
+     },
+     "alt": {
+      "type": "string",
+      "title": "Alt"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "url",
+     "alt"
+    ],
+    "title": "ProductImageOut"
+   },
+   "SpecOut": {
+    "properties": {
+     "label": {
+      "type": "string",
+      "title": "Label"
+     },
+     "value": {
+      "type": "string",
+      "title": "Value"
+     }
+    },
+    "type": "object",
+    "required": [
+     "label",
+     "value"
+    ],
+    "title": "SpecOut"
+   },
+   "OrderPolicy": {
+    "type": "string",
+    "enum": [
+     "stock",
+     "made_to_order",
+     "backorder"
+    ],
+    "title": "OrderPolicy",
+    "description": "Política de venta (D-023). La disponibilidad que resulta llega con inventory (T-030)."
+   },
+   "ProductCreateIn": {
+    "properties": {
+     "sku": {
+      "type": "string",
+      "title": "Sku"
+     },
+     "slug": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Slug"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "description": {
+      "type": "string",
+      "title": "Description"
+     },
+     "category_id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Category Id"
+     },
+     "price": {
+      "$ref": "#/components/schemas/Money-Input"
+     },
+     "order_policy": {
+      "$ref": "#/components/schemas/OrderPolicy"
+     },
+     "lead_time_days": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 2147483647,
+        "exclusiveMinimum": 0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Lead Time Days"
+     },
+     "movement_code": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Movement Code"
+     },
+     "case_material_code": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Case Material Code"
+     },
+     "case_diameter_mm": {
+      "anyOf": [
+       {
+        "type": "number",
+        "exclusiveMinimum": 0
+       },
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Case Diameter Mm"
+     },
+     "water_resistance_m": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 2147483647,
+        "minimum": 0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Water Resistance M"
+     },
+     "specs": {
+      "items": {
+       "$ref": "#/components/schemas/SpecIn"
+      },
+      "type": "array",
+      "title": "Specs"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "sku",
+     "name",
+     "description",
+     "category_id",
+     "price",
+     "order_policy",
+     "specs"
+    ],
+    "title": "ProductCreateIn"
+   },
+   "Money-Input": {
+    "properties": {
+     "amount": {
+      "type": "integer",
+      "minimum": 0,
+      "title": "Amount"
+     },
+     "currency": {
+      "type": "string",
+      "const": "PEN",
+      "title": "Currency",
+      "default": "PEN"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "amount"
+    ],
+    "title": "Money",
+    "description": "Dinero en la API: céntimos enteros (sin float) y una sola moneda en el MVP."
+   },
+   "SpecIn": {
+    "properties": {
+     "label": {
+      "type": "string",
+      "title": "Label"
+     },
+     "value": {
+      "type": "string",
+      "title": "Value"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "label",
+     "value"
+    ],
+    "title": "SpecIn"
+   },
+   "ProductUpdateIn": {
+    "properties": {
+     "sku": {
+      "type": "string",
+      "title": "Sku"
+     },
+     "slug": {
+      "type": "string",
+      "title": "Slug"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "description": {
+      "type": "string",
+      "title": "Description"
+     },
+     "category_id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Category Id"
+     },
+     "price": {
+      "$ref": "#/components/schemas/Money-Input"
+     },
+     "order_policy": {
+      "$ref": "#/components/schemas/OrderPolicy"
+     },
+     "specs": {
+      "items": {
+       "$ref": "#/components/schemas/SpecIn"
+      },
+      "type": "array",
+      "title": "Specs"
+     },
+     "lead_time_days": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 2147483647,
+        "exclusiveMinimum": 0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Lead Time Days"
+     },
+     "movement_code": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Movement Code"
+     },
+     "case_material_code": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Case Material Code"
+     },
+     "case_diameter_mm": {
+      "anyOf": [
+       {
+        "type": "number",
+        "exclusiveMinimum": 0
+       },
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Case Diameter Mm"
+     },
+     "water_resistance_m": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 2147483647,
+        "minimum": 0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Water Resistance M"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "ProductUpdateIn"
+   },
+   "AdminCategoryOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "slug": {
+      "type": "string",
+      "title": "Slug"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Description"
+     },
+     "position": {
+      "type": "integer",
+      "title": "Position"
+     },
+     "is_active": {
+      "type": "boolean",
+      "title": "Is Active"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "slug",
+     "name",
+     "description",
+     "position",
+     "is_active"
+    ],
+    "title": "AdminCategoryOut"
+   },
+   "CategoryIn": {
+    "properties": {
+     "slug": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Slug"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Description"
+     },
+     "position": {
+      "type": "integer",
+      "maximum": 2147483647,
+      "minimum": -2147483647,
+      "title": "Position",
+      "default": 0
+     },
+     "is_active": {
+      "type": "boolean",
+      "title": "Is Active",
+      "default": true
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "title": "CategoryIn"
+   },
+   "AdminAttributesOut": {
+    "properties": {
+     "movements": {
+      "items": {
+       "$ref": "#/components/schemas/AdminAttributeValueOut"
+      },
+      "type": "array",
+      "title": "Movements"
+     },
+     "case_materials": {
+      "items": {
+       "$ref": "#/components/schemas/AdminAttributeValueOut"
+      },
+      "type": "array",
+      "title": "Case Materials"
+     }
+    },
+    "type": "object",
+    "required": [
+     "movements",
+     "case_materials"
+    ],
+    "title": "AdminAttributesOut"
+   },
+   "AdminAttributeValueOut": {
+    "properties": {
+     "code": {
+      "type": "string",
+      "title": "Code"
+     },
+     "label": {
+      "type": "string",
+      "title": "Label"
+     },
+     "position": {
+      "type": "integer",
+      "title": "Position"
+     },
+     "is_active": {
+      "type": "boolean",
+      "title": "Is Active"
+     }
+    },
+    "type": "object",
+    "required": [
+     "code",
+     "label",
+     "position",
+     "is_active"
+    ],
+    "title": "AdminAttributeValueOut"
+   },
+   "Body_upload_image_api_v1_catalog_admin_products__product_id__images_post": {
+    "properties": {
+     "file": {
+      "type": "string",
+      "contentMediaType": "application/octet-stream",
+      "title": "File"
+     },
+     "alt": {
+      "type": "string",
+      "title": "Alt"
+     }
+    },
+    "type": "object",
+    "required": [
+     "file",
+     "alt"
+    ],
+    "title": "Body_upload_image_api_v1_catalog_admin_products__product_id__images_post"
+   },
+   "ImageUpdateIn": {
+    "properties": {
+     "alt": {
+      "type": "string",
+      "title": "Alt"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "alt"
+    ],
+    "title": "ImageUpdateIn"
+   }
+  }
+ }
+}

@@ -693,6 +693,20 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+
+#### Traspaso T-144 (implementación) — 2026-11-27 — frontend-dev
+1. Tarea: T-144, clientes de API de administración y utilidades `lib/admin/*`.
+2. Hecho: `lib/api/admin-{orders,catalog,inventory}.ts` (firmas 3.7, cotejadas con el OpenAPI vivo: rutas, métodos, consultas y campos 1:1; sin discrepancias) y `lib/admin/{status,money,order-query,errors,messages}.ts` (3.8).
+3. Archivos: solo los 8 de "Puede modificar" más `messages.ts`; nada protegido ni de T-142/T-143.
+4. Decisiones: `listAdminOrders`, `listStock`, `listAdminProducts` y `transitionOrder` desestructuran la lista cerrada de claves; `PillTone` duplicado a propósito en `status.ts`; `parseSoles` con regex ASCII y `parseInt` sobre enteros (sin `parseFloat`).
+5. `uploadProductImage` solo arma el `FormData` (`file`, `alt`); la rama de FormData del transporte es de T-148 (hoy `http`/`server` no la contemplan).
+6. `fieldErrors`: `missing`/`string_too_short` → «Completa este campo.», `string_too_long` → texto largo, resto → «El valor no es válido.»; nunca `msg`.
+7. `MSG_PUBLISH_MISSING` y los `MSG_*` sin las palabras del hook de secretos; sin `console.*`, sin imports de `lib/server` ni `astro:env`.
+8. Ejecutado: `npm run check → 0 errors, 0 warnings, 2 hints` (análisis estático, no es evidencia). NO EJECUTADO: pruebas ni build (D-028, D-033).
+9. Pendiente para QA: criterios de T-144 (tabla de bordes de `parseSoles`, `parseOrderQuery`, `transitionTargets`, `fieldErrors`, pills, fuente sin `lib/server`).
+10. Riesgos: ninguno de contrato; `parseOrderQuery.invalid` es informativo (la página no lo exige).
+11. Siguiente: QA modo B; T-145/T-084/T-146/T-147 importan estas firmas.
+12. Commits: ninguno — preparado. Mensaje: `feat(ui): clientes de API de administración y utilidades (T-144)`.
 #### Traspaso T-128 + T-131 (registro con fecha de nacimiento) — 2026-11-27 — frontend-dev
 1. Tarea: T-128 + T-131 (D-045, N-8). Estado: IN_REVIEW (pendiente de QA).
 2. Hecho: `/registro` SSR (`registro.astro`, `RegisterForm.astro`, `lib/server/register.ts`) y `/auth/callback` ampliado.
@@ -1090,7 +1104,7 @@ export type AdminOrderLine = { product_id: string; sku: string; name: string; im
 export type AdminDelivery = { delivery_method: 'shipping'|'pickup'; recipient_name: string; phone: string; department: string|null; province: string|null; district: string|null;
   address_line: string|null; reference: string|null; pickup_store: { name: string; address: string; hours: string }|null; carrier: string|null; tracking_code: string|null; shipped_at: string|null };
 export type AdminHistoryEntry = { from_status: OrderStatus|null; status: OrderStatus; at: string; actor: 'customer'|'admin'|'system'; actor_id: string|null; note: string|null };
-export type AdminOrderDetail = AdminOrderSummary & { paid_at: string|null; expires_in_seconds: number|null; subtotal: Money; shipping: Money; lines: AdminOrderLine[];
+export type AdminOrderDetail = Omit<AdminOrderSummary, 'recipient_name'|'district'> & { paid_at: string|null; expires_in_seconds: number|null; subtotal: Money; shipping: Money; lines: AdminOrderLine[];
   delivery: AdminDelivery; refund: { amount: Money; at: string }|null; history: AdminHistoryEntry[]; can_cancel: boolean; can_transition_to: OrderStatus[] };
 export function listAdminOrders(t: Transport, q?: AdminOrderQuery): Promise<Page<AdminOrderSummary>>;   // GET /orders/admin
 export function getAdminOrder(t: Transport, orderId: string): Promise<AdminOrderDetail>;               // GET /orders/admin/{id}
@@ -1103,7 +1117,7 @@ export function listStock(t: Transport, q?: { q?: string; status?: StockStatus; 
 // lib/api/admin-catalog.ts
 export type ProductStatus = 'draft'|'published';   export type OrderPolicy = 'stock'|'made_to_order'|'backorder';
 export type ProductImage = { id: string; url: string; alt: string };
-export type AdminProduct = { id: string; slug: string; sku: string; name: string; category: { id: string; slug: string; name: string }; price: Money;
+export type AdminProduct = { id: string; slug: string; sku: string; name: string; category: { slug: string; name: string }; price: Money;
   movement: { code: string; label: string }|null; case_material: { code: string; label: string }|null; case_diameter_mm: number|null; water_resistance_m: number|null;
   main_image: ProductImage|null; description: string; specs: { label: string; value: string }[]; images: ProductImage[]; status: ProductStatus; order_policy: OrderPolicy;
   lead_time_days: number|null; category_id: string; movement_code: string|null; case_material_code: string|null; published_at: string|null; created_at: string; updated_at: string };
