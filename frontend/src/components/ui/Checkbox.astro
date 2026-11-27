@@ -1,0 +1,131 @@
+---
+import Icon from './Icon.astro';
+
+interface Props {
+  id: string;
+  name: string;
+  label?: string;
+  value?: string;
+  checked?: boolean;
+  required?: boolean;
+  disabled?: boolean;
+  error?: string;
+}
+const { id, name, label, value = 'on', checked, required, disabled, error } = Astro.props;
+const hasSlot = Astro.slots.has('default');
+if (!label && !hasSlot) throw new Error('Checkbox requiere `label` o contenido en el slot.');
+const errorId = error ? `${id}-error` : undefined;
+---
+
+<div class="checkbox" data-disabled={disabled ? '' : undefined}>
+  <label class="row" for={id}>
+    <span class="control">
+      <input
+        type="checkbox"
+        id={id}
+        name={name}
+        value={value}
+        checked={checked}
+        required={required}
+        disabled={disabled}
+        aria-invalid={error ? 'true' : undefined}
+        aria-describedby={errorId}
+      />
+      <Icon name="check" size={16} />
+    </span>
+    <span class="text">{hasSlot ? <slot /> : label}</span>
+  </label>
+  {
+    error && (
+      <p class="error" id={errorId}>
+        <Icon name="alert-triangle" size={16} />
+        <span>{error}</span>
+      </p>
+    )
+  }
+</div>
+
+<style>
+  @layer components {
+    .row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-12);
+      min-height: var(--touch-target);
+      cursor: pointer;
+    }
+    .control {
+      flex: none;
+      display: grid;
+      place-items: center;
+      inline-size: var(--space-24);
+      block-size: var(--space-24);
+    }
+    input {
+      appearance: none;
+      grid-area: 1 / 1;
+      inline-size: 100%;
+      block-size: 100%;
+      margin: 0;
+      border: 1.5px solid var(--stroke-strong);
+      border-radius: var(--radius-sm);
+      background: var(--bg-surface);
+      cursor: pointer;
+      transition: background-color var(--dur-state) var(--ease);
+    }
+    /* Hover: borde grueso y fondo mint-soft; el grosor cambia, no solo el color */
+    .row:hover input:not(:disabled) {
+      border-width: 3px;
+      background: var(--color-mint-soft);
+    }
+    .row:hover input:checked:not(:disabled) {
+      background: var(--color-forest-mid);
+    }
+    input:checked {
+      background: var(--color-forest);
+    }
+    input:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    .control :global(svg) {
+      grid-area: 1 / 1;
+      color: var(--color-mint);
+      pointer-events: none;
+      visibility: hidden;
+    }
+    input:checked + :global(svg) {
+      visibility: visible;
+    }
+    input[aria-invalid='true'] {
+      border-color: var(--color-red-strong);
+      border-width: 2px;
+    }
+    .text {
+      font-size: var(--text-body-ui);
+      line-height: var(--leading-body-ui);
+    }
+    .text :global(a) {
+      color: inherit;
+      text-underline-offset: 0.2em;
+    }
+    .error {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-8);
+      margin-block-start: var(--space-4);
+      color: var(--color-red-strong);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-medium);
+    }
+    /* Deshabilitado: atenuado + borde discontinuo + cursor (no solo color) */
+    .checkbox[data-disabled] .row {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .checkbox[data-disabled] input {
+      border-style: dashed;
+      cursor: not-allowed;
+    }
+  }
+</style>

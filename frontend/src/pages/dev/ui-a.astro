@@ -1,0 +1,175 @@
+---
+// Muestrario de ui/ lote 1A (T-117). Solo existe en desarrollo: en producción responde 404.
+import StoreLayout from '../../layouts/StoreLayout.astro';
+import Button from '../../components/ui/Button.astro';
+import Checkbox from '../../components/ui/Checkbox.astro';
+import Checkerboard from '../../components/ui/Checkerboard.astro';
+import Field from '../../components/ui/Field.astro';
+import Icon from '../../components/ui/Icon.astro';
+import IconButton from '../../components/ui/IconButton.astro';
+import TextLink from '../../components/ui/TextLink.astro';
+import Wordmark from '../../components/ui/Wordmark.astro';
+import { ICONS, type IconName } from '../../components/ui/icons';
+
+export const prerender = false;
+
+if (!import.meta.env.DEV) {
+  return new Response(null, { status: 404 });
+}
+
+const icons = Object.keys(ICONS) as IconName[];
+const variants = ['primary', 'dark', 'secondary', 'mint'] as const;
+const states = [
+  { n: 'Reposo', cls: '' },
+  { n: 'Hover', cls: 'is-hover' },
+  { n: 'Activo', cls: 'is-active' },
+  { n: 'Foco', cls: 'is-focus' },
+];
+---
+
+<StoreLayout title="Componentes ui A (desarrollo)" noindex>
+  <h1>ui/ lote 1A</h1>
+
+  <section aria-labelledby="s-icon">
+    <h2 id="s-icon">Icon</h2>
+    <ul class="icons" role="list">
+      {
+        icons.map((n) => (
+          <li>
+            <Icon name={n} size={24} />
+            <code>{n}</code>
+          </li>
+        ))
+      }
+    </ul>
+    <p>
+      Tamaños: <Icon name="search" size={16} /> <Icon name="search" size={20} /> <Icon name="search" size={24} />
+      <Icon name="search" size={32} /> · con etiqueta: <Icon name="check-circle" label="Confirmado" />
+    </p>
+  </section>
+
+  <section aria-labelledby="s-brand">
+    <h2 id="s-brand">Wordmark y Checkerboard</h2>
+    <div class="row">
+      <Wordmark />
+      <Wordmark href="/" />
+      <span class="dark on-dark"><Wordmark tone="ivory" /></span>
+    </div>
+    <Checkerboard />
+    <Checkerboard palette="auth" cell={32} rows={2} />
+    <Checkerboard cell={16} />
+  </section>
+
+  <section aria-labelledby="s-btn">
+    <h2 id="s-btn">Button</h2>
+    {
+      variants.map((v) => (
+        <div class={`row ${v === 'mint' ? 'on-dark dark' : ''}`}>
+          <strong>{v}</strong>
+          {states.map((s) => (
+            <Button variant={v} class={s.cls}>
+              {s.n}
+            </Button>
+          ))}
+          <Button variant={v} disabled>
+            Deshabilitado
+          </Button>
+          <Button variant={v} loading>
+            Cargando
+          </Button>
+          <Button variant={v} size="lg" iconRight="arrow-right">
+            Grande
+          </Button>
+          <Button variant={v} href="/dev/ui-a">
+            Enlace
+          </Button>
+        </div>
+      ))
+    }
+    <Button fullWidth>Ancho completo</Button>
+  </section>
+
+  <section aria-labelledby="s-ib">
+    <h2 id="s-ib">IconButton</h2>
+    <div class="row">
+      {
+        ([32, 44, 56] as const).map((s) => (
+          <>
+            <IconButton icon="heart" label={`Guardar (${s})`} size={s} pressed={false} />
+            <IconButton icon="heart" label={`Guardado (${s})`} size={s} pressed={true} />
+          </>
+        ))
+      }
+      <IconButton icon="x" label="Cerrar" variant="plain" />
+      <IconButton icon="send" label="Enviar" class="is-hover" />
+      <IconButton icon="send" label="Enviar (foco)" class="is-focus" />
+      <IconButton icon="send" label="Enviar (deshabilitado)" disabled />
+      <IconButton icon="user" label="Cuenta" href="/dev/ui-a" />
+    </div>
+  </section>
+
+  <section aria-labelledby="s-link">
+    <h2 id="s-link">TextLink</h2>
+    <p>
+      Texto con <TextLink href="/dev/ui-a">un enlace en línea</TextLink>, <TextLink href="/dev/ui-a" tone="forest">forest</TextLink>
+      y <TextLink href="https://example.com" external>externo</TextLink>.
+    </p>
+    <p><TextLink href="/dev/ui-a" arrow>Ver detalle</TextLink></p>
+    <p class="dark on-dark"><TextLink href="/dev/ui-a" tone="ivory" arrow>Sobre verde</TextLink></p>
+  </section>
+
+  <section aria-labelledby="s-field">
+    <h2 id="s-field">Field y Checkbox</h2>
+    <form class="form" onsubmit="return false">
+      <Field id="f-normal" name="normal" label="Correo" type="email" placeholder="tu@correo.com" iconLeft="mail" required />
+      <Field id="f-hint" name="hint" label="Con ayuda" hint="Texto de ayuda enlazado por aria-describedby." />
+      <Field id="f-pass" name="pass" label="Contraseña" type="password" autocomplete="current-password">
+        <IconButton slot="action" icon="eye" label="Mostrar contraseña" variant="plain" />
+      </Field>
+      <Field id="f-error" name="error" label="Con error" value="abc" error="Escribe un correo válido." hint="Ayuda del campo." />
+      <Field id="f-ro" name="ro" label="Solo lectura" value="Valor fijo" readonly />
+      <Field id="f-dis" name="dis" label="Deshabilitado" value="No editable" disabled />
+      <Checkbox id="c-1" name="c1" label="Acepto recibir novedades" />
+      <Checkbox id="c-2" name="c2" label="Marcada" checked />
+      <Checkbox id="c-3" name="c3" disabled label="Deshabilitada" />
+      <Checkbox id="c-4" name="c4" error="Debes aceptar los términos.">
+        Acepto los <TextLink href="/terminos">términos</TextLink> y la <TextLink href="/privacidad">privacidad</TextLink>
+      </Checkbox>
+    </form>
+  </section>
+</StoreLayout>
+
+<style>
+  section {
+    margin-block: var(--space-48);
+    display: grid;
+    gap: var(--space-16);
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-12);
+  }
+  .dark {
+    padding: var(--space-16);
+    background: var(--bg-inverse);
+    color: var(--text-on-dark);
+  }
+  .icons {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+    gap: var(--space-12);
+    padding: 0;
+  }
+  .icons li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+  }
+  .form {
+    display: grid;
+    gap: var(--space-16);
+    max-width: 28rem;
+  }
+</style>

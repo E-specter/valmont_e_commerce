@@ -1,0 +1,57 @@
+---
+import type { HTMLAttributes } from 'astro/types';
+import Icon from './Icon.astro';
+
+interface Props extends Omit<HTMLAttributes<'a'>, 'href'> {
+  href: string;
+  arrow?: boolean;
+  tone?: 'ink' | 'ivory' | 'forest';
+  external?: boolean;
+}
+const { href, arrow = false, tone = 'ink', external = false, class: className, ...rest } = Astro.props;
+---
+
+<a
+  class:list={['textlink', className]}
+  data-tone={tone}
+  data-arrow={arrow ? '' : undefined}
+  href={href}
+  {...external ? { target: '_blank', rel: 'noopener noreferrer' } : {}}
+  {...rest}
+>
+  <slot />
+  {external && <span class="sr-only"> (se abre en una pestaña nueva)</span>}
+  {arrow && <Icon name="arrow-right" size={16} />}
+</a>
+
+<style>
+  @layer components {
+    .textlink {
+      color: var(--link-color, var(--color-ink));
+      font-weight: var(--weight-semibold);
+      text-decoration: underline;
+      text-decoration-thickness: 1.5px;
+      text-underline-offset: 0.25em;
+      transition: text-underline-offset var(--dur-state) var(--ease);
+    }
+    .textlink[data-tone='ivory'] {
+      --link-color: var(--color-ivory);
+    }
+    .textlink[data-tone='forest'] {
+      --link-color: var(--color-forest);
+    }
+    /* Con flecha es un enlace independiente (objetivo de 44 px); sin flecha va en línea con el texto. */
+    .textlink[data-arrow] {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-8);
+      min-height: var(--touch-target);
+    }
+    .textlink:hover {
+      text-underline-offset: 0.4em;
+    }
+    .textlink:active {
+      text-decoration-thickness: 3px;
+    }
+  }
+</style>

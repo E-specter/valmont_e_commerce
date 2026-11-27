@@ -98,6 +98,7 @@
   --dur-state: 150ms;
   --dur-appear: 250ms;
   --dur-page: 400ms;
+  --dur-spin: 800ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
 
   /* Contenedores [BRIEF §6]. Breakpoints 800/1280 px se escriben literales en @media */

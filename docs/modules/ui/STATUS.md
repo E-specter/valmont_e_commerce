@@ -10,7 +10,7 @@ Rango reservado del módulo: **T-116–T-139**. En uso: T-116–T-131. Libres: *
 |---|---|---|---|---|
 | T-130 | Infraestructura de pruebas del frontend (Vitest, Playwright) | qa-reviewer | **aprobación del usuario de las dependencias (pregunta 9 del traspaso)** | DONE (eaa407b) |
 | T-116 | Tokens, fuentes, `global.css`, `BaseLayout`, `StoreLayout`, `AuthLayout` y variables de entorno | frontend-dev + qa-reviewer | D-012 | DONE (7459771) |
-| T-117 | `ui/` lote 1A: `Icon`, `Wordmark`, `Checkerboard`, `Button`, `IconButton`, `TextLink`, `Field`, `Checkbox` | frontend-dev + qa-reviewer | T-116 | READY |
+| T-117 | `ui/` lote 1A: `Icon`, `Wordmark`, `Checkerboard`, `Button`, `IconButton`, `TextLink`, `Field`, `Checkbox` | frontend-dev + qa-reviewer | T-116 | IN_REVIEW |
 | T-118 | `ui/` lote 1B: `Card`, `Badge`, `Chip`, `Price`, `Availability`, `Notice`, `EmptyState`, `Skeleton` y `lib/format.ts` | frontend-dev + qa-reviewer | T-116 (`Icon` de T-117 solo al integrar) | READY |
 | T-119 | `SiteHeader`, `SiteFooter`, `PageTitle`, `lib/site.ts` y cableado de los layouts | frontend-dev + qa-reviewer | T-117, T-118, D-041 (P-1) | BACKLOG |
 | T-120 | Cliente de API del servidor (`lib/api/http.ts`, `server.ts`, `catalog.ts`) | frontend-dev + qa-reviewer | T-116 (esquema de variables) | READY |
@@ -683,6 +683,20 @@ export function formatDateOnly(isoDate: string): string;                        
 | **T-084** backoffice de pedidos | Sin frames (`admin` no capturada) y depende de T-078/T-079 (BACKLOG). Queda en el carril de backoffice, tras el diseño desde BRIEF; no entra en esta pista. |
 
 ## 8. Traspasos
+
+#### Traspaso T-117 (implementación) — 2026-11-26 — frontend-dev
+1. Tarea: T-117 · 2. Estado: IN_REVIEW (listo para QA).
+3. Hecho: los 8 componentes `ui/` con las firmas del paquete sin cambios, `icons.ts` (28 iconos, un `string[]` de trazos por nombre, sin `set:html`) y `/dev/ui-a` (404 fuera de DEV).
+4. Archivos: `frontend/src/components/ui/{Icon,Wordmark,Checkerboard,Button,IconButton,TextLink,Field,Checkbox}.astro`, `ui/icons.ts`, `frontend/src/pages/dev/ui-a.astro`.
+5. Estático: `npm run check → 0 errors, 0 warnings, 0 hints (36 files)`; grep de `#hex` en `ui/` y `ui-a` → vacío. NO EJECUTADO: build y pruebas (D-033).
+6. Figma (ajuste del Leader): `get_metadata` de `125:14171` y `download_assets` de sus 4 iconos (`search`, `heart`, `shopping-bag`, `message-circle`, uno a uno). El nodo trae solo esos 4 más `bell` (no está en `IconName`, no se añade). Sus trazos (20x20, stroke 1,8) se escalaron x1,2 a 24x24 y el trazo de `Icon` pasó a 2,16 para igualarlo; un `<path>` por icono. Los otros 24 `IconName` siguen dibujados a mano (Figma no los trae). Sin fills ni colores fijos. `modern-web-guidance` (CLI `npx`) no pudo ejecutarse (ruta con espacios).
+   Correcciones tras QA (modo A): `class` recibida se suma en `IconButton` y `TextLink` (`Button` ya lo hacía); `IconButton` sin `label` y `Checkbox` sin `label` ni slot lanzan `Error`; el slot de `Checkbox` sustituye a `label`; spinner con `--dur-spin: 800ms` (único cambio en `tokens.css`) y sin giro con `prefers-reduced-motion`; hover de `Checkbox` (borde 3 px + mint-soft).
+7. Inferido: hover primary = ink/amarillo, secondary = ink/marfil, dark = forest-mid, mint = mint-soft; activo = hover + 1 px abajo + subrayado. Deshabilitado = opacidad .55 + borde discontinuo + cursor. Pulsado de IconButton = forest relleno + icono relleno. `lg` = 56 px, `md` = 44 px. Texto de Button en Jaro `--text-body-editorial`. Foco de Field: borde ink + anillo estándar (el amarillo no llega a 3:1 sobre blanco).
+8. Riesgos: (a) `Button`, `IconButton` y `TextLink` extienden `HTMLAttributes` (class, data-*); `Field` y `Checkbox` no admiten `class`. (b) `href` + `disabled`/`loading`: se quita el `href` y se pone `aria-disabled="true"` y `role="link"`. (c) `Button loading` (de `<button>`) usa `disabled` nativo contra el doble envío; añade `aria-busy`, spinner y `.sr-only` "Cargando". (d) `TextLink` sin flecha va en línea (< 44 px, exento por WCAG 2.5.8); con flecha mide 44. (e) Clases `.is-hover/.is-active/.is-focus` quedan en el CSS de producción, solo las usa `/dev/ui-a`. (f) `Wordmark` sin `href` es `<span>`. (g) `Checkbox`: la marca es un `Icon` visible con `:checked`; `label` y slot se concatenan.
+9. Pruebas propuestas: las del paquete; además, `Icon` renderiza un `<path>` por trazo y `Field` con hint y error da `aria-describedby="id-hint id-error"`.
+10. Seguridad: `external` añade `target="_blank"` y `rel="noopener noreferrer"`; sin `set:html`; sin `fetch`.
+11. Siguiente: QA; después T-118 (importa `Icon`) y T-119.
+12. Commit: ninguno, preparado. Mensaje propuesto: `feat(ui): componentes base de marca, acciones y campos (T-117)`.
 
 #### Traspaso T-116 (implementación) — 2026-11-26 — frontend-dev
 1. Tarea: T-116 · 2. Estado: IN_REVIEW (listo para QA).
