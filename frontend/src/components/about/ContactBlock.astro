@@ -1,0 +1,107 @@
+---
+import { Image } from 'astro:assets';
+import TextLink from '../ui/TextLink.astro';
+
+interface Props {
+  phone: string;
+  email: string;
+  instagram: { label: string; href: string };
+  image?: { src: ImageMetadata | string; alt: string } | null;
+}
+const { phone, email, instagram, image = null } = Astro.props;
+const tel = `tel:${phone.replace(/[^\d+]/g, '')}`;
+---
+
+<section class="contact" id="contacto" aria-labelledby="contacto-title">
+  <div class="contact__media">
+    {
+      image &&
+        (typeof image.src === 'string' ? (
+          <img src={image.src} alt={image.alt} width="1200" height="800" loading="lazy" decoding="async" />
+        ) : (
+          <Image src={image.src} alt={image.alt} widths={[600, 1200]} sizes="(min-width: 800px) 50vw, 100vw" loading="lazy" />
+        ))
+    }
+    <slot name="media" />
+  </div>
+  <div class="contact__text">
+    <h2 id="contacto-title">Contáctanos</h2>
+    <dl class="contact__list">
+      <div>
+        <dt>Teléfono</dt>
+        <dd><TextLink href={tel} tone="ivory">{phone}</TextLink></dd>
+      </div>
+      <div>
+        <dt>Correo</dt>
+        <dd><TextLink href={`mailto:${email}`} tone="ivory">{email}</TextLink></dd>
+      </div>
+      <div>
+        <dt>Redes</dt>
+        <dd><TextLink href={instagram.href} tone="ivory" external>{instagram.label}</TextLink></dd>
+      </div>
+    </dl>
+    <slot />
+  </div>
+</section>
+
+<style>
+  @layer components {
+    .contact {
+      display: grid;
+      margin-inline: calc(var(--page-margin) * -1);
+      scroll-margin-top: var(--space-80);
+    }
+    .contact__media {
+      display: grid;
+      place-items: center;
+      min-height: 240px;
+      background: var(--color-mint);
+    }
+    .contact__media :global(img) {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .contact__text {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-24);
+      padding: var(--space-48) var(--page-margin);
+      background: var(--bg-inverse);
+      color: var(--text-on-dark);
+    }
+    h2 {
+      font-family: var(--font-ui);
+      font-weight: var(--weight-bold);
+      font-size: var(--text-caption);
+      line-height: var(--leading-caption);
+      text-transform: uppercase;
+    }
+    .contact__list {
+      display: grid;
+      gap: var(--space-16);
+      margin: 0;
+    }
+    .contact__list > div {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: var(--space-8) var(--space-24);
+    }
+    dt,
+    dd {
+      margin: 0;
+      font-family: var(--font-editorial);
+      font-size: var(--text-h3);
+      line-height: var(--leading-h3);
+      letter-spacing: var(--tracking-h3);
+      text-transform: uppercase;
+    }
+    @media (min-width: 800px) {
+      .contact {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  }
+</style>

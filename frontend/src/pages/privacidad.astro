@@ -1,0 +1,65 @@
+---
+// Privacidad: página estática de demostración (T-122, D-041). Texto legal no definitivo.
+export const prerender = true;
+import StoreLayout from '../layouts/StoreLayout.astro';
+import PageTitle from '../components/layout/PageTitle.astro';
+import Badge from '../components/ui/Badge.astro';
+import Notice from '../components/ui/Notice.astro';
+import { formatDateOnly } from '../lib/format';
+import { demoNotice, privacy as doc } from '../data/legal';
+import { PRIVACY_VERSION } from '../lib/site';
+---
+
+<StoreLayout title={`${doc.title} · Valmont`} description={doc.description}>
+  <div class="legal" data-demo-content>
+    <PageTitle title={doc.title}>
+      <Fragment slot="meta">
+        <Badge>Contenido de demostración</Badge>
+        <p class="legal__meta">Última actualización: {formatDateOnly(doc.updated)} · Versión {PRIVACY_VERSION}</p>
+      </Fragment>
+    </PageTitle>
+    <Notice tone="info">{demoNotice}</Notice>
+    {
+      doc.sections.map((s) => (
+        <section aria-labelledby={`${s.id}-title`}>
+          <h2 id={`${s.id}-title`}>{s.title}</h2>
+          {s.paragraphs.map((p) => (
+            <p>{p}</p>
+          ))}
+        </section>
+      ))
+    }
+  </div>
+</StoreLayout>
+
+<style>
+  @layer components {
+    .legal {
+      padding-bottom: var(--space-64);
+    }
+    .legal__meta {
+      margin-top: var(--space-8);
+      font-family: var(--font-ui);
+      font-size: var(--text-body-ui);
+      color: var(--text-secondary);
+    }
+    section {
+      margin-top: var(--space-32);
+    }
+    h2 {
+      font-family: var(--font-heading);
+      font-weight: var(--weight-semibold);
+      font-size: var(--text-h3);
+      line-height: var(--leading-h3);
+      letter-spacing: var(--tracking-h3);
+      text-transform: uppercase;
+    }
+    section p {
+      max-inline-size: 68ch;
+      margin-top: var(--space-12);
+      font-family: var(--font-ui);
+      font-size: var(--text-body-ui);
+      line-height: var(--leading-body-ui);
+    }
+  }
+</style>

@@ -690,6 +690,19 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-122 (implementación) — 2026-11-27 — frontend-dev
+1. Tarea: T-122 · 2. Estado: IN_REVIEW (listo para QA).
+3. Hecho: `/nosotros`, `/privacidad`, `/terminos` estáticas (`prerender = true`), un `h1` cada una. Nosotros: hero + compromisos (`AwardsList`) + `ContactBlock#contacto` (teléfono, correo y red de `SITE`). Legales con secciones de `data/legal.ts`; `/privacidad` muestra fecha y `PRIVACY_VERSION`. Cada bloque lleva `data-demo-content` y un `Badge` "Contenido de demostración".
+4. Archivos: `frontend/src/pages/{nosotros,privacidad,terminos}.astro`, `frontend/src/components/about/{AwardsList,ContactBlock}.astro`, `frontend/src/data/{about,legal}.ts`.
+5. Estático: `npm run check -> 0 errors, 0 warnings, 0 hints (121 files)`. NO EJECUTADO: pruebas y build (D-033).
+6. Figma: sesión creada; `get_design_context` de `1:381` una vez (Tablet/Mobile no consultados: se resuelven apilando a <800 px). Las fotos del nodo (hombre preparando bebidas, destilería) son ajenas a la relojería (BRIEF §9): no se descargan; bloque de color de token (mint y forest-mid) y se anota. Sin `assets/about/`.
+7. No copiado (P-9): reconocimientos 2022-2025, "Est. 2005", "Mike Vera", teléfono +51 987... del frame. Compromisos ficticios en `about.ts`.
+8. Desviaciones: `ContactBlock` no usa `DefinitionList` (su estilo es para fondo claro; lista `dl` propia). `ContactBlock` tiene `<slot />` y `<slot name="media" />` extra para la etiqueta de demostración. `AwardsList` recibe `items` mutables (`[...about.awards.items]`). `min-height: 240px` suelto como en `StoreBanner`.
+9. Cache-Control: el paquete no lo pide; páginas prerenderizadas.
+10. Textos legales no definitivos; revisar por abogado.
+11. Revisión: http://localhost:4321/nosotros, /privacidad, /terminos.
+12. Commit: ninguno — preparado. Mensaje: `feat(ui): página Nosotros y páginas legales con contenido de demostración (T-122)`.
+
 #### Traspaso T-124 (implementación) — 2026-11-27 — frontend-dev
 1. Tarea: T-124 · 2. Estado: IN_REVIEW (listo para QA).
 3. Hecho: `/relojes` SSR con migas, `PageTitle` + "{total} modelos" (`role="status"`), `FeaturedBanner`, `FilterBar` (form GET con "Aplicar"), `ActiveFilters`, `ProductGrid` (h2 por tarjeta) y `Pagination`; estados vacío, 422, error/5xx (502 + "Reintentar"), rango de precio invertido (sin petición) y URL inválida (Notice, valores ignorados). Página > última: 302 a la última.
