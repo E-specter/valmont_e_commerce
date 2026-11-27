@@ -29,7 +29,7 @@ Rango reservado del módulo: **T-116–T-139**. En uso: T-116–T-131. Libres: *
 
 | T-134 | fix visual B: barra de filtros alineada en escritorio y plegable en móvil, "Limpiar filtros" de 44 px (D-05, D-11) | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | DONE (cc0c7fb) |
 | T-135 | fix visual C: pie de tarjeta homogéneo en una fila (divisor, precio y "Ver detalles" alineados) (D-10) | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | DONE (f4d723e) |
-| T-136 | fix visual D: Jaro solo en el wordmark; botones y enlaces en la familia del brief (D-04; D-044) | frontend-dev + qa-reviewer | T-133 (pie) | IN_REVIEW |
+| T-136 | fix visual D: Jaro solo en el wordmark; botones y enlaces en la familia del brief (D-04; D-044) | frontend-dev + qa-reviewer | T-133 (pie) | DONE (161e085) |
 | T-137 | fix visual E: foto del hero sustituida por un bloque de marca (D-044) y ajustes menores D-03, D-06, D-07, D-08, D-12, D-13 | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | DONE (948e515) |
 
 ### Orden y paralelismo (rutas disjuntas)
