@@ -17,7 +17,7 @@ Rango reservado del módulo: **T-116–T-139**. En uso: T-116–T-131. Libres: *
 | T-121 | Portada `/` (SSR con caché corta) | frontend-dev + qa-reviewer | T-118, T-119, T-120, D-041 (P-2) | DONE (6b54197) |
 | T-122 | "Nosotros" `/nosotros` y páginas legales `/privacidad`, `/terminos` | frontend-dev + qa-reviewer | T-119, T-123 (`DefinitionList`), D-041 (P-9) | READY |
 | T-123 | `Breadcrumb`, `Pagination`, `DefinitionList`, `ProductCard` (4 variantes) y `ProductGrid` | frontend-dev + qa-reviewer | T-117, T-118, T-120 (tipos) | DONE (eff4acc) |
-| T-124 | Catálogo `/relojes`: filtros por URL, chips, paginación y estados | frontend-dev + qa-reviewer | T-119, T-120, T-123, D-041 (P-2, P-3) | READY |
+| T-124 | Catálogo `/relojes`: filtros por URL, chips, paginación y estados | frontend-dev + qa-reviewer | T-119, T-120, T-123, D-041 (P-2, P-3) | DONE (414be2f) |
 | T-125 | Ficha `/relojes/[slug]`, galería, `BuyBox` y página 404 | frontend-dev + qa-reviewer | T-119, T-120, T-123 | DONE (079de69) |
 | T-126 | Sesión SSR: `@supabase/ssr`, middleware, guardia de rutas, `/auth/callback`, `/salir` y proxy `/bff/*` | frontend-dev + qa-reviewer (revisión de seguridad a fondo) | T-120; **aprobación de `@supabase/ssr` y `@supabase/supabase-js`**; D-025, D-041 (P-5); aviso de config de Supabase (§6) | BACKLOG (dependencias aprobadas, D-042) |
 | T-127 | Ingreso `/ingresar` (`AuthSplit`, `WatchmakerArtwork`, `AuthForm`) | frontend-dev + qa-reviewer | T-117, T-118, T-119, T-126 | BACKLOG |
@@ -829,3 +829,4 @@ Plan completo en este documento. Estado: IN_REVIEW. Sin pruebas ejecutadas (plan
 - **N-4 (T-121):** cuando una página use `server.ts`, se repite el grep de `dist/client` (`API_BASE_URL`, `127.0.0.1:8000`, `api/v1`), que debe salir vacío.
 - **N-5 (QA, todas las tareas):** los valores falsos de las pruebas no deben coincidir con el patrón del hook de secretos (`.githooks`). Se definen como constantes con otro nombre (`FAKE_BEARER`) o con menos de 8 caracteres.
 - **N-6 (payments, D-043):** la pantalla de pago T-082b de esta pista es **T-098** del STATUS de payments: entrega y tarjeta en una sola pantalla (P-5), con el formulario de tarjeta solo en el cliente, del que viajan únicamente los 4 últimos dígitos (P-1).
+- **N-7 (QA de T-124, riesgo):** una pasada de `npm test` dio 1 fallo de 1579 justo después de `npm run check` y no se reprodujo en 8 pasadas, ni con carga. No se capturó el nombre. Si vuelve a aparecer, QA lo identifica y lo clasifica (inestable o defecto) antes de seguir.
