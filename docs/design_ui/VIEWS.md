@@ -13,7 +13,7 @@
 | `orders` | `189:307` | capturada | Mis pedidos [54:335], detalle de pedido [54:463] (solo desktop 1280) |
 | `wishlist` | `189:310` | capturada | Lista de deseos [40:686] (solo desktop 1280) |
 | `pay` | `189:305` | capturada | Carrito [43:285], checkout [43:374], confirmación [43:503] (solo desktop 1280) |
-| `admin` | `189:309` | **no capturada** (D-031/T-111) | Otro diseño y estructura pobre. El backoffice se diseña desde [BRIEF.md](BRIEF.md) §1 y §7 (sidebar 260, KPI, tabla, alertas, tablero 07 `125:14038`): sin frames de referencia. |
+| `admin` | `189:309` | **descartada** (D-031/T-111, D-046) | Otro diseño y estructura pobre; no se copia ni se modifica. El backoffice se diseña en la página nueva **`backoffice`** (`193:13`, T-140) desde [BRIEF.md](BRIEF.md) §1, §7 y §14: frames en §12. **Pendiente de aprobación del usuario en Figma.** |
 | `others` | `189:311` | **no capturada** | Contacto básico. Nota: la información de contacto ya sale en `/about` (teléfono, correo, redes) y en el pie; no hace falta una vista propia en el MVP. Las rutas "Boutiques/Tiendas" de la navegación no tienen frame (P-1). |
 | `guide_design_brand` | `189:308` | base del brief | Ver BRIEF.md |
 | `Page 1` | `0:1` | vacía | — |
@@ -310,6 +310,101 @@ No se inventa nada: cada hueco es un campo o endpoint que la vista pide y el con
 7. Lote 2 de `ui/` + islas: `QuantityStepper`, `Stepper`, `Timeline`, `Breadcrumb`, `Pagination`, `WishlistToggle`.
 8. Existentes que esta tarea desbloquea: **T-054** (promociones en `Price`), **T-060** (carrito), **T-069** (wishlist), **T-081…T-084** (pantallas de orders: checkout, confirmación, mis pedidos, detalle).
 9. `ChatWidget` (cuando exista el contrato de assistant).
-10. Backoffice: se diseña desde el brief (sin frames); fuera de este alcance.
+10. Backoffice: diseñado en Figma por T-140 (D-046); ver §12. Su implementación depende de la aprobación de los frames.
 
 **Plan numerado (T-116, 2026-11-26):** los puntos 1–6 son los paquetes T-116…T-131 de [`docs/modules/ui/STATUS.md`](../modules/ui/STATUS.md). Aclaraciones respecto a §2: la portada, el ingreso y el registro se sirven **bajo demanda** (la portada lee las categorías reales; ingreso y registro son un `POST` de la propia página que fija la cookie de sesión); `Breadcrumb` y `Pagination` (lote 2) se adelantan a T-123 porque catálogo y ficha los necesitan. Los puntos 7–10 se reparten entre T-060, T-069, T-081…T-084 y los IDs libres T-132…T-139.
+
+## 12. Backoffice (T-140, D-046)
+
+> **Estado: PROPUESTO, pendiente de aprobación del usuario en Figma (D-046).** Diseñado el 2026-11-27 por frontend-lead en el archivo `xRC4mg5JmdqlZ6mbv97kGO`, página nueva **`backoffice`** (`193:13`). No se tocó ninguna página ni frame existente (la página `admin` y su frame `189:309` siguen como estaban, descartados). Todos los frames son de escritorio, **1440 px**, con el contexto backoffice de [BRIEF.md](BRIEF.md) §1, §7 y §14. Los datos de las capturas (nombres, importes, SKU) son **ejemplos**; los campos y las rutas salen del código backend (`backend/src/valmont/modules/*/adapters/*admin*.py`). **No se vuelve a consultar lo que consta aquí** (cuota de Figma).
+> `●` dibujado · `○` lo exige el contrato aunque no esté dibujado · `H-Bn` hueco de contrato · `D-Bn` decisión abierta (§12.6).
+
+### 12.1 Frames (nodos de Figma)
+
+| Frame | Nodo | Ruta propuesta | Qué muestra |
+|---|---|---|---|
+| `bo/01-layout` | `194:35` | (plantilla de `AdminLayout`) | Sidebar fija de 260 px con los 8 módulos y damero, barra superior de 72 px (migas, «Ver tienda», usuario), cabecera de página y zona de contenido de 1116 px |
+| `bo/02-panel` | `194:206` | `/admin` | 4 KPI, tabla «Pedidos por preparar», alertas, mini tabla «Stock bajo» |
+| `bo/03-pedidos` | `197:200` | `/admin/pedidos` | Filtros (texto, desde, hasta, estado), tabla con los 8 estados, paginación |
+| `bo/03b-pedidos-vacio` | `197:554` | idem | Estado vacío con «Limpiar filtros» |
+| `bo/03c-pedidos-cargando` | `197:778` | idem | Esqueleto de 7 filas y «Cargando pedidos…» |
+| `bo/03d-pedidos-error` | `197:1058` | idem | Alerta de error con «Reintentar» |
+| `bo/04-pedido-detalle` | `199:542` | `/admin/pedidos/[order_id]` | Líneas, totales, historial, acciones de transición, entrega (pedido en preparación, envío a domicilio) |
+| `bo/04b-cancelar-dialogo` | `200:639` | idem (diálogo modal) | «Cancelar y reembolsar» con motivo obligatorio (estado de error) |
+| `bo/05-producto-formulario` | `201:748` | `/admin/productos/nuevo` y `/admin/productos/[product_id]` | Datos, precio y venta, atributos, especificaciones, imágenes, publicación; errores 409/413/422 |
+| `bo/componentes` | `193:21` | — | Biblioteca local: 24 iconos (`icon/*`) y los sets `Button` `193:146`, `StatusPill` `193:171`, `NavItem` `193:189`, `KpiCard` `193:198`, `Alert` `193:229`, `Field` `193:250`, `Chip` `193:255` |
+
+**Reutilización en Figma.** El archivo **no tiene ningún componente** (ni local ni publicado; las bibliotecas añadidas son kits de Apple y Material, ajenos a la marca). Por eso la biblioteca local de la página `backoffice` es nueva y todos los frames usan **instancias** de ella. Sí se reutilizaron las **variables** que existen en el archivo (colecciones `Primitives`, `Semantic` en modo **Dark** y `Spacing`; ver BRIEF §14), enlazadas en rellenos, trazos, radios y espaciados. Las pocas que faltaban están en la colección nueva `Backoffice`.
+
+### 12.2 Vistas: componentes, datos, estados
+
+Las rutas de API son las implementadas (todas con `require_admin`; la autorización real es del backend, el frontend solo oculta navegación).
+
+| Vista | Componentes (existe en `ui/` · nuevo) | Datos y endpoints | Estados |
+|---|---|---|---|
+| **Layout** `194:35` | existen: `Wordmark`, `Checkerboard`, `Icon`, `Button`, `Breadcrumb` · nuevos: `layouts/AdminLayout` (SSR, nav y migas), `admin/NavItem` (default, activo, `aria-current="page"`), `admin/UserMenu` | Usuario: `GET /api/v1/identity/me` (`full_name`, `role`); «Ver tienda» enlaza a `/`. Salir: lo que defina identity | nav: reposo, hover, foco, activo, deshabilitado ○ (módulos sin contrato, D-B1); sesión caducada ○ → ingreso |
+| **Panel** `194:206` | existen: `Card`, `Badge`, `Notice`, `Skeleton`, `TextLink` · nuevos: `admin/KpiCard` (data, pending), `ui/DataTable` | KPI «Por preparar» = `total` de `GET /orders/admin?status=pagado&page_size=1`; «Pendientes de pago» = ídem `status=pendiente_pago`; «Stock bajo» = `total` de `GET /inventory/admin/stock?status=low_stock&page_size=1`; tabla = `GET /orders/admin?status=pagado&page_size=5`; alertas de stock bajo y agotado = `status=low_stock` y `out_of_stock`; mini tabla = `GET /inventory/admin/stock?status=low_stock&page_size=4` (`name`, `available`). **KPI «Ventas del período»: H-B1**; alerta «pedidos vencen pronto»: H-B2 | cargando ○ (Skeleton por tarjeta), error ○ (Notice con reintento), vacío ○ («Nada por preparar»), KPI `pending` ● (borde discontinuo, «Sin contrato») |
+| **Pedidos, listado** `197:200` `197:554` `197:778` `197:1058` | existen: `Field`, `Chip`, `Button`, `Badge`, `Pagination`, `EmptyState`, `Skeleton`, `Icon` · nuevos: `ui/DataTable` (cabecera forest-deep, filas de 56 px, celda estado/acción), `admin/OrderFilters` (isla) | `GET /api/v1/orders/admin?status&q&created_from&created_to&page&page_size` (`page_size` ≤ 50, fechas entre 2000 y 2100). Fila: `number` (VAL-000123), `recipient_name`, `district` (nulo en recojo → «Recojo en tienda», INFERIDO de `pickup`), `item_count`, `status`, `total` (céntimos + `PEN`), `created_at`, `expires_at` solo en `pendiente_pago`. Paginación `{items,total,page,page_size}` | ● vacío, cargando, error; ○ filtros activos en la URL (`?status=`), foco al volver del detalle, 422 de `q` (control o NUL) con mensaje junto al campo |
+| **Pedido, detalle** `199:542` `200:639` | existen: `Card`, `Badge`, `Button`, `DefinitionList`, `Field`, `Notice`, `Price` · nuevos: `ui/DataTable` (líneas), `ui/Timeline` (ya previsto en el lote 2), `admin/OrderActions` (isla), `ui/ConfirmDialog` | `GET /orders/admin/{id}` → `AdminOrderDetailOut`: `lines[]` (`name`, `sku`, `quantity`, `list_price`, `unit_price`, `discount_amount` por unidad, `line_total`, `fulfillment`, `lead_time_days`, `image`), `subtotal`, `shipping`, `total`, `delivery` (`delivery_method`, `recipient_name`, `phone`, dirección, `pickup_store`, `carrier`, `tracking_code`, `shipped_at`), `refund {amount, at}`, `history[]` (`from_status`, `status`, `at`, `actor`, `actor_id`, `note`), `user_id`, **`can_transition_to`**. Acciones: `POST /orders/admin/{id}/transitions {to, note?, carrier?, tracking_code?}` con `to` ∈ `en_preparacion`, `enviado`, `listo_para_recojo`, `entregado`, `cancelado` | ● transición válida solo si está en `can_transition_to` (se pintan solo esas); ● cancelar con nota obligatoria (1–500) y error de campo; ○ enviando (botón cargando y deshabilitado), ○ 409 `invalid_transition` (`details.from/to/allowed`: refrescar el detalle y avisar), ○ 404, ○ pedido terminal (sin acciones), ○ `refund` visible en `cancelado` (monto y fecha), ○ sin imagen de línea |
+| **Producto, formulario** `201:748` | existen: `Field`, `Button`, `Notice`, `Badge`, `Icon`, `Card`, `Checkbox` · nuevos: `ui/Select`, `ui/Textarea` (o `Field` multilínea), `ui/RadioGroup`, `admin/SpecsEditor`, `admin/ImageManager` (isla: subida, alt, orden, borrado), `ui/FileDropzone`, `admin/PublishPanel` | Crear `POST /catalog/admin/products`; leer `GET …/products/{id}`; editar `PATCH …/products/{id}` (solo los campos cambiados; `null` borra los opcionales); `POST …/products/{id}/publish` y `/unpublish`; listas: `GET …/categories`, `GET …/attributes` (`movements`, `case_materials`). Campos: `sku` (≤ 40), `slug` (opcional), `name` (≤ 120), `description` (≤ 5000), `category_id`, `price {amount, currency}`, `order_policy` (`stock`, `made_to_order`, `backorder`), `lead_time_days`, `movement_code`, `case_material_code`, `case_diameter_mm` (1 decimal), `water_resistance_m`, `specs[]` (`label`, `value`, máximo 40). Imágenes: `POST …/products/{id}/images` (multipart `file` + `alt` ≤ 150, JPEG/PNG/WebP, ≤ 5 MiB), `PATCH …/images/{image_id}` (alt), `PUT …/images/order`, `DELETE …/images/{image_id}` | ● error 409 `sku_taken`/`slug_taken`; ● 422 por campo (plazo obligatorio si la política no es `stock`); ● 413 `file_too_large`; ○ 415 `unsupported_media_type`, 503 `storage_unavailable`, 409 `slug_locked` y `last_image`; ● 409 `publish_requirements_unmet` con `details.missing` ∈ `description`, `category`, `price`, `image`, `lead_time_days`; ○ guardando, ○ guardado, ○ modo «crear» (sin imágenes hasta el primer guardado: el POST de imagen exige `product_id`), ○ cambios sin guardar al salir |
+
+### 12.3 Componentes: Figma → código (matriz de reutilización)
+
+| Componente en Figma | `ui/` existente | Cambio propuesto |
+|---|---|---|
+| `Button` (primary, secondary, danger, ghost) | `Button` (primary, dark, secondary, mint, link) | Añadir **`danger`** (contorno rojo) y **`ghost`**; altura 40 px en backoffice |
+| `StatusPill` (8 estados de pedido, `draft`, `published`) | `Badge` (estado) | Mapa estado → color en §12.4; punto + texto (nunca solo color) |
+| `Alert` (warning, danger, info) | `Notice` | Variantes y acción opcional dentro del cuerpo |
+| `Field` (default, focus, error, disabled, multiline) | `Field` | Estado `multiline` (textarea), `Select` aparte |
+| `Chip` (default, activo) | `Chip` | Activo en amarillo con texto ink |
+| `Pagination`, `EmptyState`, `Skeleton`, `DefinitionList`, `Card`, `Icon`, `Wordmark`, `Checkerboard` | los mismos | Solo tema oscuro de backoffice (BRIEF §14) |
+| `NavItem`, `KpiCard` | — | **Nuevos** en `components/admin/` (únicos del backoffice) |
+| Tabla (cabecera + filas) | — | **Nuevo** `ui/DataTable` (genérico: columnas, alineación, celdas con componentes, slots vacío/cargando) |
+| Diálogo de confirmación | — | **Nuevo** `ui/ConfirmDialog` sobre `<dialog>` (foco atrapado, `Esc` cierra, `aria-labelledby`) |
+| Timeline del historial | `Timeline` previsto (lote 2) | Reutilizar; nodo actual en amarillo, sin pulso |
+| `RadioGroup`, `Select`, `FileDropzone` | — | **Nuevos** genéricos en `ui/` |
+| Iconos (24) | `Icon` + `icons.ts` | Añadir los que falten: `dashboard`, `orders`, `watch`, `inventory`, `tag`, `chart`, `users`, `shield`, `external`, `chevron`, `search`, `plus`, `calendar`, `alert`, `user`, `x`, `upload`, `trash`, `back`, `chevdown`, `image`, `drag`, `info`, `check` |
+
+### 12.4 Estados de pedido y producto (color + texto + forma)
+
+| Estado | Texto | Estilo (sobre verde) |
+|---|---|---|
+| `pendiente_pago` | Pendiente de pago | contorno amarillo, texto amarillo |
+| `pagado` | Pagado | relleno menta, texto ink |
+| `en_preparacion` | En preparación | relleno amarillo, texto ink |
+| `enviado` · `listo_para_recojo` | Enviado · Listo para recojo | relleno `surface/raised`, contorno y texto menta |
+| `entregado` | Entregado | relleno marfil, texto ink |
+| `cancelado` | Cancelado | relleno ciruela, texto marfil |
+| `expirado` | Expirado | contorno de control, texto secundario |
+| producto `draft` · `published` | Borrador · Publicado | como `expirado` · como `pagado` |
+
+Transiciones que ofrece la interfaz (las calcula el servidor en `can_transition_to`; el frontend no las deduce): `pendiente_pago` → cancelar · `pagado` → preparar, cancelar · `en_preparacion` → enviar (envío) o marcar listo para recojo (recojo), cancelar · `enviado` o `listo_para_recojo` → entregar · terminales: ninguna. Cancelar un pedido **pagado** reembolsa el total de forma simulada y no repone el stock; cancelar uno **pendiente de pago** libera las reservas y no reembolsa (el texto del diálogo cambia según el estado).
+
+### 12.5 Huecos de contrato y vistas sin diseñar
+
+| ID | Hueco | Efecto | Propuesta |
+|---|---|---|---|
+| H-B1 | **Reportes** (RF07): sin endpoint ni SPEC aprobada | KPI «Ventas del período» y la pantalla Reportes quedan en `pending` | Contrato de `reports` (api-contract-review) antes de diseñar la pantalla |
+| H-B2 | **Resumen del panel**: no hay endpoint agregado; «vencen pronto» no tiene filtro por `expires_at` | KPI y alertas se derivan de los listados (`total` con `page_size=1`); la alerta de vencimiento se calcula con la primera página o se omite | MVP: derivar y omitir la alerta de vencimiento; si el panel se vuelve lento, `GET /orders/admin/summary` (cambio compatible) |
+| H-B3 | **Clientes** (RF13.04) y **Auditoría** (lectura de RF14): no hay endpoints (audit solo inserta) | Entradas del menú sin pantalla | Mostrarlas deshabilitadas con «Pronto» (D-B1) hasta tener contrato |
+| H-B4 | El detalle de pedido no trae correo ni nombre de la cuenta, solo `user_id` y los datos de entrega | La tarjeta «Entrega» muestra la cuenta como identificador abreviado | Aceptado para el MVP; ampliar con RF13.04 |
+| H-B5 | La semántica de `q` en pedidos (número y destinatario) no consta en el código leído | Placeholder «Número de pedido o destinatario» provisional | Verificar contra `ListAdminOrders` al implementar |
+| H-B6 | Importe de entrada: el servidor espera céntimos | El campo «Precio (S/)» recibe soles | Convertir texto → entero en un helper tipado de `lib/` sin aritmética de coma flotante; el servidor valida (D-015, D-037) |
+| H-B7 | Sin diseño en T-140: listado de productos, categorías y atributos, inventario (lista, ficha con movimientos `entrada`/`ajuste_inventario`/`merma`/`devolucion`, umbral de stock bajo) y promociones (lista y formulario, activar/desactivar) | Dependen de T-140 aprobada; reutilizan `DataTable`, `Field`, `Chip`, `Badge`, `ConfirmDialog` | Diseñarlas en una segunda pasada con el mismo patrón (listado + detalle/formulario) |
+
+### 12.6 Decisiones de diseño abiertas (proponer, no imponer)
+
+| ID | Pregunta | Opciones | Recomendada |
+|---|---|---|---|
+| D-B1 | Módulos del menú sin contrato (Reportes, Clientes, Auditoría) | (A) visibles, deshabilitados, con etiqueta «Pronto»; (B) ocultos hasta tener contrato | **A**: la estructura del menú no cambia después; el enlace muerto se evita con `aria-disabled` y sin `href` |
+| D-B2 | Cómo implementar el tema oscuro del backoffice | (A) alcance por contexto (`[data-context="backoffice"]` en `AdminLayout`) que reasigna los roles semánticos; (B) un archivo de tokens aparte | **A**: reutiliza los mismos componentes `ui/` (coincide con el modo `Dark` de la colección `Semantic` de Figma) |
+| D-B3 | KPI y alertas del panel | (A) derivarlos de los listados existentes; (B) pedir un endpoint de resumen ya | **A** para el MVP (H-B2) |
+| D-B4 | Acciones de transición | (A) pintar solo las de `can_transition_to`; (B) pintar todas y deshabilitar las no válidas | **A**: menos ruido y sin lógica de estados en el cliente |
+| D-B5 | Formato de fecha y hora en tablas | (A) `dd/mm/aaaa hh:mm` en `America/Lima` (24 h); (B) relativa («hace 2 h») | **A**: auditable y coherente con RF07.04 |
+| D-B6 | Importes en backoffice | (A) siempre con 2 decimales (`S/ 84,500.00`); (B) como la tienda (P-3) | **A**: densidad y alineación de columnas; es una desviación consciente de P-3 que solo afecta al backoffice |
+| D-B7 | Reordenar imágenes | (A) arrastrar y soltar con alternativa de botones «Subir/Bajar» (teclado); (B) solo botones | **A**, con la alternativa por teclado obligatoria (WCAG 2.5.7) |
+
+### 12.7 Accesibilidad (medida el 2026-11-27 con los hex del archivo)
+
+Texto sobre verde (WCAG 2.x, mínimo 4,5 para texto): marfil/`surface` 14,87 · marfil/fondo 16,35 · menta/fondo 12,73 · menta/`surface` 11,58 · menta/cabecera de tabla (forest-deep) 13,80 · gris dorado `text/secondary`/`surface` 10,40 · amarillo/`surface` 11,05 · ink/amarillo 13,85 · ink/menta 14,52 · ink/marfil 18,64 · marfil/ciruela (pill Cancelado) 6,05 · menta/`surface/raised` 9,31 · amarillo/`surface/raised` 8,88 · **rojo `#FF4D4D`/`surface` 4,67** (mínimo del diseño: texto de error en 13 px; no usar sobre `raised`, no medido) · rojo/fondo 5,14.
+No texto (≥ 3): **borde de control menta al 50 % = 4,00 a 4,30** sobre `surface`, fondo y forest-deep (cumple 1.4.11). El menta al 33 % (2,50) y al 20 % (1,72) **solo** para bordes de tarjeta y divisores decorativos. Foco: anillo amarillo de 2 px con desplazamiento ≥ 2 (BRIEF §7), 12,15 sobre el fondo. Tamaños: texto ≥ 14 px; metadatos y cabeceras de tabla de 12 px en mayúsculas (menta, 13,80); sin color como único canal (cada estado lleva texto y punto). Objetivos: botones de 40 px y controles de 44 px de alto (mínimo 24 × 24 de WCAG 2.2; 44 para táctil en tableta).

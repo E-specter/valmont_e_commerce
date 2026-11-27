@@ -223,3 +223,45 @@ Checklist de la guía [F: 125:14195]: contraste AA y foco visible · texto míni
 ```
 
 La traducción de los roles semánticos (`--bg-page`, `--text-primary`, `--stroke-*`) y de la escala tipográfica se hace en la tarea de implementación de los tokens, partiendo de las tablas de §2 y §3. Modo oscuro de sistema: **no aplica** (la identidad ya define contextos claro y oscuro por superficie; no hay tema por preferencia del usuario en Figma).
+
+## 14. Contexto backoffice (T-140, D-046) — PROPUESTO
+
+> Extraído el 2026-11-27 del diseño de la página `backoffice` (`193:13`, frames en [VIEWS.md](VIEWS.md) §12). Pendiente de aprobación del usuario. **Corrección a §3 y §12.11:** el archivo **ya tiene variables locales** (no tenía cuando se extrajo el resto del brief): colecciones `Primitives` (17 colores), `Semantic` (16 roles, modos `Light` y `Dark`) y `Spacing` (7 espacios y 6 radios). El backoffice las usa **en modo `Dark`** y añade la colección `Backoffice`. Los frames de tienda siguen con valores literales (no se tocaron).
+
+**Mapa variable de Figma → token del brief** (solo lo usado en backoffice):
+
+| Variable de Figma | Valor | Token del brief | Uso en backoffice |
+|---|---|---|---|
+| `Semantic/background/primary` (Dark) | `#002312` | `--color-forest` | fondo de página |
+| `Semantic/background/secondary` (Dark) | `#001A0B` | `--color-forest-deep` | sidebar, barra superior, cabecera de tabla, caja de campo |
+| `Semantic/background/surface` (Dark) | `#002C18` | `--bg-surface-dark` | tarjetas, tablas, diálogos |
+| `Backoffice/surface/raised` | `#003E1F` | `--color-forest-mid` | nav activo, pill «enviado», esqueletos, miniaturas |
+| `Semantic/text/primary` (Dark) | `#FFFDE4` | `--color-ivory` | texto principal |
+| `Semantic/text/secondary` (Dark) | `#EBD394` | **sin token** (PROPUESTA `--text-secondary-on-dark`) | ayuda y metadatos |
+| `Semantic/accent/secondary` (Dark) | `#B3EFB2` | `--color-mint` | etiquetas, enlaces secundarios, bordes activos |
+| `Semantic/accent/primary` · `text/accent` | `#FFD900` | `--color-yellow` | acción primaria, nav activo, cifras de KPI, foco |
+| `Semantic/text/inverse` (Dark) | `#0F0F0F` | `--color-ink` | texto sobre amarillo o menta |
+| `Semantic/status/error` | `#FF4D4D` | `--color-red` | error, «Cancelar»; **solo sobre fondos oscuros** (4,67 sobre `surface`) |
+| `Spacing/radius/md` · `lg` · `full` | 8 · 12 · 9999 | `--radius-md` · `--radius-lg` · `--radius-pill` | tarjetas · diálogo · pills y botones |
+| `Spacing/spacing/xs…3xl` | 4, 8, 16, 24, 32, 48, 64 | `--space-4…--space-64` | padding y huecos |
+
+**Variables nuevas, colección `Backoffice` (PROPUESTO):**
+
+| Variable | Valor | Token CSS propuesto | Para qué |
+|---|---|---|---|
+| `stroke/control` | menta 50 % | `--stroke-control-on-dark: rgb(179 239 178 / .5)` | borde de campos y botones secundarios (4,00 a 4,30 sobre las superficies) |
+| `stroke/on-dark` | menta 33 % | `--stroke-on-dark` (ya en §2) | borde de tarjetas (decorativo, 2,50) |
+| `stroke/soft` | menta 20 % | `--stroke-soft-on-dark: rgb(179 239 178 / .2)` | divisores de fila |
+| `color/mint-soft` | `#D5FFD9` | `--color-mint-soft` (ya en §2) | reservado |
+| `color/plum` | `#7D5470` | `--color-plum` (ya en §2) | pill «Cancelado» |
+| `surface/raised` | alias de `color/green/500` | `--bg-surface-raised` (PROPUESTA) | ver arriba |
+
+**Reglas del contexto** (aplicadas en los frames):
+- **Tipografía:** Geist para interfaz (14/20 cuerpo y tablas; 12/16 en negrita y mayúsculas para cabeceras y etiquetas); Phudu 600 32/38 para el `h1` de página y 22–24 en diálogos y vacíos; Staatliches 34 solo para la cifra del KPI; Phudu 600 24 para el total del pedido; Jaro 30 solo para el wordmark en la barra lateral.
+- **Retícula:** frame 1440; barra lateral fija de 260 (sin colapsar); barra superior de 72; contenido de 1180 con margen de 32 → **1116** útiles; huecos de 24 entre bloques y de 16 entre KPI; columna lateral de 340–380 en detalle y formulario.
+- **Elevación por color, sin sombras:** fondo `forest` → tarjetas `surface` (`#002C18`) → elevados `raised`; el diálogo lleva borde de control y fondo atenuado al 75 %.
+- **Foco** (PROPUESTA, hereda §7): anillo amarillo de 2 px, desplazamiento ≥ 2; en el campo, el borde pasa de 1 px a 2 px amarillo (error: 2 px rojo).
+- **Componentes de backoffice dibujados:** Button (primary, secondary, danger, ghost; 40 px, píldora), StatusPill (8 estados + borrador y publicado; 24 px, punto + texto), NavItem (44 px; activo con relleno `raised` y barra amarilla de 4 px), KpiCard (data, pending con borde discontinuo), Alert (warning, danger, info; borde de 1,5 px), Field (default, focus, error, disabled, multiline; caja de 44 px), Chip (default, activo amarillo; 34 px). Tabla: cabecera 44 px en `forest-deep`, filas de 56 px (80 en líneas de pedido) con divisor `stroke/soft`.
+- **Damero** de 20 px (menta y `raised`) al pie de la barra lateral, tocando los bordes del contenedor.
+- **Datos de relleno:** nombres, importes y SKU de los frames son ejemplos y no son contenido; no usar marcas de relojería de terceros.
+- **Pendiente:** estados hover y pulsado de los componentes (solo se dibujaron reposo, foco, error y deshabilitado); iconografía a tamaños 16–40 (Lucide por trazados propios, sin dependencia, §8); versión de tableta de la barra lateral («sidebar a barra», §6), no dibujada.
