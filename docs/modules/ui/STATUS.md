@@ -691,6 +691,20 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-129 — 2026-11-27 — frontend-dev
+1. Tarea: T-129 `/cuenta` (perfil, fecha de nacimiento D-045/N-8, cierre de sesión). Estado: IN_REVIEW.
+2. Hecho: `pages/cuenta/index.astro` (SSR, `no-store`), `components/account/ProfileForm.astro`, `lib/api/identity.ts` (`Profile.birth_date`, `updateProfile` con `birth_date?`). Transporte `apiFor(locals)`; sin `fetch` nuevo; sin dependencias.
+3. Comportamiento: GET carga `getProfile`; POST comprueba `Origin` (403), `formData()` en `try` (415), PATCH solo con campos cambiados (vacío = `null`; `birth_date` solo si estaba vacía). Éxito: 303 a `/cuenta?guardado=1` (PRG) con "Datos guardados" (`role="status"`).
+4. Fecha: sin ella, `Field type="date"` + hint D-045 + `autocomplete="bday"`; con ella, solo lectura (`formatDateOnly`) + "Para corregirla, contacta con atención al cliente."
+5. Errores: 422 por `loc` → campo (`birth_date_future|too_old|underage`, formato, nombre, teléfono); 409 `birth_date_locked` → mensaje de formulario; 401 → 302 `/ingresar?next=%2Fcuenta`; 5xx/red → 503 con `Notice` y "Reintentar" (en carga) o mensaje de formulario; el formulario conserva lo escrito.
+6. Privacidad: la fecha no va a consola ni logs; no hay `console.*`. No se muestra rol ni `user_id`.
+7. Cierre de sesión: `<form method="post" action="/salir">`; enlaces a `/cuenta/pedidos` y `/cuenta/lista-de-deseos` (404 hasta sus tareas).
+8. Figma: ninguno (G-3); tokens, `PageTitle`, `Card`, `Field`, `Button`, `Notice`, `TextLink`.
+9. Decisión menor: el aviso de éxito usa PRG con `?guardado=1`; sin cambios en el formulario se muestra "Datos guardados" sin llamar al backend.
+10. Riesgo: si el backend responde 401 con una cookie aún válida, `/ingresar` redirige de vuelta a `/cuenta` (bucle posible; caso de token revocado, N-9).
+11. Evidencia: `npm run check → 0 errors, 0 warnings (185 files)`; NO EJECUTADO: pruebas ni build (D-028, D-033).
+12. Commit: ninguno, preparado. Mensaje: `feat(ui): página de cuenta con perfil, fecha de nacimiento y cierre de sesión (T-129)`.
+
 #### Traspaso T-127 (correcciones tras QA) — 2026-11-27 — frontend-dev
 - Contraste: el formulario va sobre `forest` (VIEWS §4.3; sin consulta a Figma). Prop aditiva y opcional `tone?: 'light'|'dark'` (por defecto `light`) en `layout/PageTitle.astro` y `ui/Field.astro`; `dark` usa solo tokens existentes (menta, marfil, `--color-red-soft` para el error). `AuthForm` pasa `tone="dark"`.
 - POST con cuerpo no formulario: 415 (antes 500). Con sesión, 303 con `Cache-Control: private, no-store` (Response manual).

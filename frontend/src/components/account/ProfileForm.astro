@@ -1,0 +1,80 @@
+---
+import Button from '../ui/Button.astro';
+import Field from '../ui/Field.astro';
+import Notice from '../ui/Notice.astro';
+import { formatDateOnly } from '../../lib/format';
+
+interface Props {
+  values: { full_name: string; phone: string; birth_date: string };
+  email: string | null;
+  birthDateLocked: boolean;
+  errors?: { form?: string; full_name?: string; phone?: string; birth_date?: string };
+  saved?: boolean;
+}
+const { values, email, birthDateLocked, errors = {}, saved = false } = Astro.props;
+const hasErrors = Boolean(errors.form || errors.full_name || errors.phone || errors.birth_date);
+---
+
+<form method="post" action="/cuenta" novalidate class="profile-form">
+  {saved && <Notice tone="success"><p>Datos guardados</p></Notice>}
+  {
+    hasErrors && (
+      <Notice tone="error" tabindex="-1" autofocus>
+        <p>{errors.form ?? 'Revisa los campos marcados.'}</p>
+      </Notice>
+    )
+  }
+  <Field id="email" name="email" type="email" label="Correo electrónico" value={email ?? ''} readonly autocomplete="email" hint="Es el correo de tu sesión; no se puede cambiar aquí." />
+  <Field id="full_name" name="full_name" label="Nombre completo" value={values.full_name} autocomplete="name" maxlength={120} error={errors.full_name} />
+  <Field id="phone" name="phone" type="tel" label="Teléfono" value={values.phone} autocomplete="tel" inputmode="tel" maxlength={20} hint="Con prefijo de país, por ejemplo +51." error={errors.phone} />
+  {
+    birthDateLocked ? (
+      <div class="birth">
+        <p class="birth__label">Fecha de nacimiento</p>
+        <p class="birth__value">{values.birth_date ? formatDateOnly(values.birth_date) : ''}</p>
+        <p class="birth__hint">Para corregirla, contacta con atención al cliente.</p>
+      </div>
+    ) : (
+      <Field
+        id="birth_date"
+        name="birth_date"
+        type="date"
+        label="Fecha de nacimiento"
+        value={values.birth_date}
+        autocomplete="bday"
+        hint="La necesitamos para tu primera compra. Debes tener 18 años o más. Solo se puede fijar una vez."
+        error={errors.birth_date}
+      />
+    )
+  }
+  <div class="actions"><Button type="submit" size="lg">Guardar cambios</Button></div>
+</form>
+
+<style>
+  @layer components {
+    .profile-form {
+      display: grid;
+      gap: var(--space-24);
+    }
+    .birth {
+      display: grid;
+      gap: var(--space-8);
+    }
+    .birth p {
+      margin: 0;
+    }
+    .birth__label {
+      font-size: var(--text-caption);
+      font-weight: var(--weight-bold);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .birth__value {
+      font-size: var(--text-body-ui);
+    }
+    .birth__hint {
+      color: var(--text-secondary);
+      font-size: var(--text-caption);
+    }
+  }
+</style>

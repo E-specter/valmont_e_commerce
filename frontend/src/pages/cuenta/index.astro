@@ -1,0 +1,198 @@
+---
+import StoreLayout from '../../layouts/StoreLayout.astro';
+import ProfileForm from '../../components/account/ProfileForm.astro';
+import PageTitle from '../../components/layout/PageTitle.astro';
+import Button from '../../components/ui/Button.astro';
+import Card from '../../components/ui/Card.astro';
+import Notice from '../../components/ui/Notice.astro';
+import TextLink from '../../components/ui/TextLink.astro';
+import { ApiError } from '../../lib/api/http';
+import { getProfile, updateProfile, type Profile } from '../../lib/api/identity';
+import { loginUrl } from '../../lib/server/guard';
+import { apiFor, endSession } from '../../lib/server/session';
+
+export const prerender = false;
+
+const { request, url, locals, cookies } = Astro;
+const NO_STORE = 'private, no-store';
+Astro.response.headers.set('Cache-Control', NO_STORE);
+
+const MSG_FORM_INVALID = 'Revisa los campos marcados.';
+const MSG_UNAVAILABLE = 'No pudimos conectar con el servidor. Inténtalo de nuevo en unos minutos.';
+const MSG_BIRTH_LOCKED = 'La fecha de nacimiento ya está registrada y no se puede cambiar.';
+const MSG_NAME_LONG = 'El nombre admite hasta 120 caracteres.';
+const MSG_PHONE = 'Escribe un teléfono válido, de 6 a 15 dígitos, con + opcional.';
+const MSG_BIRTH_FORMAT = 'Escribe una fecha válida.';
+const BIRTH_MESSAGES: Record<string, string> = {
+  birth_date_future: 'La fecha de nacimiento no puede ser futura.',
+  birth_date_too_old: 'Revisa la fecha de nacimiento: es demasiado antigua.',
+  birth_date_underage: 'Debes tener 18 años o más.',
+};
+const GENERIC_FIELD: Record<string, string> = {
+  full_name: MSG_NAME_LONG,
+  phone: MSG_PHONE,
+  birth_date: MSG_BIRTH_FORMAT,
+};
+
+type FormErrors = { form?: string; full_name?: string; phone?: string; birth_date?: string };
+
+const see = (to: string) => new Response(null, { status: 303, headers: { Location: to, 'Cache-Control': NO_STORE } });
+const toLogin = () => new Response(null, { status: 302, headers: { Location: loginUrl(url), 'Cache-Control': NO_STORE } });
+
+// 401 del backend: cierra la sesión local antes de redirigir (si no, /ingresar nos devolvería aquí).
+const expired = async () => {
+  await endSession(locals.supabase, cookies, request);
+  return see('/ingresar?next=%2Fcuenta');
+};
+
+// La guardia del middleware ya exige sesión; esto es solo la red de seguridad.
+if (!locals.session) return toLogin();
+
+const api = apiFor(locals);
+let profile: Profile | null = null;
+let loadFailed = false;
+let saved = false;
+const errors: FormErrors = {};
+let values = { full_name: '', phone: '', birth_date: '' };
+
+try {
+  profile = await getProfile(api);
+} catch (e) {
+  if (e instanceof ApiError && e.status === 401) return expired();
+  loadFailed = true;
+  Astro.response.status = 503;
+}
+
+if (profile) {
+  values = { full_name: profile.full_name ?? '', phone: profile.phone ?? '', birth_date: profile.birth_date ?? '' };
+
+  if (request.method === 'POST') {
+    // Misma comprobación de Origin que /salir.
+    if (request.headers.get('origin') !== url.origin) return new Response(null, { status: 403 });
+
+    // Cuerpo que no es un formulario: 415, nunca 500.
+    let data: FormData;
+    try {
+      data = await request.formData();
+    } catch {
+      return new Response(null, { status: 415, headers: { 'Cache-Control': NO_STORE } });
+    }
+    const str = (k: string) => (typeof data.get(k) === 'string' ? (data.get(k) as string).trim() : '');
+    const sent = { full_name: str('full_name'), phone: str('phone'), birth_date: str('birth_date') };
+
+    // Solo los campos cambiados; vacío = null para borrar nombre o teléfono; la fecha solo si trae valor y difiere de la guardada.
+    const changes: { full_name?: string | null; phone?: string | null; birth_date?: string } = {};
+    if (sent.full_name !== values.full_name) changes.full_name = sent.full_name || null;
+    if (sent.phone !== values.phone) changes.phone = sent.phone || null;
+    // Con fecha ya fijada, una distinta también viaja: la autoridad es el backend (409 birth_date_locked).
+    if (sent.birth_date && sent.birth_date !== values.birth_date) changes.birth_date = sent.birth_date;
+
+    if (Object.keys(changes).length === 0) {
+      saved = true;
+    } else {
+      try {
+        await updateProfile(api, changes);
+        return see('/cuenta?guardado=1');
+      } catch (e) {
+        values = { ...sent, birth_date: profile.birth_date ?? sent.birth_date }; // conserva lo escrito; la fecha fijada no cambia
+        if (!(e instanceof ApiError)) {
+          Astro.response.status = 503;
+          errors.form = MSG_UNAVAILABLE;
+        } else if (e.status === 401) {
+          return expired();
+        } else if (e.status === 409 && e.code === 'birth_date_locked') {
+          Astro.response.status = 409;
+          errors.form = MSG_BIRTH_LOCKED;
+        } else if (e.status === 422) {
+          Astro.response.status = 422;
+          errors.form = MSG_FORM_INVALID;
+          const details = Array.isArray(e.details) ? (e.details as { loc?: unknown[]; type?: string }[]) : [];
+          for (const d of details) {
+            const field = (Array.isArray(d.loc) ? String(d.loc[d.loc.length - 1]) : '') as keyof FormErrors;
+            if (field in GENERIC_FIELD && !errors[field]) {
+              errors[field] = (field === 'birth_date' && d.type && BIRTH_MESSAGES[d.type]) || GENERIC_FIELD[field];
+            }
+          }
+        } else {
+          Astro.response.status = e.status >= 500 || e.status === 0 ? 503 : e.status;
+          errors.form = MSG_UNAVAILABLE;
+        }
+      }
+    }
+  } else {
+    saved = url.searchParams.get('guardado') === '1';
+  }
+}
+---
+
+<StoreLayout title="Mi cuenta · Valmont" noindex>
+  <div class="account">
+    <PageTitle title="Mi cuenta" kicker="Tu perfil Valmont" />
+
+    {
+      loadFailed || !profile ? (
+        <Notice tone="error" title="No pudimos cargar tu perfil">
+          <p>{MSG_UNAVAILABLE}</p>
+          <Button slot="actions" href="/cuenta" variant="secondary">
+            Reintentar
+          </Button>
+        </Notice>
+      ) : (
+        <div class="account__grid">
+          <Card padding="lg">
+            <ProfileForm
+              values={values}
+              email={locals.session.email}
+              birthDateLocked={profile.birth_date !== null}
+              errors={errors}
+              saved={saved}
+            />
+          </Card>
+          <Card as="section" padding="lg" aria-labelledby="account-links">
+            <h2 id="account-links" class="account__h2">Tu actividad</h2>
+            <ul class="account__links">
+              <li>
+                <TextLink href="/cuenta/pedidos" arrow>Mis pedidos</TextLink>
+              </li>
+              <li>
+                <TextLink href="/cuenta/lista-de-deseos" arrow>Lista de deseos</TextLink>
+              </li>
+            </ul>
+            <form method="post" action="/salir">
+              <Button type="submit" variant="secondary">Cerrar sesión</Button>
+            </form>
+          </Card>
+        </div>
+      )
+    }
+  </div>
+</StoreLayout>
+
+<style>
+  @layer components {
+    .account__grid {
+      display: grid;
+      gap: var(--space-24);
+      align-items: start;
+      padding-block-end: var(--space-48);
+    }
+    @media (min-width: 64rem) {
+      .account__grid {
+        grid-template-columns: 2fr 1fr;
+      }
+    }
+    .account__h2 {
+      margin: 0 0 var(--space-16);
+      font-family: var(--font-heading);
+      font-size: var(--text-h3);
+      text-transform: uppercase;
+    }
+    .account__links {
+      display: grid;
+      gap: var(--space-8);
+      margin: 0 0 var(--space-24);
+      padding: 0;
+      list-style: none;
+    }
+  }
+</style>
