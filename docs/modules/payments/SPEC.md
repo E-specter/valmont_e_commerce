@@ -181,6 +181,8 @@ Prefijo `/api/v1/payments`. Todas exigen sesión: 401 `unauthenticated` y 503 `a
   5. Los campos de tarjeta no llevan `name`, el formulario no se envía de forma nativa, no hay almacenamiento ni analítica sobre ellos (H-12, D-041 P-4).
 - **Seguridad del contrato:** ninguna ruta, cuerpo o parámetro acepta `user_id`, importe, estado ni resultado; las cabeceras no confiables no se usan para la identidad.
 
+> Aclaración del Leader (T-094): el `Cache-Control: no-store` de esta sección se exige en las respuestas de la propia ruta; las 401 y 422 del framework lo reciben del middleware transversal (R-11 del STATUS).
+
 ## 8. Dependencias
 
 - **Consume:**
