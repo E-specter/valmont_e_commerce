@@ -309,6 +309,34 @@ class GetMyOrder:
         return order
 
 
+class ListAdminOrders:
+    """UC-ORDERS-07 (R7, R17): pedidos de todos los clientes."""
+
+    def __init__(self, orders: OrderRepository, expire: ExpireOverdueOrders) -> None:
+        self._orders = orders
+        self._expire = expire
+
+    def __call__(self, query: AdminOrderQuery) -> OrderPage:
+        # shortcut: solo 200 vencidos por lectura; el resto, en la siguiente.
+        self._expire()
+        return self._orders.list_all(query)
+
+
+class GetAdminOrder:
+    """UC-ORDERS-08 (R7): sin filtro de dueño; inexistente, OrderNotFound."""
+
+    def __init__(self, orders: OrderRepository, expire: ExpireOverdueOrders) -> None:
+        self._orders = orders
+        self._expire = expire
+
+    def __call__(self, order_id: UUID) -> Order:
+        self._expire(order_ids=[order_id])
+        order = self._orders.get(order_id)
+        if order is None:
+            raise OrderNotFound
+        return order
+
+
 class CancelMyOrder:
     """UC-ORDERS-04 (R4, R7, R10, R11): bloquea el pedido propio y luego decide el estado."""
 

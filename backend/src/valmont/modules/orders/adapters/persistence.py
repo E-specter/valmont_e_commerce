@@ -521,7 +521,8 @@ class SqlOrderRepository:
         if term:
             matches = [DeliveryRow.recipient_name.ilike(f"%{_escape_like(term)}%", escape="\\")]
             digits = term.upper().removeprefix("VAL-")
-            if digits.isascii() and digits.isdigit():
+            # bigint: un número mayor no puede existir; no se consulta (sin error de la BD).
+            if digits.isascii() and digits.isdigit() and int(digits) <= 2**63 - 1:
                 matches.append(OrderRow.order_number == int(digits))
             conditions.append(or_(*matches))
         return self._page(conditions, query.page, query.page_size)

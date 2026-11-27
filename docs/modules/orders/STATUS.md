@@ -373,6 +373,15 @@ Y la fila de `docs/agents/_registry.md`: `docs/modules/orders/ · Carpeta · SPE
 
 ## Traspasos
 
+#### Traspaso T-078 — 2026-11-26 — backend-dev
+1. Estado: IN_REVIEW. Pruebas: NO EJECUTADO (D-028, D-033).
+2. Hecho: `application.py` (`ListAdminOrders`, `GetAdminOrder`); `adapters/admin_http.py` nuevo (router `/api/v1/orders/admin`, `AdminOrderSummaryOut`, `AdminOrderPageOut`, `AdminHistoryEntryOut`, `AdminOrderDetailOut`, 2 `GET` con `require_admin`); `main.py`: una línea, router de administración antes del del cliente.
+3. Interpretaciones: (a) `ListAdminOrders` llama `expire()` sin filtro (hasta 200, R7) y luego `list_all`; `GetAdminOrder` hace `expire(order_ids=[id])` y `get(id)` sin dueño. (b) `page_size` 1-50 y `page` 1-1000 (R17; la SPEC no da otro tope para admin). (c) `status` admite un solo valor, como dice §7 (sin el multivalor de D-041 P-6). (d) `created_from > created_to` no es 422: devuelve vacío (§7 no lo pide). (e) `can_transition_to` = `admin_targets(status, método)` en el orden del enum. (f) El detalle reutiliza `OrderDetailOut.build` y sustituye `history` por la versión con `actor_id` y `note`. (g) `q` se recorta y vacío equivale a sin filtro (lo hace `list_all`).
+4. Análisis estático: `uv run ruff format . -> 209 files left unchanged`; `uv run ruff check . -> All checks passed!`; `create_app().openapi()` lista `/admin` y `/admin/{order_id}` antes que `/{order_id}`, con sus parámetros y respuestas 200/401/403/404/422/503.
+5. Sin PII en logs: no se registra nada; sin escrituras salvo la caducidad.
+6. Corrección (Leader, QA modo A): `persistence.py` `list_all` no compara el número si `int(digits) > 2**63 - 1`; `admin_http.py` responde 422 `validation_error` (`loc ["query","q"]`) si `q` tiene caracteres Cc o Cs. `VAL-` ya era insensible a mayúsculas (`term.upper()`); `q` en blanco = sin filtro.
+12. Commits: ninguno, preparado. Mensaje: `feat(orders): listado y detalle de pedidos para administración (T-078)`.
+
 #### Traspaso T-077 — 2026-11-26 — backend-dev
 1. Estado: IN_REVIEW. Pruebas: NO EJECUTADO (D-028, D-033).
 2. Hecho: solo `application.py`: `PayableOrder`, `PaymentOutcome`, `GetPayableOrder`, `ConfirmOrderPayment` con las firmas del paquete. Sin HTTP, sin `wiring.py` (el paquete protege `adapters/**`): payments necesitará el proveedor, que se pide en otra tarea.
