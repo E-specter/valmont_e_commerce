@@ -1,0 +1,14 @@
+---
+import StoreLayout from '../layouts/StoreLayout.astro';
+import EmptyState from '../components/ui/EmptyState.astro';
+import Button from '../components/ui/Button.astro';
+
+export const prerender = false;
+---
+
+<StoreLayout title="Página no encontrada — Valmont" noindex>
+  <h1 class="sr-only">Error 404</h1>
+  <EmptyState title="Esta página no existe" description="Puede que el reloj ya no esté disponible o que el enlace sea incorrecto." headingLevel={2}>
+    <Button slot="action" href="/relojes" variant="dark">Ver el catálogo</Button>
+  </EmptyState>
+</StoreLayout>

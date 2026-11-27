@@ -1,0 +1,111 @@
+---
+import StoreLayout from '../../layouts/StoreLayout.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import Button from '../../components/ui/Button.astro';
+import DefinitionList from '../../components/ui/DefinitionList.astro';
+import Notice from '../../components/ui/Notice.astro';
+import BuyBox from '../../components/catalog/BuyBox.astro';
+import ProductGallery from '../../components/catalog/ProductGallery.astro';
+import ProductGrid from '../../components/catalog/ProductGrid.astro';
+import { specRows } from '../../components/catalog/spec-rows';
+import { getProduct, type ProductDetail } from '../../lib/api/catalog';
+import { ApiError } from '../../lib/api/http';
+import { serverTransport } from '../../lib/api/server';
+
+export const prerender = false;
+
+const slug = Astro.params.slug ?? '';
+// '.' y '..' se normalizan en la URL de la API (N-2): 404 sin llamarla.
+if (!slug || slug === '.' || slug === '..') return Astro.rewrite('/404');
+
+let product: ProductDetail | null = null;
+try {
+  product = await getProduct(serverTransport(), slug);
+} catch (e) {
+  if (e instanceof ApiError && e.status === 404) return Astro.rewrite('/404');
+  Astro.response.status = 502;
+  Astro.response.headers.set('Cache-Control', 'no-store');
+}
+
+if (product) {
+  Astro.response.headers.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
+}
+const images = product ? (product.images?.length ? product.images : [product.main_image]) : [];
+const description = product?.description.replace(/\s+/g, ' ').trim().slice(0, 155);
+---
+
+{
+  product ? (
+    <StoreLayout title={`${product.name} — Valmont`} description={description || undefined}>
+      {product.images?.[0] || product.main_image?.url ? (
+        <meta slot="head" property="og:image" content={(product.images?.[0] ?? product.main_image).url} />
+      ) : null}
+      <div class="page">
+        <Breadcrumb
+          items={[
+            { label: 'Inicio', href: '/' },
+            { label: 'Relojes', href: '/relojes' },
+            { label: product.category.name, href: `/relojes?category=${encodeURIComponent(product.category.slug)}` },
+            { label: product.name },
+          ]}
+        />
+        <div class="hero">
+          <ProductGallery images={images} productName={product.name} />
+          <BuyBox product={product} />
+        </div>
+        <section class="specs" aria-labelledby="specs-title">
+          <h2 id="specs-title" class="section-title">Especificaciones</h2>
+          <DefinitionList items={specRows(product)} columns={2} />
+        </section>
+        {product.related.length > 0 && (
+          <section class="related" aria-labelledby="related-title">
+            <h2 id="related-title" class="section-title">También te pueden interesar</h2>
+            <ProductGrid products={product.related} variant="related" label="Relojes relacionados" headingLevel={3} />
+          </section>
+        )}
+      </div>
+    </StoreLayout>
+  ) : (
+    <StoreLayout title="No pudimos cargar este reloj — Valmont" noindex>
+      <div class="page">
+        <h1 class="section-title">Reloj no disponible</h1>
+        <Notice tone="error" title="No pudimos cargar este reloj">
+          Hubo un problema al consultar el catálogo. Inténtalo de nuevo en unos segundos.
+          <Button slot="actions" href={Astro.url.pathname} variant="secondary">Reintentar</Button>
+        </Notice>
+      </div>
+    </StoreLayout>
+  )
+}
+
+<style>
+  @layer components {
+    .page {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-32);
+      padding-block: var(--space-16) var(--space-64);
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-32);
+    }
+    .section-title {
+      margin: 0 0 var(--space-16);
+      font-family: var(--font-heading);
+      font-weight: var(--weight-bold);
+      font-size: var(--text-h3);
+      line-height: var(--leading-h3);
+      text-transform: uppercase;
+      color: var(--color-forest);
+    }
+    @media (min-width: 1280px) {
+      .hero {
+        grid-template-columns: minmax(0, 1fr) 460px;
+        gap: var(--space-48);
+        align-items: start;
+      }
+    }
+  }
+</style>

@@ -1,0 +1,112 @@
+---
+import Availability from '../ui/Availability.astro';
+import Price from '../ui/Price.astro';
+import TextLink from '../ui/TextLink.astro';
+import type { ProductDetail } from '../../lib/api/catalog';
+
+interface Props {
+  product: ProductDetail;
+}
+const { product } = Astro.props;
+---
+
+<section class="buybox" aria-label="Compra">
+  <header class="head">
+    <p class="collection">Colección {product.category.name}</p>
+    <h1 class="name">{product.name}</h1>
+    <p class="ref">Ref. {product.sku}</p>
+  </header>
+  {product.description && <p class="description">{product.description}</p>}
+  <div class="price-block">
+    <Price
+      price={product.price}
+      originalPrice={product.original_price}
+      discountAmount={product.discount_amount}
+      size="lg"
+    />
+    <p class="tax">IGV incluido</p>
+  </div>
+  <Availability availability={product.availability} />
+  {
+    Astro.slots.has('actions') && (
+      <div class="actions">
+        <slot name="actions" />
+      </div>
+    )
+  }
+  <div class="advisor"><TextLink href="/nosotros#contacto" arrow>Consultar con un asesor</TextLink></div>
+</section>
+
+<style>
+  @layer components {
+    .buybox {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-24);
+      min-width: 0;
+    }
+    .head {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+    .collection,
+    .ref {
+      margin: 0;
+      font-family: var(--font-editorial);
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    .collection {
+      overflow-wrap: anywhere;
+      font-size: var(--text-body-ui);
+    }
+    .ref {
+      font-size: var(--text-caption);
+    }
+    .name {
+      margin: 0;
+      font-family: var(--font-heading);
+      font-weight: var(--weight-bold);
+      font-size: var(--text-h2);
+      line-height: var(--leading-h2);
+      text-transform: uppercase;
+      color: var(--color-forest);
+      overflow-wrap: anywhere;
+    }
+    .description {
+      margin: 0;
+      padding-block-start: var(--space-24);
+      border-block-start: 1px solid var(--stroke-soft);
+      width: 100%;
+      font-family: var(--font-ui);
+      font-size: var(--text-body-ui);
+      line-height: var(--leading-body-ui);
+      color: var(--text-secondary);
+      white-space: pre-line;
+      overflow-wrap: anywhere;
+    }
+    .price-block {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+    .tax {
+      margin: 0;
+      font-family: var(--font-ui);
+      font-size: var(--text-caption);
+      color: var(--text-secondary);
+    }
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-12);
+      width: 100%;
+    }
+    .advisor {
+      align-self: center;
+    }
+  }
+</style>
