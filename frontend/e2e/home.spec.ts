@@ -24,6 +24,9 @@ const OK = 200;
 const NAV_MS = 15_000;
 // Origen de las fotos de producto (Storage local del contrato).
 const STORAGE_ORIGIN = 'http://127.0.0.1:54321';
+// Etiquetas de texto admitidas como LCP: "H1" (titular) y "A" (wordmark) casan; "IMG" no.
+// Probar: https://regex101.com/?flavor=javascript&regex=%5E(H1%7CA)%24&flags=
+const LCP_TEXT_TAG = /^(H1|A)$/;
 // Ruta del API en una URL: "http://x/api/v1/catalog" casa; "http://x/relojes" no.
 // Probar: https://regex101.com/?flavor=javascript&regex=%2Fapi%2Fv1%2F&flags=
 const API_PATH = /\/api\/v1\//;
@@ -216,7 +219,8 @@ test.describe('portada / con el backend real', () => {
       await page.waitForTimeout(SETTLE_MS);
       const entries = await page.evaluate(() => (window as unknown as { __lcp: { tag: string; priority: string | null; loading: string | null }[] }).__lcp);
       expect(entries.length, 'se registró un LCP').toBeGreaterThan(NONE);
-      expect(entries.at(-ONE)).toEqual({ tag: 'H1', priority: null, loading: null });
+      // T-133 (D-02): el wordmark de la cabecera (enlace de texto, mayor desde 800 px) puede ser el LCP; lo que no puede ser es una imagen.
+      expect(entries.at(-ONE)).toMatchObject({ tag: expect.stringMatching(LCP_TEXT_TAG), priority: null, loading: null });
     });
   });
 

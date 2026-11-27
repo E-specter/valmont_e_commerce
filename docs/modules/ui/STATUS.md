@@ -25,6 +25,9 @@ Rango reservado del módulo: **T-116–T-139**. En uso: T-116–T-131. Libres: *
 | T-129 | Cuenta `/cuenta`: perfil y cierre de sesión | frontend-dev + qa-reviewer | T-119, T-126 | BACKLOG |
 | T-131 | Fecha de nacimiento en el registro (+18) | frontend-dev + qa-reviewer | T-113 (identity, sin hacer), T-128 | BLOCKED (T-113) |
 | T-132 | fix: orden de capas CSS declarado en `BaseLayout` (en producción `components` quedaba debajo de `reset`) y textos largos en migas, `BuyBox` | frontend-dev + qa-reviewer | T-116 | DONE (73f2459) |
+| T-133 | fix visual A: cabecera y pie: damero de dos filas, wordmark más grande compatible con P-1, pie en móvil y contacto sin Jaro (D-01, D-02, D-09, D-14; D-044) | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | IN_REVIEW |
+| T-134 | fix visual B: barra de filtros alineada en escritorio y plegable en móvil, "Limpiar filtros" de 44 px (D-05, D-11) | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | READY |
+
 | T-133 | fix visual A: cabecera y pie: damero de dos filas, wordmark más grande compatible con P-1, pie en móvil y contacto sin Jaro (D-01, D-02, D-09, D-14; D-044) | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | READY |
 | T-134 | fix visual B: barra de filtros alineada en escritorio y plegable en móvil, "Limpiar filtros" de 44 px (D-05, D-11) | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | DONE (cc0c7fb) |
 | T-135 | fix visual C: pie de tarjeta homogéneo en una fila (divisor, precio y "Ver detalles" alineados) (D-10) | frontend-dev + qa-reviewer | REVIEW-2026-11-27 | READY |
@@ -689,6 +692,15 @@ export function formatDateOnly(isoDate: string): string;                        
 | **T-084** backoffice de pedidos | Sin frames (`admin` no capturada) y depende de T-078/T-079 (BACKLOG). Queda en el carril de backoffice, tras el diseño desde BRIEF; no entra en esta pista. |
 
 ## 8. Traspasos
+
+#### Traspaso T-133 (implementación) — 2026-11-27 — frontend-dev
+1. Tarea: T-133 · 2. Estado: IN_REVIEW (listo para QA). Figma: no consultado (D-031, cuota; D-02 y D-09 ya documentados en REVIEW-2026-11-27).
+3. Hecho: D-01 `Checkerboard rows={2}` en cabecera y pie. D-02 el wordmark de la cabecera `full` mide `25cqi` del contenedor de marca (móvil) y `min(8rem, 16cqi)` desde 800 px; el contenedor es `.site-header__brand` (`container-type: inline-size`, `flex: 1`). Desde 800 px la marca pasa a ser un bloque (wordmark + símbolo, y el descriptor debajo, `flex-basis: 100%`); la búsqueda mide `clamp(12rem, 22vw, 18rem)`. D-09 pie en < 800: enlaces en rejilla de 2 columnas (sin huérfano), wordmark `14cqi` centrado; desde 800 vuelve a flex y `24cqi`. D-14 el contacto del pie pasa a `--font-ui` (Geist), sin mayúsculas ni Jaro; solo el wordmark conserva Jaro.
+4. Anchos del wordmark de la cabecera (antes → después): 360 px: 92 → 120; 375: ~95 → 134; 800: ~115 → 227; 1280: 115 → 467 (Figma ≈ 490). Medidos en dev (`astro dev`, detenido). Sin desbordamiento horizontal a 360, 375, 800 y 1280.
+5. Decisión mía: por debajo de ~12 rem de ancho de marca (móvil) se oculta el símbolo de 32 px para dar el sitio al wordmark junto a los 4 botones de 44 px (se quitó además el `gap` de 4 px entre botones). Sigue en ≥ 480 px aprox. Si el Leader prefiere símbolo en móvil, el wordmark baja a ≈ 95 px.
+6. Para QA: pruebas que asuman `rows=1`/`data-rows`, el tamaño `--text-h3` del wordmark, símbolo visible en móvil, contacto en `--font-brand`/mayúsculas o enlaces del pie en flex en móvil pueden cambiar (`site-layout.test.ts`, `site-header-footer.spec.ts`). No tocadas. Comprobar foco/primer enfocable (enlace de salto) y menú móvil. `Wordmark.astro` sin cambios (el tamaño se fija desde la cabecera).
+7. `cd frontend && npm run check → 0 errors, 0 warnings, 0 hints`. `NO EJECUTADO: pruebas (D-028, D-033)`.
+12. Commits: ninguno — preparado: `frontend/src/components/layout/SiteHeader.astro`, `SiteFooter.astro`, este STATUS. Mensaje: `fix(ui): cabecera y pie con damero de dos filas, wordmark mayor y contacto legible (T-133)`.
 
 #### Traspaso T-135 (implementación) — 2026-11-27 — frontend-dev
 1. Tarea: T-135 (D-10) · 2. Estado: IN_REVIEW (listo para QA). Figma: no consultado.

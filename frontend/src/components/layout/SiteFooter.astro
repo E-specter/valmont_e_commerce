@@ -28,7 +28,7 @@ const tel = SITE.phone.replace(/[^\d+]/g, '');
     <p class="site-footer__mark" aria-hidden="true">{SITE.name}</p>
     <p class="site-footer__rights">© 2026 Valmont. Todos los derechos reservados.</p>
   </div>
-  <Checkerboard />
+  <Checkerboard rows={2} />
 </footer>
 
 <style>
@@ -47,9 +47,9 @@ const tel = SITE.phone.replace(/[^\d+]/g, '');
       padding: var(--space-48) var(--page-margin) var(--space-24);
     }
     .site-footer__links {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--space-4) var(--space-24);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 var(--space-24);
       padding: 0;
     }
     .site-footer__links :global(.textlink) {
@@ -61,20 +61,20 @@ const tel = SITE.phone.replace(/[^\d+]/g, '');
       display: flex;
       flex-direction: column;
       font-style: normal;
-      font-family: var(--font-brand);
-      font-size: var(--text-body-editorial);
-      letter-spacing: var(--tracking-body-editorial);
-      text-transform: uppercase;
+      font-family: var(--font-ui);
+      font-size: var(--text-body-ui);
+      line-height: var(--leading-body-ui);
     }
     .site-footer__contact > :global(a) {
       display: inline-flex;
       align-items: center;
       min-block-size: var(--touch-target);
     }
-    /* Wordmark gigante decorativo: ancho casi completo del contenedor (Figma 240 px sobre 1280) */
+    /* Wordmark decorativo: ≈ 55 % del ancho en móvil (Figma ≈ 180 px) y casi completo desde 800 px (Figma 240 px sobre 1280) */
     .site-footer__mark {
       font-family: var(--font-brand);
-      font-size: 24cqi;
+      font-size: 14cqi;
+      text-align: center;
       line-height: 0.84;
       letter-spacing: 0.01em;
       text-transform: uppercase;
@@ -90,6 +90,15 @@ const tel = SITE.phone.replace(/[^\d+]/g, '');
     @media (min-width: 800px) {
       .site-footer__body {
         grid-template-columns: 1fr 1fr;
+      }
+      .site-footer__links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-4) var(--space-24);
+      }
+      .site-footer__mark {
+        font-size: 24cqi;
+        text-align: start;
       }
       .site-footer__mark,
       .site-footer__rights {
