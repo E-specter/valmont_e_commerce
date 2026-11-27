@@ -46,3 +46,19 @@ export function formatDateOnly(isoDate: string): string {
     new Date(Date.UTC(y, m - 1, d)),
   );
 }
+
+const numericFmt = new Intl.DateTimeFormat('en-GB', {
+  timeZone: TIME_ZONE,
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+/** Instante ISO (UTC) → "27/11/2026 15:04" en hora de Lima, 24 h (backoffice, D-049). */
+export function formatDateTimeNumeric(iso: string): string {
+  const parts = Object.fromEntries(numericFmt.formatToParts(new Date(iso)).map((p) => [p.type, p.value]));
+  return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute}`;
+}

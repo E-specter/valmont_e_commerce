@@ -1,0 +1,380 @@
+{
+ "/@1280": {
+  "roles": "9b45f6242ce85988e5efe20e",
+  "elements": {
+   "html": "a82a85937e0a9ce449ba101e",
+   "body": "453a79154f248f2ed8e90e70",
+   "main": "e18cb5cf5a917530cefb23c0",
+   "header": "0913e98b935a414dc17faf7d",
+   "footer": "0913e98b935a414dc17faf7d",
+   "nav": "3376f5c1be8fd7958c1efb5a",
+   "h1": "2d8f37de67e77879201bd46a",
+   "h2": "09b636fd4dd8a1d0a9adfb19",
+   "p": "f70d209b2b9ed8d096c2136c",
+   "label": "bf71fccbaf822ab4e411d8ba",
+   "img": "b82dd16bb2be2c9919acd07d",
+   "button": "7d494c94b30f8eedbdbd7fd6",
+   "input:not([type=\"hidden\"])": "74bacfbcd4fdd829b7e12751",
+   "a[href]:not(.skip-link)": "eae9db6b1518479ac93d7332",
+   ".skip-link": "c93dcaee8ffab020322ba933"
+  },
+  "summary": {
+   "bg": "#fffde4",
+   "text": "#0f0f0f",
+   "surface": "#ffffff",
+   "body": "rgb(255, 253, 228) rgb(15, 15, 15) 16px",
+   "h1": "rgb(15, 15, 15) 42px 600"
+  }
+ },
+ "/relojes@1280": {
+  "roles": "9b45f6242ce85988e5efe20e",
+  "elements": {
+   "html": "a82a85937e0a9ce449ba101e",
+   "body": "453a79154f248f2ed8e90e70",
+   "main": "e18cb5cf5a917530cefb23c0",
+   "header": "0913e98b935a414dc17faf7d",
+   "footer": "0913e98b935a414dc17faf7d",
+   "nav": "3376f5c1be8fd7958c1efb5a",
+   "h1": "ca29453458c29c3689e1a9b4",
+   "h2": "162fed1651dc0a0ca7414685",
+   "p": "f70d209b2b9ed8d096c2136c",
+   "label": "bf71fccbaf822ab4e411d8ba",
+   "img": "b82dd16bb2be2c9919acd07d",
+   "button": "7d494c94b30f8eedbdbd7fd6",
+   "input:not([type=\"hidden\"])": "74bacfbcd4fdd829b7e12751",
+   "a[href]:not(.skip-link)": "eae9db6b1518479ac93d7332",
+   ".skip-link": "c93dcaee8ffab020322ba933"
+  },
+  "summary": {
+   "bg": "#fffde4",
+   "text": "#0f0f0f",
+   "surface": "#ffffff",
+   "body": "rgb(255, 253, 228) rgb(15, 15, 15) 16px",
+   "h1": "rgb(0, 35, 18) 60px 700"
+  }
+ },
+ "/relojes/demo-lira-37@1280": {
+  "roles": "9b45f6242ce85988e5efe20e",
+  "elements": {
+   "html": "a82a85937e0a9ce449ba101e",
+   "body": "453a79154f248f2ed8e90e70",
+   "main": "e18cb5cf5a917530cefb23c0",
+   "header": "0913e98b935a414dc17faf7d",
+   "footer": "0913e98b935a414dc17faf7d",
+   "nav": "3376f5c1be8fd7958c1efb5a",
+   "h1": "000b7fea860bad2cf33da186",
+   "h2": "22b2bde3078f42205ec0392c",
+   "p": "f70d209b2b9ed8d096c2136c",
+   "label": "bf71fccbaf822ab4e411d8ba",
+   "img": "b82dd16bb2be2c9919acd07d",
+   "button": "7d494c94b30f8eedbdbd7fd6",
+   "input:not([type=\"hidden\"])": "74bacfbcd4fdd829b7e12751",
+   "a[href]:not(.skip-link)": "eae9db6b1518479ac93d7332",
+   ".skip-link": "c93dcaee8ffab020322ba933"
+  },
+  "summary": {
+   "bg": "#fffde4",
+   "text": "#0f0f0f",
+   "surface": "#ffffff",
+   "body": "rgb(255, 253, 228) rgb(15, 15, 15) 16px",
+   "h1": "rgb(0, 35, 18) 42px 700"
+  }
+ },
+ "/ingresar@1280": {
+  "roles": "9b45f6242ce85988e5efe20e",
+  "elements": {
+   "html": "a82a85937e0a9ce449ba101e",
+   "body": "453a79154f248f2ed8e90e70",
+   "main": "1b0efc75378f42c4e4abfb43",
+   "header": "4ff3ab0be3be83876e9736e4",
+   "footer": null,
+   "nav": "c8a89ddd7f847eb329cddbcb",
+   "h1": "0ddb42389a47c4630d79246b",
+   "h2": null,
+   "p": "1dbb91874801536bd2ca6501",
+   "label": "204cfcc531db5d6f94d50c4a",
+   "img": null,
+   "button": "95123c9dc821ae5a107c50fe",
+   "input:not([type=\"hidden\"])": "40a31d79aef9898c57c1d980",
+   "a[href]:not(.skip-link)": "730c449e596ee9bd6b19778e",
+   ".skip-link": "c93dcaee8ffab020322ba933"
+  },
+  "summary": {
+   "bg": "#fffde4",
+   "text": "#0f0f0f",
+   "surface": "#ffffff",
+   "body": "rgb(255, 253, 228) rgb(15, 15, 15) 16px",
+   "h1": "rgb(255, 253, 228) 60px 700"
+  }
+ },
+ "/registro@1280": {
+  "roles": "9b45f6242ce85988e5efe20e",
+  "elements": {
+   "html": "a82a85937e0a9ce449ba101e",
+   "body": "453a79154f248f2ed8e90e70",
+   "main": "1b0efc75378f42c4e4abfb43",
+   "header": "4ff3ab0be3be83876e9736e4",
+   "footer": null,
+   "nav": "c8a89ddd7f847eb329cddbcb",
+   "h1": "0ddb42389a47c4630d79246b",
+   "h2": null,
+   "p": "1dbb91874801536bd2ca6501",
+   "label": "204cfcc531db5d6f94d50c4a",
+   "img": null,
+   "button": "95123c9dc821ae5a107c50fe",
+   "input:not([type=\"hidden\"])": "40a31d79aef9898c57c1d980",
+   "a[href]:not(.skip-link)": "730c449e596ee9bd6b19778e",
+   ".skip-link": "c93dcaee8ffab020322ba933"
+  },
+  "summary": {
+   "bg": "#fffde4",
+   "text": "#0f0f0f",
+   "surface": "#ffffff",
+   "body": "rgb(255, 253, 228) rgb(15, 15, 15) 16px",
+   "h1": "rgb(255, 253, 228) 60px 700"
+  }
+ },
+ "/nosotros@1280": {
+  "roles": "9b45f6242ce85988e5efe20e",
+  "elements": {
+   "html": "a82a85937e0a9ce449ba101e",
+   "body": "453a79154f248f2ed8e90e70",
+   "main": "e18cb5cf5a917530cefb23c0",
+   "header": "0913e98b935a414dc17faf7d",
+   "footer": "0913e98b935a414dc17faf7d",
+   "nav": "3376f5c1be8fd7958c1efb5a",
+   "h1": "30e267826bf2fe87793de97b",
+   "h2": "19f21c4b5a3a81ec81fb7e23",
+   "p": "f70d209b2b9ed8d096c2136c",
+   "label": "bf71fccbaf822ab4e411d8ba",
+   "img": "b82dd16bb2be2c9919acd07d",
+   "button": "7d494c94b30f8eedbdbd7fd6",
+   "input:not([type=\"hidden\"])": "74bacfbcd4fdd829b7e12751",
+   "a[href]:not(.skip-link)": "eae9db6b1518479ac93d7332",
+   ".skip-link": "c93dcaee8ffab020322ba933"
+  },
+  "summary": {
+   "bg": "#fffde4",
+   "text": "#0f0f0f",
+   "surface": "#ffffff",
+   "body": "rgb(255, 253, 228) rgb(15, 15, 15) 16px",
+   "h1": "rgb(255, 253, 228) 42px 700"
+  }
+ },
+ "/cuenta@1280": {
+  "roles": "9b45f6242ce85988e5efe20e",
+  "elements": {
+   "html": "a82a85937e0a9ce449ba101e",
+   "body": "453a79154f248f2ed8e90e70",
+   "main": "e18cb5cf5a917530cefb23c0",
+   "header": "0913e98b935a414dc17faf7d",
+   "footer": "0913e98b935a414dc17faf7d",
+   "nav": "3376f5c1be8fd7958c1efb5a",
+   "h1": "ca29453458c29c3689e1a9b4",
+   "h2": "a78f046821fb5a6d625b685c",
+   "p": "f70d209b2b9ed8d096c2136c",
+   "label": "bf71fccbaf822ab4e411d8ba",
+   "img": "b82dd16bb2be2c9919acd07d",
+   "button": "7d494c94b30f8eedbdbd7fd6",
+   "input:not([type=\"hidden\"])": "74bacfbcd4fdd829b7e12751",
+   "a[href]:not(.skip-link)": "eae9db6b1518479ac93d7332",
+   ".skip-link": "c93dcaee8ffab020322ba933"
+  },
+  "summary": {
+   "bg": "#fffde4",
+   "text": "#0f0f0f",
+   "surface": "#ffffff",
+   "body": "rgb(255, 253, 228) rgb(15, 15, 15) 16px",
+   "h1": "rgb(0, 35, 18) 60px 700"
+  }
+ },
+ "/@375": {
+  "roles": "9b45f6242ce85988e5efe20e",
+  "elements": {
+   "html": "a82a85937e0a9ce449ba101e",
+   "body": "5eb464d462e7985a32a810ed",
+   "main": "0d11dff6ff9bad3188c53596",
+   "header": "e822651ba1d0624de2cfdf94",
+   "footer": "e822651ba1d0624de2cfdf94",
+   "nav": "4b5d1c4ba6405622ab7121b9",
+   "h1": "f4ac4268bf1906c4012d7e03",
+   "h2": "3da9f0ab9fdbb0ed0d9be5be",
+   "p": "4b5d1c4ba6405622ab7121b9",
+   "label": "4b5d1c4ba6405622ab7121b9",
+   "img": "4b5d1c4ba6405622ab7121b9",
+   "button": "4b80285c43d6a33784217fa1",
+   "input:not([type=\"hidden\"])": "e297d40cbdd912c5bd3bea40",
+   "a[href]:not(.skip-link)": "d29176044282aeedb5851df3",
+   ".skip-link": "1df51e805db1511d207588ec"
+  },
+  "summary": {
+   "bg": "#fffde4",
+   "text": "#0f0f0f",
+   "surface": "#ffffff",
+   "body": "rgb(255, 253, 228) rgb(15, 15, 15) 15.0163px",
+   "h1": "rgb(15, 15, 15) 32.163px 600"
+  }
+ },
+ "/relojes@375": {
+  "roles": "9b45f6242ce85988e5efe20e",
+  "elements": {
+   "html": "a82a85937e0a9ce449ba101e",
+   "body": "5eb464d462e7985a32a810ed",
+   "main": "0d11dff6ff9bad3188c53596",
+   "header": "e822651ba1d0624de2cfdf94",
+   "footer": "e822651ba1d0624de2cfdf94",
+   "nav": "4b5d1c4ba6405622ab7121b9",
+   "h1": "0228b25ddb34503465e20479",
+   "h2": "d487e5284521f4a0276a35b0",
+   "p": "4b5d1c4ba6405622ab7121b9",
+   "label": "4b5d1c4ba6405622ab7121b9",
+   "img": "4b5d1c4ba6405622ab7121b9",
+   "button": "4b80285c43d6a33784217fa1",
+   "input:not([type=\"hidden\"])": "e297d40cbdd912c5bd3bea40",
+   "a[href]:not(.skip-link)": "d29176044282aeedb5851df3",
+   ".skip-link": "1df51e805db1511d207588ec"
+  },
+  "summary": {
+   "bg": "#fffde4",
+   "text": "#0f0f0f",
+   "surface": "#ffffff",
+   "body": "rgb(255, 253, 228) rgb(15, 15, 15) 15.0163px",
+   "h1": "rgb(0, 35, 18) 42.2935px 700"
+  }
+ },
+ "/relojes/demo-lira-37@375": {
+  "roles": "9b45f6242ce85988e5efe20e",
+  "elements": {
+   "html": "a82a85937e0a9ce449ba101e",
+   "body": "5eb464d462e7985a32a810ed",
+   "main": "0d11dff6ff9bad3188c53596",
+   "header": "e822651ba1d0624de2cfdf94",
+   "footer": "e822651ba1d0624de2cfdf94",
+   "nav": "4b5d1c4ba6405622ab7121b9",
+   "h1": "fe6b27c7ef9f39f0f69846f8",
+   "h2": "f1b61e8e770a602f565288b7",
+   "p": "4b5d1c4ba6405622ab7121b9",
+   "label": "4b5d1c4ba6405622ab7121b9",
+   "img": "4b5d1c4ba6405622ab7121b9",
+   "button": "4b80285c43d6a33784217fa1",
+   "input:not([type=\"hidden\"])": "e297d40cbdd912c5bd3bea40",
+   "a[href]:not(.skip-link)": "d29176044282aeedb5851df3",
+   ".skip-link": "1df51e805db1511d207588ec"
+  },
+  "summary": {
+   "bg": "#fffde4",
+   "text": "#0f0f0f",
+   "surface": "#ffffff",
+   "body": "rgb(255, 253, 228) rgb(15, 15, 15) 15.0163px",
+   "h1": "rgb(0, 35, 18) 32.163px 700"
+  }
+ },
+ "/ingresar@375": {
+  "roles": "9b45f6242ce85988e5efe20e",
+  "elements": {
+   "html": "a82a85937e0a9ce449ba101e",
+   "body": "5eb464d462e7985a32a810ed",
+   "main": "160246b54baf4c421894b0e0",
+   "header": "ba080b43bf8fbdd012edd760",
+   "footer": null,
+   "nav": "abb3efcb72df6964da009c50",
+   "h1": "592c042f4079db30c583122d",
+   "h2": null,
+   "p": "5ac1fc7f2b4de780da61ff5e",
+   "label": "08bc81c6229afb72b5e58fe4",
+   "img": null,
+   "button": "6eab1819b23ab382552a4f97",
+   "input:not([type=\"hidden\"])": "7f5f92750c53572a0a5d60b3",
+   "a[href]:not(.skip-link)": "090f0bd1f41b7157bd6b0d99",
+   ".skip-link": "1df51e805db1511d207588ec"
+  },
+  "summary": {
+   "bg": "#fffde4",
+   "text": "#0f0f0f",
+   "surface": "#ffffff",
+   "body": "rgb(255, 253, 228) rgb(15, 15, 15) 15.0163px",
+   "h1": "rgb(255, 253, 228) 42.2935px 700"
+  }
+ },
+ "/registro@375": {
+  "roles": "9b45f6242ce85988e5efe20e",
+  "elements": {
+   "html": "a82a85937e0a9ce449ba101e",
+   "body": "5eb464d462e7985a32a810ed",
+   "main": "160246b54baf4c421894b0e0",
+   "header": "ba080b43bf8fbdd012edd760",
+   "footer": null,
+   "nav": "abb3efcb72df6964da009c50",
+   "h1": "592c042f4079db30c583122d",
+   "h2": null,
+   "p": "5ac1fc7f2b4de780da61ff5e",
+   "label": "08bc81c6229afb72b5e58fe4",
+   "img": null,
+   "button": "6eab1819b23ab382552a4f97",
+   "input:not([type=\"hidden\"])": "7f5f92750c53572a0a5d60b3",
+   "a[href]:not(.skip-link)": "090f0bd1f41b7157bd6b0d99",
+   ".skip-link": "1df51e805db1511d207588ec"
+  },
+  "summary": {
+   "bg": "#fffde4",
+   "text": "#0f0f0f",
+   "surface": "#ffffff",
+   "body": "rgb(255, 253, 228) rgb(15, 15, 15) 15.0163px",
+   "h1": "rgb(255, 253, 228) 42.2935px 700"
+  }
+ },
+ "/nosotros@375": {
+  "roles": "9b45f6242ce85988e5efe20e",
+  "elements": {
+   "html": "a82a85937e0a9ce449ba101e",
+   "body": "5eb464d462e7985a32a810ed",
+   "main": "0d11dff6ff9bad3188c53596",
+   "header": "e822651ba1d0624de2cfdf94",
+   "footer": "e822651ba1d0624de2cfdf94",
+   "nav": "4b5d1c4ba6405622ab7121b9",
+   "h1": "d4f5a0f6bf4b4af8f0448c23",
+   "h2": "a25ea031da7eceebea4d30e6",
+   "p": "4b5d1c4ba6405622ab7121b9",
+   "label": "4b5d1c4ba6405622ab7121b9",
+   "img": "4b5d1c4ba6405622ab7121b9",
+   "button": "4b80285c43d6a33784217fa1",
+   "input:not([type=\"hidden\"])": "e297d40cbdd912c5bd3bea40",
+   "a[href]:not(.skip-link)": "d29176044282aeedb5851df3",
+   ".skip-link": "1df51e805db1511d207588ec"
+  },
+  "summary": {
+   "bg": "#fffde4",
+   "text": "#0f0f0f",
+   "surface": "#ffffff",
+   "body": "rgb(255, 253, 228) rgb(15, 15, 15) 15.0163px",
+   "h1": "rgb(255, 253, 228) 32.163px 700"
+  }
+ },
+ "/cuenta@375": {
+  "roles": "9b45f6242ce85988e5efe20e",
+  "elements": {
+   "html": "a82a85937e0a9ce449ba101e",
+   "body": "5eb464d462e7985a32a810ed",
+   "main": "0d11dff6ff9bad3188c53596",
+   "header": "e822651ba1d0624de2cfdf94",
+   "footer": "e822651ba1d0624de2cfdf94",
+   "nav": "4b5d1c4ba6405622ab7121b9",
+   "h1": "0228b25ddb34503465e20479",
+   "h2": "b105e448d3ef5305f864bd88",
+   "p": "4b5d1c4ba6405622ab7121b9",
+   "label": "4b5d1c4ba6405622ab7121b9",
+   "img": "4b5d1c4ba6405622ab7121b9",
+   "button": "4b80285c43d6a33784217fa1",
+   "input:not([type=\"hidden\"])": "e297d40cbdd912c5bd3bea40",
+   "a[href]:not(.skip-link)": "d29176044282aeedb5851df3",
+   ".skip-link": "1df51e805db1511d207588ec"
+  },
+  "summary": {
+   "bg": "#fffde4",
+   "text": "#0f0f0f",
+   "surface": "#ffffff",
+   "body": "rgb(255, 253, 228) rgb(15, 15, 15) 15.0163px",
+   "h1": "rgb(0, 35, 18) 42.2935px 700"
+  }
+ }
+}

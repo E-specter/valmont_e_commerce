@@ -1,0 +1,56 @@
+---
+// Muestrario del marco del backoffice (T-142). Solo existe en desarrollo: en producción responde 404.
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import Button from '../../components/ui/Button.astro';
+import { requireAdmin } from '../../lib/server/admin';
+
+export const prerender = false;
+
+if (!import.meta.env.DEV) {
+  return new Response(null, { status: 404 });
+}
+const gate = await requireAdmin(Astro);
+if (!gate.ok) return gate.response;
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+---
+
+<AdminLayout
+  title="Título de la vista"
+  section="panel"
+  userName={gate.ctx.profile.full_name}
+  description="Descripción breve de lo que se gestiona aquí."
+>
+  <Fragment slot="actions">
+    <Button variant="mint" href="/dev/admin-layout">Acción secundaria</Button>
+    <Button href="/dev/admin-layout">Acción principal</Button>
+  </Fragment>
+  <div class="zone">
+    <p class="zone__title">Zona de contenido</p>
+    <p>Tablas, formularios y tarjetas · máximo 1116 px de ancho útil · márgenes de 32 px · separación de 24 px entre bloques.</p>
+    <p>Barra lateral fija de 260 px (no se colapsa en escritorio) · barra superior de 72 px con migas, «Ver tienda» y menú de usuario.</p>
+  </div>
+</AdminLayout>
+
+<style>
+  @layer components {
+    .zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-8);
+      min-block-size: calc(var(--size-row-lg) * 4);
+      padding: var(--space-24);
+      border: 1px dashed var(--stroke-control);
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      text-align: center;
+    }
+    .zone__title {
+      color: var(--color-mint);
+      font-family: var(--font-heading);
+      font-size: var(--text-h3);
+      font-weight: var(--weight-semibold);
+    }
+  }
+</style>

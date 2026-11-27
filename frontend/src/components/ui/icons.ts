@@ -40,6 +40,24 @@ export const ICONS = {
   menu: ['M4 6h16', 'M4 12h16', 'M4 18h16'],
   plus: ['M5 12h14', 'M12 5v14'],
   minus: ['M5 12h14'],
+  // Backoffice (T-142): trazados propios en el mismo estilo (24x24, trazo 2,16), sin dependencias.
+  dashboard: ['M3 3h7v9H3z', 'M14 3h7v5h-7z', 'M14 12h7v9h-7z', 'M3 16h7v5H3z'],
+  orders: ['M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z', 'M3 6h18', 'M16 10a4 4 0 0 1-8 0'],
+  watch: ['M9 2h6l1 4H8Z', 'M9 22h6l1-4H8Z', circle(12, 12, 6), 'M12 9v3l2 1'],
+  inventory: ['M21 8 12 3 3 8v8l9 5 9-5Z', 'm3 8 9 5 9-5', 'M12 13v8'],
+  tag: ['M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z', 'M7 7h.01'],
+  chart: ['M3 3v18h18', 'M8 17v-5', 'M13 17V8', 'M18 17v-8'],
+  users: ['M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2', circle(9, 7, 4), 'M23 21v-2a4 4 0 0 0-3-3.87', 'M16 3.13a4 4 0 0 1 0 7.75'],
+  shield: ['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z'],
+  external: ['M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6', 'M15 3h6v6', 'M10 14 21 3'],
+  chevron: ['m9 18 6-6-6-6'],
+  alert: ['M12 8v5', 'M12 17h.01', circle(12, 12, 10)],
+  upload: ['M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'm17 8-5-5-5 5', 'M12 3v12'],
+  trash: ['M3 6h18', 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6', 'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2', 'M10 11v6', 'M14 11v6'],
+  back: ['M19 12H5', 'm12 19-7-7 7-7'],
+  chevdown: ['m6 9 6 6 6-6'],
+  image: ['M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z', circle(9, 9, 2), 'm21 15-5-5L5 21'],
+  drag: ['M9 5h.01', 'M15 5h.01', 'M9 12h.01', 'M15 12h.01', 'M9 19h.01', 'M15 19h.01'],
 } as const;
 
 export type IconName = keyof typeof ICONS;

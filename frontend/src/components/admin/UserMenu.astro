@@ -1,0 +1,136 @@
+---
+import Icon from '../ui/Icon.astro';
+
+interface Props {
+  name: string | null;
+}
+const { name } = Astro.props;
+// Iniciales de las dos primeras palabras; sin nombre, el icono de usuario.
+const initials = name
+  ? name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0].toUpperCase())
+      .join('')
+  : '';
+---
+
+<div class="user-menu">
+  <button class="user-menu__trigger" type="button" popovertarget="menu-usuario">
+    <span class="user-menu__avatar" aria-hidden="true">{initials || <Icon name="user" size={16} />}</span>
+    <span class="user-menu__who">
+      <span class="user-menu__name">{name ?? 'Cuenta'}</span>
+      {name && <span class="user-menu__role">Administrador</span>}
+    </span>
+    <Icon name="chevdown" size={16} />
+  </button>
+  <div id="menu-usuario" class="user-menu__panel" popover>
+    <a class="user-menu__item user-menu__shop" href="/">Ver tienda</a>
+    <form method="post" action="/salir">
+      <button class="user-menu__item" type="submit">Cerrar sesión</button>
+    </form>
+  </div>
+</div>
+
+<style>
+  @layer components {
+    .user-menu__trigger {
+      display: flex;
+      align-items: center;
+      gap: var(--space-12);
+      min-block-size: var(--size-control);
+      padding: var(--space-4) var(--space-8);
+      border: 0;
+      border-radius: var(--radius-pill);
+      background: transparent;
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      text-align: start;
+    }
+    .user-menu__trigger:hover {
+      background: var(--bg-surface-raised);
+    }
+    .user-menu__avatar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: none;
+      inline-size: calc(var(--space-32) + var(--space-4));
+      block-size: calc(var(--space-32) + var(--space-4));
+      border-radius: var(--radius-pill);
+      background: var(--color-mint);
+      color: var(--color-ink);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-bold);
+    }
+    .user-menu__who {
+      display: flex;
+      flex-direction: column;
+      min-inline-size: 0;
+    }
+    .user-menu__name {
+      font-size: var(--text-body-ui);
+      font-weight: var(--weight-medium);
+      line-height: var(--leading-caption);
+      white-space: nowrap;
+    }
+    .user-menu__role {
+      color: var(--text-secondary);
+      font-size: var(--text-caption);
+      line-height: var(--leading-body-ui);
+    }
+    .user-menu__panel {
+      inset: var(--size-topbar) var(--space-16) auto auto;
+      margin: 0;
+      min-inline-size: calc(var(--size-sidebar) - var(--space-24));
+      padding: var(--space-8);
+      border: 1px solid var(--stroke-control);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+    }
+    .user-menu__panel form {
+      margin: 0;
+    }
+    .user-menu__item {
+      display: flex;
+      align-items: center;
+      inline-size: 100%;
+      min-block-size: var(--size-control);
+      padding: var(--space-8) var(--space-12);
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: inherit;
+      font-family: var(--font-ui);
+      font-size: var(--text-body-ui);
+      font-weight: var(--weight-medium);
+      text-align: start;
+      text-decoration: none;
+    }
+    .user-menu__item:hover {
+      background: var(--bg-surface-raised);
+    }
+    /* «Ver tienda» ya está en la barra superior en pantallas anchas */
+    @media (min-width: 1025px) {
+      .user-menu__shop {
+        display: none;
+      }
+    }
+    /* Por debajo de 1025 px solo se ve el avatar; el texto sigue siendo el nombre accesible del botón (WCAG 2.5.3) */
+    @media (max-width: 1024px) {
+      .user-menu__who {
+        position: absolute;
+        inline-size: 1px;
+        block-size: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      .user-menu__trigger {
+        position: relative;
+      }
+    }
+  }
+</style>

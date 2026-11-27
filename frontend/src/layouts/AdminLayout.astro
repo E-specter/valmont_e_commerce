@@ -1,0 +1,287 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import NavItem from '../components/admin/NavItem.astro';
+import UserMenu from '../components/admin/UserMenu.astro';
+import Breadcrumb from '../components/ui/Breadcrumb.astro';
+import Icon from '../components/ui/Icon.astro';
+import Wordmark from '../components/ui/Wordmark.astro';
+import { ADMIN_NAV, type AdminSection } from '../lib/admin/nav';
+
+interface Props {
+  title: string;
+  section: AdminSection;
+  crumbs?: { label: string; href?: string }[];
+  userName: string | null;
+  description?: string;
+  /** Solo wordmark, contenido y «Volver a la tienda»: para quien aún no es administrador verificado. */
+  minimal?: boolean;
+}
+const { title, section, crumbs, userName, description, minimal = false } = Astro.props;
+const entry = ADMIN_NAV.find((e) => e.section === section);
+const trail = [{ label: 'Backoffice', href: '/admin' }, ...(crumbs ?? [{ label: entry?.label ?? title }])];
+---
+
+<BaseLayout title={`${title} · Backoffice · Valmont`} noindex context="backoffice">
+  <div class="admin" data-minimal={minimal ? '' : undefined}>
+    {!minimal && <div id="menu-admin" class="admin__sidebar" popover>
+      <div class="admin__brand">
+        <Wordmark tone="ivory" href="/admin" />
+        <span class="admin__tag">Backoffice</span>
+        <button class="admin__close" type="button" popovertarget="menu-admin" popovertargetaction="hide" aria-label="Cerrar menú">
+          <Icon name="x" size={24} />
+        </button>
+      </div>
+      <nav aria-label="Administración">
+        <ul role="list">
+          {
+            ADMIN_NAV.map((e) => (
+              <NavItem
+                label={e.label}
+                href={e.enabled ? e.href : undefined}
+                icon={e.icon}
+                current={e.section === section}
+                disabled={!e.enabled}
+                hint={e.enabled ? undefined : 'Pronto'}
+              />
+            ))
+          }
+        </ul>
+      </nav>
+      <div class="admin__checker" aria-hidden="true"></div>
+    </div>}
+
+    <div class="admin__main">
+      {minimal ? (
+        <header class="admin__topbar">
+          <Wordmark tone="ivory" />
+          <a class="admin__shop" href="/">Volver a la tienda</a>
+        </header>
+      ) : (
+      <header class="admin__topbar">
+        <button class="admin__open" type="button" popovertarget="menu-admin" aria-label="Abrir menú de administración">
+          <Icon name="menu" size={24} />
+        </button>
+        <Breadcrumb items={trail} />
+        <div class="admin__user">
+          <a class="admin__shop" href="/">Ver tienda</a>
+          <UserMenu name={userName} />
+        </div>
+      </header>
+      )}
+      <main id="contenido" tabindex="-1">
+        <div class="admin__page">
+          <div class="admin__head">
+            <div class="admin__titles">
+              <h1>{title}</h1>
+              {description && <p>{description}</p>}
+            </div>
+            {
+              Astro.slots.has('actions') && (
+                <div class="admin__actions">
+                  <slot name="actions" />
+                </div>
+              )
+            }
+          </div>
+          <slot />
+        </div>
+      </main>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  @layer components {
+    .admin {
+      display: grid;
+      grid-template-columns: var(--size-sidebar) minmax(0, 1fr);
+      min-block-size: 100vh;
+      background: var(--bg-page);
+      color: var(--text-primary);
+    }
+    /* Escritorio: el nav es una columna fija; el atributo popover solo actúa por debajo de 1025 px */
+    .admin__sidebar {
+      position: sticky;
+      inset: 0 auto auto 0;
+      display: flex;
+      flex-direction: column;
+      inline-size: var(--size-sidebar);
+      block-size: 100dvh;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      border-inline-end: 1px solid var(--stroke-default);
+      overflow: auto;
+      background: var(--bg-surface-dark);
+      color: var(--text-primary);
+    }
+    .admin__brand {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-8);
+      padding: var(--space-24) var(--space-24) var(--space-16);
+    }
+    .admin__tag {
+      padding: var(--space-4) var(--space-8);
+      border-radius: var(--radius-pill);
+      background: var(--color-yellow);
+      color: var(--color-ink);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-bold);
+      line-height: var(--leading-caption);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .admin__sidebar nav {
+      flex: 1;
+      padding-block: var(--space-8);
+    }
+    .admin__sidebar ul {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+      margin: 0;
+      padding: 0;
+    }
+    /* Damero de 20 px (menta y elevado) al pie, tocando los bordes */
+    .admin__checker {
+      --cell: calc(var(--space-16) + var(--space-4));
+      flex: none;
+      block-size: calc(var(--cell) * 2);
+      background: repeating-conic-gradient(var(--color-mint) 0 25%, var(--bg-surface-raised) 0 50%) 0 0 / calc(var(--cell) * 2)
+        calc(var(--cell) * 2);
+    }
+    .admin__close,
+    .admin__open {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      inline-size: var(--size-control);
+      block-size: var(--size-control);
+      border: 1px solid var(--stroke-control);
+      border-radius: var(--radius-pill);
+      background: transparent;
+      color: var(--text-primary);
+    }
+
+    .admin[data-minimal] {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .admin__main {
+      display: flex;
+      flex-direction: column;
+      min-inline-size: 0;
+    }
+    .admin__topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-16);
+      min-block-size: var(--size-topbar);
+      padding-inline: var(--space-32);
+      border-block-end: 1px solid var(--stroke-default);
+      background: var(--bg-surface-dark);
+    }
+    .admin__user {
+      display: flex;
+      align-items: center;
+      gap: var(--space-16);
+      margin-inline-start: auto;
+    }
+    .admin__shop {
+      display: inline-flex;
+      align-items: center;
+      min-block-size: var(--size-control-sm);
+      padding-inline: var(--space-24);
+      border: var(--stroke-dot) solid var(--color-mint);
+      border-radius: var(--radius-pill);
+      color: var(--color-mint);
+      font-size: var(--text-body-ui);
+      font-weight: var(--weight-semibold);
+      text-decoration: none;
+    }
+    .admin__shop:hover {
+      background: var(--bg-surface-raised);
+    }
+    main {
+      flex: 1;
+    }
+    .admin__page {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-24);
+      max-inline-size: var(--content-max-bo);
+      padding: var(--space-32);
+    }
+    .admin__head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: var(--space-24);
+    }
+    .admin__titles {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+      min-inline-size: 0;
+    }
+    h1 {
+      font-family: var(--font-heading);
+      font-size: var(--text-h3);
+      font-weight: var(--weight-semibold);
+      line-height: var(--leading-h3);
+      letter-spacing: var(--tracking-h3);
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+    .admin__titles p {
+      color: var(--text-secondary);
+    }
+    .admin__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-12);
+    }
+
+    /* Tableta y menor: la barra lateral pasa a ser un menú (popover) que se abre desde la barra superior */
+    @media (max-width: 1024px) {
+      .admin {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .admin__sidebar:not(:popover-open) {
+        display: none;
+      }
+      .admin__sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        box-shadow: var(--shadow-overlay);
+      }
+      .admin__sidebar::backdrop {
+        background: var(--overlay-forest-soft);
+      }
+      .admin__open,
+      .admin__close {
+        display: inline-flex;
+      }
+      .admin__close {
+        position: absolute;
+        inset-block-start: var(--space-16);
+        inset-inline-end: var(--space-16);
+      }
+      .admin__topbar {
+        padding-inline: var(--space-16);
+      }
+      .admin__page {
+        padding: var(--space-24) var(--space-16);
+      }
+    }
+    @media (max-width: 640px) {
+      .admin:not([data-minimal]) .admin__shop {
+        display: none;
+      }
+    }
+  }
+</style>

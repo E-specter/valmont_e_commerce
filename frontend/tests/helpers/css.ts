@@ -7,12 +7,30 @@ export const read = (rel: string): string => readFileSync(resolve(FRONTEND, rel)
 const stripComments = (css: string): string => css.replace(/\/\*[\s\S]*?\*\//g, '');
 const squash = (v: string): string => v.trim().replace(/\s+/g, ' ');
 
-/** Todas las declaraciones `--nombre: valor;` de un CSS (si se repite, gana la última). */
-export function customProperties(css: string): Map<string, string> {
+const CONTEXT_BLOCK = /\[data-context\s*=\s*['"]?([\w-]+)['"]?\]\s*\{([^{}]*)\}/g;
+const declarations = (css: string): Map<string, string> => {
   const out = new Map<string, string>();
-  for (const m of stripComments(css).matchAll(/(--[\w-]+)\s*:\s*([^;{}]+);/g)) out.set(m[1], squash(m[2]));
+  for (const m of css.matchAll(/(--[\w-]+)\s*:\s*([^;{}]+);/g)) out.set(m[1], squash(m[2]));
   return out;
+};
+
+/**
+ * Las declaraciones `--nombre: valor;` de un CSS (si se repite, gana la última), SIN los bloques `[data-context="x"] { … }`:
+ * son los valores de la tienda (T-142 reasigna roles solo dentro del contexto del backoffice).
+ */
+export function customProperties(css: string): Map<string, string> {
+  return declarations(stripComments(css).replace(CONTEXT_BLOCK, ''));
 }
+
+/** Solo las declaraciones del bloque `[data-context="<context>"] { … }` (vacío si no existe). */
+export function contextProperties(css: string, context: string): Map<string, string> {
+  const body = [...stripComments(css).matchAll(CONTEXT_BLOCK)].filter((m) => m[1] === context).map((m) => m[2]).join(' ');
+  return declarations(body);
+}
+
+/** Cuántos bloques `[data-context="<context>"]` declara el CSS. */
+export const contextBlockCount = (css: string, context: string): number =>
+  [...stripComments(css).matchAll(CONTEXT_BLOCK)].filter((m) => m[1] === context).length;
 
 /** Sustituye `var(--x)` por su valor (recursivo). */
 export function resolveVar(props: Map<string, string>, name: string, depth = 0): string {

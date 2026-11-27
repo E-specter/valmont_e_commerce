@@ -1,0 +1,55 @@
+---
+// Estado 503 del backoffice: el servidor no respondió. Sin datos de administración.
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import Button from '../../components/ui/Button.astro';
+import Icon from '../../components/ui/Icon.astro';
+
+export const prerender = false;
+
+Astro.response.status = 503;
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+
+// Tras un rewrite la URL es la de la página pedida; si alguien abre esta ruta directamente, se reintenta el panel.
+const here = Astro.url.pathname.replace(/\/+$/, '');
+const retry = here.startsWith('/admin') && here !== '/admin/no-disponible' ? here + Astro.url.search : '/admin';
+---
+
+<AdminLayout title="Administración no disponible" section="panel" userName={null} minimal>
+  <!-- Aviso propio: el tema de Notice para el backoffice llega con T-143 -->
+  <div class="unavailable" role="alert">
+    <Icon name="x-circle" size={24} />
+    <div class="unavailable__body">
+      <strong>No pudimos conectar con el servidor.</strong>
+      <p>Inténtalo de nuevo en unos minutos.</p>
+    </div>
+    <Button href={retry} variant="mint">Reintentar</Button>
+  </div>
+</AdminLayout>
+
+<style>
+  @layer components {
+    .unavailable {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-12);
+      padding: var(--space-16);
+      border: var(--stroke-dot) solid var(--color-red-strong);
+      border-inline-start-width: var(--space-8);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+    }
+    .unavailable > :global(.icon) {
+      color: var(--color-red-strong);
+    }
+    .unavailable__body {
+      flex: 1 1 14rem;
+      min-inline-size: 0;
+    }
+    .unavailable__body p {
+      margin: 0;
+      color: var(--text-secondary);
+    }
+  }
+</style>

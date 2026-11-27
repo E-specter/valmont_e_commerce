@@ -14,7 +14,8 @@ const PUBLIC = ['/', '', '/cuentas', '/cuentas/x', '/carritos', '/checkouts', '/
 
 describe('isProtectedPath', () => {
   test('los prefijos declarados son los del contrato', () => {
-    expect([...PROTECTED_PREFIXES].sort()).toEqual(['/carrito', '/checkout', '/cuenta']);
+    // T-142 añade '/admin' (guardia de administrador).
+    expect([...PROTECTED_PREFIXES].sort()).toEqual(['/admin', '/carrito', '/checkout', '/cuenta']);
   });
 
   test.each(PROTECTED)('protegida: %j', (path) => {

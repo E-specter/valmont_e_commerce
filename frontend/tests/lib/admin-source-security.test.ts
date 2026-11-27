@@ -22,6 +22,15 @@ const ALL = [...API_FILES, ...ADMIN_UTILS];
 const EVERY_ADMIN_FILE = existsSync(join(LIB, 'admin')) ? walk(join(LIB, 'admin')).filter((f) => f.endsWith('.ts')) : [];
 const NEUTRAL = [...new Set([...API_FILES, ...EVERY_ADMIN_FILE])];
 const NO_RESULT = 0;
+// Acepta "import type { IconName } from '../../components/ui/icons';" (con o sin ';'); rechaza cualquier otra forma.
+const ALLOWED_NAV_IMPORT = /^import type \{ IconName \} from '(\.\.\/)+components\/ui\/icons';?$/;
+const NAV_FILE = 'src/lib/admin/nav.ts';
+/** Líneas de `text` que importan o re-exportan de components/ o pages/, salvo el import de tipo exacto de nav.ts. */
+const layerViolations = (file: string, text: string): string[] =>
+  text
+    .split(EOL)
+    .filter((l) => (l.includes('import') || l.includes('from ')) && (l.includes('components/') || l.includes('/pages/')))
+    .filter((l) => !(file === NAV_FILE && ALLOWED_NAV_IMPORT.test(l.trim())));
 const MIN_LITERAL = 8;
 
 describe('los archivos del paquete existen', () => {
@@ -41,9 +50,47 @@ describe('módulos neutros: sin entorno ni servidor (RT-B6, D-050)', () => {
     expect(code(join(FRONTEND, f)).includes('import.meta.env')).toBe(false);
   });
 
-  test('lib/admin/** y lib/api/admin-*.ts no importan de components/ ni de pages/ (la capa baja no depende de la alta)', () => {
-    const offenders = NEUTRAL.filter((f) => code(f).split(EOL).some((l) => (l.includes('import ') || l.includes('from ')) && (l.includes('components/') || l.includes('/pages/'))));
+  test('lib/admin/** y lib/api/admin-*.ts no importan de components/ ni de pages/ (la capa baja no depende de la alta; única excepción: el tipo IconName en nav.ts)', () => {
+    const offenders = NEUTRAL.filter((f) => layerViolations(rel(f), code(f)).length > NO_RESULT);
     expect(offenders.map(rel)).toEqual([]);
+  });
+
+  // T-142 (decisión del Leader): `IconName` es `keyof typeof ICONS` y no puede salir de components/ui/icons; un `import type` se borra al compilar.
+  describe('la excepción de nav.ts es exacta', () => {
+    const NAV = 'src/lib/admin/nav.ts';
+    const OK = "import type { IconName } from '../../components/ui/icons';";
+
+    test('el import de tipo exacto, solo en nav.ts, no es una infracción', () => {
+      expect(layerViolations(NAV, OK)).toEqual([]);
+      expect(layerViolations(NAV, OK.replace(';', ''))).toEqual([]);
+    });
+
+    test.each([
+      ['un import de valor desde components/ui/icons', "import { ICONS } from '../../components/ui/icons';"],
+      ['un import de valor y de tipo juntos', "import { ICONS, type IconName } from '../../components/ui/icons';"],
+      ['import type de otro nombre', "import type { Other } from '../../components/ui/icons';"],
+      ['import type de IconName junto con otro nombre', "import type { IconName, Other } from '../../components/ui/icons';"],
+      ['import type desde otro componente', "import type { Props } from '../../components/ui/Button.astro';"],
+      ['import type de IconName desde otro módulo de components/', "import type { IconName } from '../../components/admin/NavItem.astro';"],
+      ['import type desde pages/', "import type { X } from '../../pages/admin/sin-permiso.astro';"],
+      ['import de valor desde pages/', "import { X } from '../../pages/index.astro';"],
+      ['import efectos laterales', "import '../../components/ui/icons';"],
+      ['re-exportación', "export { ICONS } from '../../components/ui/icons';"],
+      ['import dinámico', "const m = await import('../../components/ui/icons');"],
+    ])('%s en nav.ts sigue prohibido', (_name, line) => {
+      expect(layerViolations(NAV, line).length).toBeGreaterThan(NO_RESULT);
+    });
+
+    test('el mismo import de tipo en cualquier otro archivo de lib/admin o lib/api sigue prohibido', () => {
+      ['src/lib/admin/status.ts', 'src/lib/admin/money.ts', 'src/lib/api/admin-orders.ts'].forEach((f) =>
+        expect(layerViolations(f, OK).length, f).toBeGreaterThan(NO_RESULT),
+      );
+    });
+
+    test('nav.ts real: tiene exactamente ese import y ningún otro de components/ o pages/', () => {
+      const lines = code(join(FRONTEND, 'src/lib/admin/nav.ts')).split(EOL).filter((l) => l.includes('components/') || l.includes('/pages/'));
+      expect(lines.map((l) => l.trim())).toEqual([OK]);
+    });
   });
 });
 

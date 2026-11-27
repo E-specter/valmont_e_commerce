@@ -693,6 +693,18 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-142 (marco del backoffice) — 2026-11-27 — frontend-dev
+1. Tarea: T-142 (D-049, D-050). Estado: IN_REVIEW (pendiente de QA).
+2. Hecho: 3.5 en `tokens.css` (13 tokens + bloque `[data-context='backoffice']` al final, `:root` intacto); `BaseLayout` con `context`; `AdminLayout` (sidebar 260 con popover por debajo de 1025 px, topbar 72, migas, cabecera con slot `actions`); `NavItem`, `UserMenu`; `lib/admin/nav.ts` (solo Panel habilitado, resto «Pronto» sin `href`); `lib/server/admin.ts` (3.6); `/admin` en `PROTECTED_PREFIXES`; `formatDateTimeNumeric`; 17 iconos; `/admin/sin-permiso` (403), `/admin/no-disponible` (503), `/dev/admin-layout` (404 fuera de desarrollo).
+3. Archivos: `frontend/src/{styles/tokens.css,layouts/{AdminLayout,BaseLayout}.astro,components/admin/{NavItem,UserMenu}.astro,components/ui/icons.ts,lib/admin/nav.ts,lib/server/{admin,guard}.ts,lib/format.ts,pages/admin/{sin-permiso,no-disponible}.astro,pages/dev/admin-layout.astro}`.
+4. Decisiones: un solo `<nav>` (la barra lateral es el propio popover; `display` de autor lo fija en escritorio). `UserMenu` repite «Ver tienda» solo por debajo de 1025 px. `h1` con `--text-h3` (30 px a 1440; Figma 32). Damero de 20 px calculado (`--space-16 + --space-4`), sin token nuevo. Iconos dibujados a mano (Figma solo entrega SVG temporales).
+5. Figma (una consulta por nodo): `194:35` y `193:21` (incluye `NavItem` `193:189`). La captura salió en esa misma consulta; no se repitió. Captura de `/dev/admin-layout` frente al frame: NO hecha (requiere sesión de administrador y servidor).
+6. Ejecutado: `npm run check → 0 errors, 0 warnings, 3 hints` (hints en tests de QA, ajenos). NO EJECUTADO: pruebas y build (D-028, D-033).
+7. Riesgos: `AdminLayout` con prop aditiva `minimal?: boolean` (autorizada por el Leader): solo wordmark, contenido y «Volver a la tienda»; sin barra lateral, migas ni `UserMenu`. La usan `/admin/sin-permiso` y `/admin/no-disponible`. `Button` `secondary` usa tinta sobre oscuro: las páginas de T-142 usan `mint`; lo corrige la auditoría de T-143. `Astro.url` tras `rewrite` no se ha comprobado en ejecución (Reintentar usa `pathname`).
+8. Siguiente: QA (tests ya presentes en `frontend/tests/**` sin preparar por mí).
+12. Commits: ninguno — preparado. Mensaje: `feat(ui): marco del backoffice, tema oscuro y guardia de administrador (T-142)`.
+
+
 
 #### Traspaso T-144 (implementación) — 2026-11-27 — frontend-dev
 1. Tarea: T-144, clientes de API de administración y utilidades `lib/admin/*`.

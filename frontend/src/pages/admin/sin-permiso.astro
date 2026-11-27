@@ -1,0 +1,37 @@
+---
+// Estado 403 del backoffice. Sin datos de administración: no revela si existe la ruta consultada (STATUS ui T-142).
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import Button from '../../components/ui/Button.astro';
+
+export const prerender = false;
+
+Astro.response.status = 403;
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+---
+
+<AdminLayout title="No tienes permiso" section="panel" userName={null} minimal description="Esta sección es solo para administradores.">
+  <p class="denied__text">Si crees que deberías tener acceso, pide a un administrador que revise tu cuenta.</p>
+  <div class="denied__actions">
+    <Button href="/">Ir a la tienda</Button>
+    <form method="post" action="/salir">
+      <Button type="submit" variant="mint">Cerrar sesión</Button>
+    </form>
+  </div>
+</AdminLayout>
+
+<style>
+  @layer components {
+    .denied__text {
+      max-inline-size: 60ch;
+    }
+    .denied__actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-12);
+    }
+    .denied__actions form {
+      margin: 0;
+    }
+  }
+</style>

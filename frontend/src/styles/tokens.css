@@ -116,9 +116,44 @@
   --page-margin-transactional: clamp(16px, calc(16px + 44 * ((100vw - 360px) / 920)), 60px);
   --page-margin: var(--page-margin-editorial);
   --touch-target: 44px;
+
+  /* Backoffice (T-142, STATUS ui §10.5 · 3.5): solo se usan dentro de [data-context="backoffice"] */
+  --color-forest-card: #002c18;
+  --text-secondary-on-dark: #ebd394;
+  --bg-surface-raised: var(--color-forest-mid);
+  --stroke-control-on-dark: rgb(179 239 178 / 0.5);
+  --stroke-soft-on-dark: rgb(179 239 178 / 0.2);
+  --size-sidebar: 260px;
+  --size-topbar: 72px;
+  --size-control-sm: 40px;
+  --size-control: 44px;
+  --size-th: 44px;
+  --size-row: 56px;
+  --size-row-lg: 80px;
+  --size-pill: 24px;
+  --content-max-bo: 1180px;
+  --radius-dialog: 12px;
 }
 
 /* Superficies oscuras: el foco pasa a amarillo */
 .on-dark {
   --focus-color: var(--color-yellow);
+}
+
+/* Contexto backoffice: reasigna roles; fuera de él la tienda queda idéntica (3.5) */
+[data-context='backoffice'] {
+  color-scheme: dark;
+  --bg-page: var(--color-forest);
+  --bg-surface: var(--color-forest-card);
+  --text-primary: var(--color-ivory);
+  --text-secondary: var(--text-secondary-on-dark);
+  --stroke-default: var(--stroke-on-dark);
+  --stroke-soft: var(--stroke-soft-on-dark);
+  --stroke-control: var(--stroke-control-on-dark);
+  --stroke-strong: var(--color-mint);
+  --focus-color: var(--color-yellow);
+  /* --focus-ring se resuelve en :root con la tinta: hay que recomponerlo aquí (único token compuesto que depende de un rol reasignado) */
+  --focus-ring: 2px solid var(--focus-color);
+  /* texto de error sobre oscuro: el rojo claro (4,67 sobre tarjeta) */
+  --color-red-strong: var(--color-red);
 }

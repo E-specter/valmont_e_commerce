@@ -1,5 +1,5 @@
 // Guardia de rutas y validación de `next` (STATUS ui §3.2). Sin dependencias del entorno.
-export const PROTECTED_PREFIXES: readonly string[] = ['/cuenta', '/carrito', '/checkout'];
+export const PROTECTED_PREFIXES: readonly string[] = ['/cuenta', '/carrito', '/checkout', '/admin'];
 
 /** Prefijo exacto por segmento: '/cuenta/x' sí, '/cuentas' no. Normaliza codificación, mayúsculas y '//'. */
 export function isProtectedPath(pathname: string): boolean {
