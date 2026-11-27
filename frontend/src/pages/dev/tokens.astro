@@ -1,0 +1,198 @@
+---
+// Muestrario de tokens (T-116). Solo existe en desarrollo: en producción responde 404.
+import StoreLayout from '../../layouts/StoreLayout.astro';
+
+export const prerender = false;
+
+if (!import.meta.env.DEV) {
+  return new Response(null, { status: 404 });
+}
+
+// Ratios de BRIEF §11 (texto / fondo)
+const colors = [
+  { v: '--color-ink', fg: '--color-ivory', pair: 'ivory sobre ink: 18,64' },
+  { v: '--color-forest', fg: '--color-ivory', pair: 'ivory sobre forest: 16,35' },
+  { v: '--color-forest-deep', fg: '--color-ivory', pair: 'ivory sobre forest-deep' },
+  { v: '--color-forest-mid', fg: '--color-yellow', pair: 'yellow sobre forest-mid: 8,88' },
+  { v: '--color-mint', fg: '--color-forest', pair: 'forest sobre mint: 12,73' },
+  { v: '--color-mint-soft', fg: '--color-forest', pair: 'forest sobre mint-soft' },
+  { v: '--color-yellow', fg: '--color-ink', pair: 'ink sobre yellow: 13,85' },
+  { v: '--color-ivory', fg: '--color-ink', pair: 'ink sobre ivory: 18,64' },
+  { v: '--color-white', fg: '--color-slate', pair: 'slate sobre white: 6,13' },
+  { v: '--color-slate', fg: '--color-white', pair: 'white sobre slate' },
+  { v: '--color-red', fg: '--color-ink', pair: 'solo sobre fondos oscuros (5,14 sobre forest); no es texto sobre claro' },
+  { v: '--color-red-soft', fg: '--color-red-strong', pair: 'red-strong sobre red-soft: 5,95' },
+  { v: '--color-plum', fg: '--color-white', pair: 'white sobre plum: 6,22' },
+  { v: '--color-red-strong', fg: '--color-white', pair: 'white sobre red-strong; sobre ivory 6,36' },
+];
+
+const frase = 'Reloj de pulsera: ¿cuánto cuesta? ¡Envío asegurado! ñ á é í ó ú ü';
+const families = [
+  { label: 'Jaro (marca)', css: '--font-brand' },
+  { label: 'Phudu (títulos)', css: '--font-heading' },
+  { label: 'Staatliches (editorial)', css: '--font-editorial' },
+  { label: 'Geist (interfaz)', css: '--font-ui' },
+];
+const scale = [
+  { n: 'display', f: '--font-brand', w: 400 },
+  { n: 'h1', f: '--font-heading', w: 700 },
+  { n: 'h2', f: '--font-heading', w: 600 },
+  { n: 'h3', f: '--font-editorial', w: 400 },
+  { n: 'body-editorial', f: '--font-editorial', w: 400 },
+  { n: 'body-ui', f: '--font-ui', w: 400 },
+  { n: 'caption', f: '--font-ui', w: 700 },
+];
+const spaces = [4, 8, 12, 16, 24, 32, 48, 64, 80];
+const radii = ['xs', 'sm', 'md', 'lg', 'pill'];
+---
+
+<StoreLayout title="Tokens (desarrollo)" noindex>
+  <h1>Tokens de diseño</h1>
+
+  <section aria-labelledby="t-color">
+    <h2 id="t-color">Paleta y pares de contraste</h2>
+    <ul class="swatches" role="list">
+      {
+        colors.map((c) => (
+          <li class="swatch" style={`--bg: var(${c.v}); --fg: var(${c.fg})`}>
+            <strong>{c.v}</strong>
+            <span>{c.pair}</span>
+          </li>
+        ))
+      }
+    </ul>
+    <p class="note">
+      Borde de control <code>--stroke-control</code>:
+      <span class="control">campo de muestra</span>
+    </p>
+  </section>
+
+  <section aria-labelledby="t-type">
+    <h2 id="t-type">Familias (tildes, ¿ y ¡)</h2>
+    {
+      families.map((f) => (
+        <p class="fam" style={`--ff: var(${f.css})`}>
+          <small>{f.label}</small>
+          {frase}
+        </p>
+      ))
+    }
+    <h2>Escala</h2>
+    {
+      scale.map((s) => (
+        <p class="scale" style={`--ff: var(${s.f}); --fs: var(--text-${s.n}); --lh: var(--leading-${s.n}); --ls: var(--tracking-${s.n}); --fw: ${s.w}`}>
+          <small>{s.n}</small>
+          Valmont ¿Hora? ¡Precisión!
+        </p>
+      ))
+    }
+  </section>
+
+  <section aria-labelledby="t-space">
+    <h2 id="t-space">Espaciado y radios</h2>
+    <ul class="spaces" role="list">
+      {spaces.map((s) => <li style={`--s: var(--space-${s})`}>{s}</li>)}
+    </ul>
+    <ul class="radii" role="list">
+      {radii.map((r) => <li style={`--r: var(--radius-${r})`}>{r}</li>)}
+    </ul>
+  </section>
+
+  <section aria-labelledby="t-focus">
+    <h2 id="t-focus">Foco</h2>
+    <p>Pulsa Tab: el anillo de 2 px debe verse en ambos fondos.</p>
+    <a href="#t-focus">Enlace sobre marfil</a>
+    <div class="on-dark dark"><a href="#t-focus">Enlace sobre verde</a></div>
+  </section>
+</StoreLayout>
+
+<style>
+  @layer components {
+    section {
+      margin-block: var(--space-48);
+    }
+    h1 {
+      margin-block: var(--space-32) 0;
+      font: var(--weight-bold) var(--text-h1) / var(--leading-h1) var(--font-heading);
+    }
+    h2 {
+      margin-block: var(--space-24) var(--space-16);
+      font: var(--weight-semibold) var(--text-h2) / var(--leading-h2) var(--font-heading);
+    }
+    .swatches {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+      gap: var(--space-12);
+    }
+    .swatch {
+      display: grid;
+      gap: var(--space-4);
+      padding: var(--space-16);
+      min-height: 7rem;
+      background: var(--bg);
+      color: var(--fg);
+      border: 1px solid var(--stroke-default);
+      border-radius: var(--radius-md);
+      font-size: var(--text-caption);
+    }
+    .note {
+      margin-top: var(--space-16);
+    }
+    .control {
+      display: inline-block;
+      padding: var(--space-12) var(--space-16);
+      background: var(--bg-surface);
+      border: 1px solid var(--stroke-control);
+      border-radius: var(--radius-md);
+    }
+    .fam,
+    .scale {
+      display: grid;
+      margin-block: var(--space-12);
+      font-family: var(--ff);
+      font-size: var(--fs, var(--text-h3));
+      line-height: var(--lh, var(--leading-h3));
+      letter-spacing: var(--ls, 0);
+      font-weight: var(--fw, 400);
+    }
+    .fam small,
+    .scale small {
+      font: var(--weight-regular) var(--text-caption) / 1 var(--font-ui);
+      color: var(--text-secondary);
+    }
+    .spaces,
+    .radii {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-16);
+      align-items: end;
+      margin-bottom: var(--space-24);
+    }
+    .spaces li {
+      display: grid;
+      place-items: end center;
+      width: var(--s);
+      min-width: var(--space-24);
+      height: var(--s);
+      background: var(--color-forest-mid);
+      color: var(--color-ivory);
+      font-size: var(--text-caption);
+    }
+    .radii li {
+      display: grid;
+      place-items: center;
+      width: var(--space-64);
+      height: var(--space-48);
+      border: 1px solid var(--stroke-strong);
+      border-radius: var(--r);
+      font-size: var(--text-caption);
+    }
+    .dark {
+      margin-top: var(--space-16);
+      padding: var(--space-24);
+      background: var(--bg-inverse);
+      color: var(--text-on-dark);
+      border-radius: var(--radius-md);
+    }
+  }
+</style>

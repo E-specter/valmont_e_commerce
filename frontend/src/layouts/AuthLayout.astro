@@ -1,0 +1,57 @@
+---
+import BaseLayout from './BaseLayout.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  variant: 'login' | 'register';
+}
+const { title, description, variant } = Astro.props;
+---
+
+<BaseLayout title={title} description={description} noindex>
+  <slot name="head" slot="head" />
+  <div class="auth on-dark" data-variant={variant}>
+    <div class="auth__art">
+      <slot name="art" />
+    </div>
+    <main id="contenido" tabindex="-1" class="auth__form">
+      <slot />
+    </main>
+  </div>
+</BaseLayout>
+
+<style>
+  @layer components {
+    .auth {
+      display: grid;
+      min-height: 100vh;
+      background: var(--bg-inverse);
+      color: var(--text-on-dark);
+    }
+    /* El arte es decorativo: solo desde tablet (BRIEF §6: apilar splits) */
+    .auth__art {
+      display: none;
+    }
+    .auth__form {
+      width: 100%;
+      max-width: 40rem;
+      margin-inline: auto;
+      padding: var(--space-48) var(--page-margin);
+    }
+    @media (min-width: 800px) {
+      .auth {
+        grid-template-columns: 1fr 1fr;
+      }
+      .auth__art {
+        display: block;
+        border-inline-end: 1px solid var(--stroke-on-dark);
+      }
+      .auth__form {
+        align-self: center;
+        margin-inline: 0;
+        padding: var(--space-64) var(--page-margin);
+      }
+    }
+  }
+</style>

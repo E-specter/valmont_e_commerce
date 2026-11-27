@@ -684,6 +684,19 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-116 (implementación) — 2026-11-26 — frontend-dev
+1. Tarea: T-116 · 2. Estado: IN_REVIEW (listo para QA).
+3. Hecho: `tokens.css` (BRIEF §13, roles §2, escala `--text-*`/`--leading-*`/`--tracking-*`, `--page-margin*`, foco, movimiento); `global.css` (`@layer reset, tokens, base, components, utilities`, tokens importados con `layer(tokens)`); `BaseLayout`/`StoreLayout`/`AuthLayout` con las firmas del paquete; `fonts` y `env.schema` en `astro.config.mjs`; `env.d.ts`; `.env.example` (3 nombres sin valor); `public/brand/symbol.svg` (Figma `125:13047`, SVG de 1 067 B); `public/favicon.svg` (símbolo sobre forest); `/dev/tokens`.
+4. Archivos: `frontend/astro.config.mjs`, `src/styles/{tokens,global}.css`, `src/layouts/{Base,Store,Auth}Layout.astro`, `src/env.d.ts`, `frontend/.env.example`, `public/brand/symbol.svg`, `public/favicon.svg`, `src/pages/dev/tokens.astro`.
+5. Estático: `npm run check → 0 errors, 0 warnings, 0 hints (20 files)`; grep de `#hex` en `src` (`*.astro`, `*.css`) fuera de `tokens.css` → sin resultados. NO EJECUTADO: build y pruebas (D-028, D-033).
+6. Figma: solo `download_assets` de `125:13047` (una vez). Nada más.
+7. Inferido (no literal en el brief): (a) `<title>` se escribe tal cual `title`, sin sufijo; (b) `--page-margin` = editorial por defecto, `--page-margin-transactional` aparte; (c) interlineados como cociente (display .83, h1/h2 1.1, h3 1.3, editorial 1.4, ui 1.5, caption 1.15) y tracking en `em`; (d) `.on-dark` cambia `--focus-color` a amarillo; `AuthLayout` lo aplica y toda su superficie es `--bg-inverse`; (e) bajo 800 px `AuthLayout` oculta el slot `art` (decorativo; Figma no dibuja mobile de auth); (f) `StoreLayout` limita `main` a `--container-max` con `--page-margin`; `headerVariant` queda solo en `data-header-variant` hasta T-119; (g) Jaro sin eje `opsz`; (h) `AuthLayout` siempre `noindex`.
+8. Riesgos para QA y el Leader: nadie ha ejecutado `astro build`. Comprobar que (i) Google resuelve las cuatro familias con `weights: ['600 700']` y `['400 700']` (si no, escalar: `woff2` locales), (ii) Staatliches trae `¿ ¡` (si no, anotar), (iii) Vite resuelve `@import './tokens.css' layer(tokens)`. `SUPABASE_ANON_KEY` es obligatoria en el esquema: un import de `astro:env/server` en una ruta prerenderizada la exigiría en el build (T-126 debe usarla solo en rutas SSR). Los pares de contraste de `/dev/tokens` son los de BRIEF §11 (texto fijo, no calculados).
+9. Pruebas propuestas: las del paquete; además `--font-brand|heading|editorial|ui` en `tokens.css` y `<link rel=preload>` solo de Phudu y Geist.
+10. Seguridad: sin secretos ni `PUBLIC_*`; `/dev/tokens` responde 404 si no es `import.meta.env.DEV`.
+11. Siguiente: QA, luego T-117, T-118 y T-120.
+12. Commit: ninguno, preparado. Mensaje propuesto: `feat(ui): tokens, fuentes, estilos globales y layouts base (T-116)`.
+
 #### Traspaso T-116 (planificación de la pista de frontend) — 2026-11-26 — frontend-lead
 Plan completo en este documento. Estado: IN_REVIEW. Sin pruebas ejecutadas (planificación; solo documentación). Archivos: `docs/modules/ui/STATUS.md` (nuevo) y una aclaración en `docs/design_ui/VIEWS.md` §11. Preguntas para el usuario, ajustes a paquetes existentes, filas de `tasks.md` y línea de rangos: ver el traspaso final entregado al Leader.
 
