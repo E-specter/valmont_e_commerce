@@ -27,7 +27,8 @@ export default defineConfig({
     schema: {
       API_BASE_URL: envField.string({ context: 'server', access: 'secret', default: 'http://127.0.0.1:8000' }),
       SUPABASE_URL: envField.string({ context: 'server', access: 'secret', default: 'http://127.0.0.1:54321' }),
-      SUPABASE_ANON_KEY: envField.string({ context: 'server', access: 'secret' }),
+      // shortcut: opcional hasta T-126 (sesión SSR), que la vuelve obligatoria y review-up.sh genera frontend/.env
+      SUPABASE_ANON_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
     },
   },
 });

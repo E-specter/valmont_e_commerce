@@ -1,0 +1,35 @@
+---
+import Button from '../ui/Button.astro';
+
+interface Props {
+  text: string;
+  linkLabel: string;
+  linkHref: string;
+}
+const { text, linkLabel, linkHref } = Astro.props;
+---
+
+<section class="manifesto">
+  <p>{text}</p>
+  <Button href={linkHref} variant="secondary">{linkLabel}</Button>
+</section>
+
+<style>
+  @layer components {
+    .manifesto {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-32);
+      padding-block: var(--space-48) var(--space-64);
+    }
+    p {
+      font-family: var(--font-heading);
+      font-weight: var(--weight-bold);
+      font-size: var(--text-h1);
+      line-height: var(--leading-h1);
+      color: var(--text-primary);
+      text-wrap: balance;
+    }
+  }
+</style>

@@ -1,16 +1,79 @@
 ---
+// Portada: SSR con caché corta (T-121). Los datos son públicos y sin usuario, así que public es seguro.
+export const prerender = false;
+import StoreLayout from '../layouts/StoreLayout.astro';
+import Button from '../components/ui/Button.astro';
+import HeroCta from '../components/home/HeroCta.astro';
+import ManifestoBlock from '../components/home/ManifestoBlock.astro';
+import FeaturedProduct from '../components/home/FeaturedProduct.astro';
+import CollectionTile from '../components/home/CollectionTile.astro';
+import CollectionLinks from '../components/home/CollectionLinks.astro';
+import StoreBanner from '../components/home/StoreBanner.astro';
+import heroImg from '../assets/home/hero.png';
+import { home } from '../data/home';
+import { serverTransport } from '../lib/api/server';
+import { listCategories, listProducts } from '../lib/api/catalog';
+
+Astro.response.headers.set('Cache-Control', 'public, max-age=60');
+
+// Si la API falla la portada se sirve igual, sin esas secciones (nunca 500).
+const t = serverTransport();
+const [cats, newest] = await Promise.allSettled([listCategories(t), listProducts(t, { sort: 'newest', page_size: 1 })]);
+const categories = cats.status === 'fulfilled' ? cats.value : [];
+const featured = newest.status === 'fulfilled' ? (newest.value.items[0] ?? null) : null;
+const href = (slug: string) => `/relojes?category=${encodeURIComponent(slug)}`;
+const tiles = categories.slice(0, 3);
+const links = categories.slice(0, 4).map((c) => ({ label: c.name, href: href(c.slug) }));
 ---
 
-<html lang="es">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Valmont</title>
-	</head>
-	<body>
-		<h1>Valmont</h1>
-	</body>
-</html>
+<StoreLayout title="Valmont · Alta relojería mecánica" description={home.hero.title}>
+  <HeroCta
+    title={home.hero.title}
+    ctaLabel={home.hero.ctaLabel}
+    ctaHref={home.hero.ctaHref}
+    image={{ src: heroImg, alt: home.hero.imageAlt }}
+  />
+  <ManifestoBlock {...home.manifesto} />
+  {featured && <FeaturedProduct product={featured} badge={home.featuredBadge} cta={home.featuredCta} />}
+  {
+    tiles.length > 0 ? (
+      <>
+        <ul class="tiles">
+          {tiles.map((c) => (
+            <li>
+              <CollectionTile title={c.name} href={href(c.slug)} cta={home.collections.cta} />
+            </li>
+          ))}
+        </ul>
+        <CollectionLinks links={links} />
+      </>
+    ) : (
+      <div class="all">
+        <Button href={home.collections.allHref} size="lg">{home.collections.allLabel}</Button>
+      </div>
+    )
+  }
+  <StoreBanner {...home.stores} />
+</StoreLayout>
+
+<style>
+  @layer components {
+    .tiles {
+      list-style: none;
+      display: grid;
+      gap: var(--space-24);
+      margin: 0;
+      padding: var(--space-48) 0;
+    }
+    .all {
+      display: flex;
+      justify-content: center;
+      padding-block: var(--space-48);
+    }
+    @media (min-width: 800px) {
+      .tiles {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+  }
+</style>

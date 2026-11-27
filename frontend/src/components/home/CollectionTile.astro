@@ -1,0 +1,73 @@
+---
+import { Image } from 'astro:assets';
+
+interface Props {
+  title: string;
+  href: string;
+  image?: { src: ImageMetadata | string; alt: string } | null;
+  cta?: string;
+}
+const { title, href, image = null, cta = 'Explorar colección' } = Astro.props;
+---
+
+<a class="tile" href={href}>
+  <span class="tile__media">
+    {
+      image &&
+        (typeof image.src === 'string' ? (
+          <img src={image.src} alt={image.alt} width="600" height="600" loading="lazy" decoding="async" />
+        ) : (
+          <Image src={image.src} alt={image.alt} widths={[400, 600]} sizes="(min-width: 800px) 33vw, 100vw" loading="lazy" />
+        ))
+    }
+    <span class="tile__title">{title}</span>
+  </span>
+  <span class="tile__cta">{cta}</span>
+</a>
+
+<style>
+  @layer components {
+    .tile {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-16);
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+    .tile__media {
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      aspect-ratio: 1;
+      padding: var(--space-24);
+      background: var(--color-forest-mid); /* sin imagen: bloque de color del token */
+      overflow: hidden;
+    }
+    .tile__media :global(img) {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .tile__title {
+      position: relative;
+      font-family: var(--font-heading);
+      font-weight: var(--weight-semibold);
+      font-size: var(--text-h2);
+      line-height: var(--leading-h2);
+      letter-spacing: var(--tracking-h2);
+      color: var(--color-ivory);
+    }
+    .tile__cta {
+      font-family: var(--font-editorial);
+      font-size: var(--text-body-editorial);
+      letter-spacing: var(--tracking-body-editorial);
+      text-decoration: underline;
+      text-underline-offset: 0.25em;
+    }
+    .tile:hover .tile__cta {
+      text-underline-offset: 0.4em;
+    }
+  }
+</style>

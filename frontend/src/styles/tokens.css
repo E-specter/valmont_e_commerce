@@ -4,6 +4,9 @@
   --color-ink: #0f0f0f;
   --color-forest: #002312;
   --color-forest-deep: #001a0b;
+  /* Velo de forest-deep (rgb de --color-forest-deep) para texto sobre foto */
+  --overlay-forest-strong: rgb(0 26 11 / 0.92);
+  --overlay-forest-soft: rgb(0 26 11 / 0.35);
   --color-forest-mid: #003e1f;
   --color-mint: #b3efb2;
   --color-mint-soft: #d5ffd9;

@@ -1,0 +1,48 @@
+---
+interface Props {
+  links: { label: string; href: string }[];
+}
+const { links } = Astro.props;
+---
+
+<nav class="links" aria-label="Colecciones">
+  <ul>
+    {
+      links.map((l) => (
+        <li>
+          <a href={l.href}>{l.label}</a>
+        </li>
+      ))
+    }
+  </ul>
+</nav>
+
+<style>
+  @layer components {
+    .links {
+      margin-inline: calc(var(--page-margin) * -1);
+      padding: var(--space-32) var(--page-margin);
+      background: var(--color-mint);
+    }
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    a {
+      display: block;
+      font-family: var(--font-brand);
+      font-size: var(--text-display);
+      line-height: 1;
+      letter-spacing: var(--tracking-display);
+      color: var(--color-forest-mid);
+      text-decoration: none;
+      overflow-wrap: anywhere;
+    }
+    a:hover {
+      text-decoration: underline;
+      text-decoration-thickness: 3px;
+      text-underline-offset: 0.1em;
+    }
+  }
+</style>

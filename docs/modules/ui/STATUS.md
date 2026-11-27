@@ -684,6 +684,22 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-121 (implementación) — 2026-11-27 — frontend-dev
+1. Tarea: T-121 · 2. Estado: IN_REVIEW (listo para QA).
+3. Hecho: portada `/` SSR (`prerender=false`, `Cache-Control: public, max-age=60`). Componentes `home/{HeroCta,ManifestoBlock,CollectionTile,CollectionLinks,StoreBanner,FeaturedProduct}` con las firmas del paquete (`CollectionTile` añade `cta?` y `FeaturedProduct` añade `badge?`/`cta?`, opcionales); textos demo en `data/home.ts` (P-9); `assets/home/hero.png`.
+4. Datos: `listCategories` y `listProducts({sort:'newest',page_size:1})` con `serverTransport()` en `Promise.allSettled`; fallo o lista vacía: sin mosaicos ni enlaces, un solo botón "Ver todos los relojes" a `/relojes`; sin producto no hay "Novedad". Nunca 500, sin `Notice`.
+5. Mosaicos = 3 primeras categorías, enlaces = 4 primeras, `/relojes?category=<slug>`; confía en el orden de la API (`Category` no trae `position`).
+6. Figma: sesión `xRC4mg5JmdqlZ6mbv97kGO`; `get_design_context` de `1:115` y `1:779` (una vez). `1:658` (tablet) NO consultado: se apila como mobile a <800 (VIEWS §4.1); QA/lead lo cotejan con `get_screenshot`.
+7. Desviaciones del frame: foto de mosaicos y de "Stocklist" no usadas (el frame trae cócteles y no hay imagen por categoría): bloque de color del token (RT-6/BRIEF §9). Foto del producto = `main_image` del contrato. Solo se descargó la foto del hero (`hero.png`, 1920x848, optimizada por `astro:assets` a webp). "Tiendas/Boutiques" omitido (P-1). El `h1` del frame (producto) pasa a `h2`; el `h1` es el del hero.
+8. Imágenes: hero `loading=eager` + `fetchpriority=high`; resto `lazy` con `width`/`height`.
+9. Dependencia T-123: ninguna (no usa `ProductCard`/`ProductGrid`).
+10. Verificación manual (no es evidencia): dev en 4322 con backend real: 200, un `h1`, 3 mosaicos, "Novedad", sin desbordamiento a 360. Servidor detenido. Para correr dev hizo falta `SUPABASE_ANON_KEY` en el entorno (falta en `.env` del worktree).
+11. Estático: `npm run check` → 0 errors, 0 warnings, 0 hints (82 archivos). NO EJECUTADO: pruebas, build y grep N-4 de `dist/client` (D-033): QA debe repetirlo; la portada solo importa `server.ts` en el frontmatter.
+12b. Ajuste del Leader: `frontend/astro.config.mjs` (solo `env.schema`): `SUPABASE_ANON_KEY` pasa a `optional: true` hasta T-126. Verificado: `astro dev --port 4322` sin esa variable → `/` 200; servidor detenido.
+12c. Corrección RT-1 (rechazo de QA): el velo de `FeaturedProduct.astro` usa `color-mix()` con `--color-forest-deep`, sin `rgb()` ni tokens nuevos; mismo color y opacidades (92 % y 35 %).
+12d. RT-1 (2.ª corrección): `color-mix` tampoco vale fuera de `tokens.css`; se añaden `--overlay-forest-strong/soft` (autorizado por el Leader) y el velo de `FeaturedProduct` los usa.
+12. Entrega: ninguno — preparado. Mensaje: `feat(ui): portada de la tienda con categorías y productos reales (T-121)`.
+
 #### Traspaso T-123 (implementación) — 2026-11-27 — frontend-dev
 1. Tarea: T-123 · 2. Estado: IN_REVIEW (listo para QA).
 3. Hecho: `Breadcrumb`, `Pagination`, `DefinitionList`, `ProductCard` (4 variantes), `ProductGrid`, `specLine` y `/dev/products` (404 fuera de DEV). Firmas del paquete sin cambios. N-1: `format.ts` importa `Money` de `lib/api/http.ts` y lo reexporta (`export type { Money }`) para no tocar `Price.astro` (protegido); mismo comportamiento.
