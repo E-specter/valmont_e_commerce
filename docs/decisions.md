@@ -55,6 +55,7 @@
 | D-046 | 2026-11-27 | Backoffice diseñado en Figma por frontend-lead desde el brief (opción 1); el usuario aprueba los frames antes de implementar | APROBADA |
 | D-047 | 2026-11-27 | Endurecimiento: Idempotency-Key solo UUID, filtro bidi/invisibles común, cuerpo JSON 256 KiB, imágenes convertidas a WebP, limpieza de Storage también automática | APROBADA |
 | D-048 | 2026-11-27 | Pillow aprobado para convertir las imágenes de producto a WebP optimizado y eliminar todos sus metadatos | APROBADA |
+| D-049 | 2026-11-27 | Backoffice: menú con módulos «Pronto», tema por contexto, KPI derivados (endpoint de resumen después), solo transiciones válidas, fechas absolutas en Lima, importes como la tienda, reordenar con arrastre y botones | APROBADA |
 
 ---
 
@@ -557,4 +558,15 @@
 - **Decisión del usuario:** se aprueba **Pillow** como dependencia del backend. El proceso, además de convertir a WebP, **elimina todos los metadatos** de la imagen (EXIF, GPS, XMP, IPTC, perfiles y comentarios) antes de guardarla en Storage.
 - **Alternativa descartada:** convertir en el navegador del administrador (el servidor no garantizaría formato ni limpieza).
 - **Consecuencias:** T-018i pasa a planificarse (paquete de backend-lead) y después a READY.
+
+### D-049 — Decisiones de diseño del backoffice D-B1…D-B7 (APROBADA, 2026-11-27)
+- **Contexto:** frames del backoffice en Figma (T-140, D-046; `docs/design_ui/VIEWS.md` §12).
+- **Decisiones del usuario:**
+  1. **D-B1 = A:** los módulos sin contrato (Reportes, Clientes, Auditoría) aparecen en el menú deshabilitados, con la etiqueta «Pronto».
+  2. **D-B2 = A:** el tema oscuro se implementa con un contexto `[data-context="backoffice"]` que reasigna los roles semánticos de los tokens existentes; un único sistema de tokens.
+  3. **D-B3 = A y después B:** en el MVP, los KPI y las alertas del panel se derivan de los listados existentes; **después** se crea un endpoint de resumen propio (tarea T-141, BACKLOG).
+  4. **D-B4 = A:** en el detalle del pedido solo se pintan las transiciones válidas (`can_transition_to`).
+  5. **D-B5 = A:** fechas absolutas `dd/mm/aaaa hh:mm` (24 h) en `America/Lima`.
+  6. **D-B6 = B:** los importes del backoffice se muestran **igual que en la tienda** (P-3), para que el administrador vea exactamente lo que ve el cliente. Los frames con 2 decimales fijos se ajustan al implementar.
+  7. **D-B7 = A:** reordenar imágenes con arrastrar y soltar más botones «Subir/Bajar» para teclado (WCAG 2.5.7).
 

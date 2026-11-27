@@ -394,6 +394,8 @@ Transiciones que ofrece la interfaz (las calcula el servidor en `can_transition_
 
 ### 12.6 Decisiones de diseño abiertas (proponer, no imponer)
 
+> **Resueltas en D-049 (2026-11-27):** D-B1 A · D-B2 A · D-B3 A en el MVP y endpoint de resumen después (T-141) · D-B4 A · D-B5 A · **D-B6 B** (importes como la tienda, P-3) · D-B7 A.
+
 | ID | Pregunta | Opciones | Recomendada |
 |---|---|---|---|
 | D-B1 | Módulos del menú sin contrato (Reportes, Clientes, Auditoría) | (A) visibles, deshabilitados, con etiqueta «Pronto»; (B) ocultos hasta tener contrato | **A**: la estructura del menú no cambia después; el enlace muerto se evita con `aria-disabled` y sin `href` |
