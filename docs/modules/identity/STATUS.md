@@ -9,7 +9,7 @@
 | T-016 | Verificación del JWT, `app.profiles`, `current_user` / `require_admin`, `GET` y `PATCH /me` | backend-dev + qa-reviewer | T-007, T-015 | DONE |
 | T-113 | Ampliación de la SPEC: fecha de nacimiento y mayoría de edad para comprar (§13) | module-coordinator | D-041 (P-8), RF01.07 | DONE (D-045) |
 | T-138 | identity backend: migración `0012`, dominio, `UpdateProfile`, `EnsureAdult`, `GET`/`PATCH /me` con `birth_date`, wiring | backend-dev + qa-reviewer | T-113 aprobada; P-IDENTITY-5 | DONE (026c5db) |
-| T-139 | orders: exigir la mayoría de edad al crear el pedido (cambio mínimo) | backend-dev + qa-reviewer (revisión de seguridad a fondo) | T-138 (firmas; la integración exige T-138 integrada); P-IDENTITY-4, P-IDENTITY-8 | READY |
+| T-139 | orders: exigir la mayoría de edad al crear el pedido (cambio mínimo) | backend-dev + qa-reviewer (revisión de seguridad a fondo) | T-138 (firmas; la integración exige T-138 integrada); P-IDENTITY-4, P-IDENTITY-8 | DONE (df42025) |
 
 ## Paquetes de tarea
 
