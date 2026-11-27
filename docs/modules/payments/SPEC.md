@@ -47,7 +47,7 @@ UC-03 y UC-04 no tienen ruta propia: son el comportamiento del puerto y de la id
 - **PAYMENTS-R1 (intento y resultado, RF05.01, RF05.02):** cada `POST` válido crea **un** intento que nace con su resultado final en la misma transacción: `approved` o `rejected`. No existe estado `pending` persistido (*atajo: con una pasarela real y asíncrona —3-D Secure, webhooks— se añade `pending` con una migración del `CHECK`; la SPEC de ese cambio lo diseñaría*). Un intento nunca se edita ni se borra (inmutable también en la BD, §6).
 - **PAYMENTS-R2 (importe, RN-09, RN-15):** el único origen del importe es `PayableOrder.total_amount` que devuelve `GetPayableOrder` en la misma transacción. El cuerpo no admite importe (`extra="forbid"`). El intento guarda ese `amount` (céntimos `bigint`).
 - **PAYMENTS-R3 (idempotencia, RF05.03):**
-  - `Idempotency-Key` obligatoria (16–64 caracteres `[A-Za-z0-9_-]`; la genera el cliente por intento de pago, no por pedido: tras un rechazo se usa una nueva) y única por cliente (`UNIQUE (user_id, idempotency_key)`).
+  - `Idempotency-Key` obligatoria (un UUID de 36 caracteres, normalizado a minúsculas (`shared/idempotency.py`, D-047, T-018c); la genera el cliente con `crypto.randomUUID()` por intento de pago, no por pedido: tras un rechazo se usa una nueva) y única por cliente (`UNIQUE (user_id, idempotency_key)`).
   - Flujo: (1) buscar el intento de `(user, key)`: si existe y es del mismo pedido, devolverlo con 200 sin tocar nada (ni pasarela, ni orders, ni auditoría); si es de **otro** pedido → 409 `idempotency_key_reused`; (2) seguir el flujo de R4; (3) al insertar, `INSERT … ON CONFLICT (user_id, idempotency_key) DO NOTHING`: si no inserta (carrera con la misma clave), se vuelve a buscar el intento y se devuelve con 200.
   - Si `ConfirmOrderPayment` devuelve `ALREADY_PAID`, primero se vuelve a buscar la clave (otra solicitud con la misma clave pudo pagar mientras esta esperaba el bloqueo del pedido) y, si existe, se devuelve con 200; si no existe, `order_already_paid`.
   - *Limitación aceptada (como ORDERS-R8):* no se compara la huella de la solicitud; la misma clave con otro `card_last4` devuelve el intento original.
@@ -195,7 +195,7 @@ Prefijo `/api/v1/payments`. Todas exigen sesión: 401 `unauthenticated` y 503 `a
   - **E-P2 (`docs/modules.md` §3):** añadir a las excepciones (6)/(7) que payments tiene FK a `app.orders` y `app.profiles` (sin leerlas) y, en la fila de payments, su estado `SPECIFICATION (T-090, D-041)`.
   - **E-P3 (orders, opcional, antes de un proveedor real):** `GetPayableOrder.__call__(user_id, order_id, *, lock: bool = False)`; con `lock=True` bloquea el pedido (`get(lock=True)`) tras vencerlo. Permitiría pagar con la fila bloqueada **desde el principio** (cobro exacto, tope de rechazos exacto, sin el caso residual de R10) y es lo que un proveedor real necesita para no cobrar y descubrir después `ALREADY_PAID`. Es un cambio aditivo en orders: lo decide su dueño.
   - **E-P4 (orders, cosmético):** declarar `__all__` en `orders.application` (o reexportar explícitamente `OrderStatus`, `OrderNotFound`, `OrderNotPayable`), para que importarlos desde `application` sea una API pública y no un accidente de los imports.
-  - **E-P5 (`shared/`, a futuro):** la cabecera `Idempotency-Key` se duplica entre orders y payments (mismo patrón); si aparece un tercer uso, moverla a `shared/`.
+  - **E-P5 (resuelta en T-018c):** la cabecera `Idempotency-Key` vive en `shared/idempotency.py` (`IdempotencyKey`) y la usan orders y payments; ya no hay copias.
 
 ## 9. Seguridad
 
