@@ -1009,7 +1009,7 @@ Plan completo en este documento. Estado: IN_REVIEW. Sin pruebas ejecutadas (plan
 
 | ID | Título | Rol | Depende de | Estado |
 |---|---|---|---|---|
-| T-142 | Tema `[data-context="backoffice"]`, `AdminLayout`, guardia de administrador y página «Sin permiso», `NavItem`, `UserMenu` e iconos | frontend-dev + qa-reviewer | T-116, T-117, T-126 | READY |
+| T-142 | Tema `[data-context="backoffice"]`, `AdminLayout`, guardia de administrador y página «Sin permiso», `NavItem`, `UserMenu` e iconos | frontend-dev + qa-reviewer | T-116, T-117, T-126 | DONE (7652900) |
 | T-143 | Base de UI: ajuste de `ui/` al contexto, `Button` danger/ghost/sm, `Notice` con acción, `StatusPill`, `DataTable`, `Timeline`, `ConfirmDialog`, `KpiCard`, `form-busy` | frontend-dev + qa-reviewer | T-117, T-118; se integra después de T-142 | READY |
 | T-144 | Clientes de API de administración (`lib/api/admin-*.ts`) y utilidades puras (`lib/admin/*`) | frontend-dev + qa-reviewer | T-118 (`formatMoney`), T-120 | DONE (56cdf71) |
 | T-145 | Panel `/admin` (KPI y alertas derivados de los listados) | frontend-dev + qa-reviewer | T-142, T-143, T-144 | READY al integrar T-142…T-144 |
