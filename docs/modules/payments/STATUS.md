@@ -206,6 +206,18 @@ IDs reservados del módulo: T-090–T-099. En uso: T-090–T-098; **libre: T-099
 
 ## Traspasos
 
+#### Traspaso T-094 — 2026-11-27 — backend-dev
+
+1. Tarea: T-094, `PayOrder` y `POST /api/v1/payments/orders/{order_id}/attempts`.
+2. Estado: IN_REVIEW (a la espera de QA).
+3. Hecho: `PayOrder` en el orden find_by_key, GetPayableOrder, R5, tope, pasarela, ConfirmOrderPayment, `add` tras confirmar, auditoría solo si `created`; ruta con `PayOrderIn` (`extra="forbid"`, `^[0-9]{4}$`), `PaymentAttemptOut`, proveedores y errores de §7; router registrado.
+4. Archivos: `modules/payments/application.py`, `modules/payments/adapters/http.py` (nuevo), `main.py` (import y `include_router`).
+5. Firmas: las del paquete, sin cambios.
+6. Decisiones: errores 404/409/503 como `JSONResponse` con `Cache-Control: no-store` (un `AppError` no lleva cabeceras); 401/422 de FastAPI y `auth_unavailable` no llevan `no-store`. `OrderAlreadyPaid` de `add` sube a 409. `IdempotencyKeyReused` si `add` da `None` y la clave ya no se encuentra.
+7. Evidencia: `ruff format --check .` y `ruff check .` limpios; app importa, OpenAPI declara 201/200/401/404/409/422/503; capas vacías. NO EJECUTADO: pruebas (D-028, D-033).
+8. Ajuste del Leader (E-P4): `orders/application.py` declara `__all__ = ["OrderNotFound", "OrderNotPayable", "OrderStatus"]` y payments importa las tres solo de `orders.application`. Pendiente transversal: `no-store` en 401/422 (middleware, R-14 de orders).
+8b. Corrección de QA: `_fail` hace `session.rollback()` antes de devolver 404/409/503 (`SessionDep` confirmaría); verificado que el `begin()` de la sesión tolera el rollback previo.
+9. Riesgos: `no-store` en 401/422 requeriría un middleware (transversal); el conteo de rechazos es blando (R9).
 #### Traspaso T-093 — 2026-11-27 — backend-dev
 
 1. Tarea: T-093, migración `0011`, fila y repositorio SQL de intentos de pago.

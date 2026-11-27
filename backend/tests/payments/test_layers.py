@@ -19,6 +19,14 @@ FORBIDDEN_EVERYWHERE = OTHER_INTERNALS + (
     "valmont.modules.orders.adapters.http",
     "valmont.modules.orders.adapters.admin_http",
 )
+# modules.md §3: `AuditEntry` para los casos de uso y `CurrentUser` para los routers (como orders).
+ALLOWED_INTERNALS = {
+    "application.py": ("valmont.modules.audit.domain", "valmont.modules.audit.domain.AuditEntry"),
+    "adapters/http.py": (
+        "valmont.modules.identity.domain",
+        "valmont.modules.identity.domain.CurrentUser",
+    ),
+}
 PAYMENT_FILES = [
     PAYMENTS / "__init__.py",
     PAYMENTS / "domain.py",
@@ -101,11 +109,19 @@ def test_application_imports_from_orders_only_its_application() -> None:
 def test_application_only_depends_on_the_payments_domain_and_orders_application() -> None:
     names = imports_of(PAYMENTS / "application.py")
     valmont = [n for n in names if n.startswith("valmont")]
+    # modules.md §3 (7): los casos de uso reciben el puerto `AuditRecorder` y crean `AuditEntry`.
     assert [
         n
         for n in valmont
         if not starts_with_any(
-            n, ("valmont.modules.payments.domain", "valmont.modules.orders.application")
+            n,
+            (
+                "valmont.modules.payments.domain",
+                "valmont.modules.orders.application",
+                "valmont.modules.audit.application",
+                "valmont.modules.audit.domain.AuditEntry",
+                "valmont.modules.audit.domain",
+            ),
         )
     ] == []
 
@@ -120,5 +136,10 @@ def test_nothing_in_payments_imports_domain_or_persistence_of_other_modules() ->
     files = sorted(PAYMENTS.rglob("*.py"))
     assert len(files) >= len(PAYMENT_FILES)
     for path in files:
-        hits = [n for n in imports_of(path) if starts_with_any(n, FORBIDDEN_EVERYWHERE)]
+        allowed = ALLOWED_INTERNALS.get(path.relative_to(PAYMENTS).as_posix(), ())
+        hits = [
+            n
+            for n in imports_of(path)
+            if starts_with_any(n, FORBIDDEN_EVERYWHERE) and n not in allowed
+        ]
         assert hits == [], f"{path.relative_to(SRC)}: {hits}"

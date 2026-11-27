@@ -1,11 +1,28 @@
-"""Puertos y tipos de payments. Los casos de uso llegan con T-094 y T-095."""
+"""Puertos, tipos y casos de uso de payments (T-094; `GetOrderPayments` llega con T-095)."""
 
 from dataclasses import dataclass
 from typing import Protocol
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from valmont.modules.orders.application import PayableOrder
-from valmont.modules.payments.domain import FailureCode, PaymentAttempt, PaymentMethod
+from valmont.modules.audit.application import AuditEntry, AuditRecorder
+from valmont.modules.orders.application import (
+    ConfirmOrderPayment,
+    GetPayableOrder,
+    OrderNotPayable,
+    OrderStatus,
+    PayableOrder,
+    PaymentOutcome,
+)
+from valmont.modules.payments.domain import (
+    MAX_REJECTED_ATTEMPTS,
+    FailureCode,
+    IdempotencyKeyReused,
+    OrderAlreadyPaid,
+    PaymentAttempt,
+    PaymentMethod,
+    TooManyAttempts,
+    new_attempt,
+)
 
 
 @dataclass(frozen=True)
@@ -61,3 +78,84 @@ class OrderPayments:
     attempts: tuple[PaymentAttempt, ...]
     can_pay: bool
     attempts_left: int
+
+
+class PayOrder:
+    """UC-01 (R3...R6, R9, R10, R13). Sin commit: lo hace la sesión de la solicitud."""
+
+    def __init__(
+        self,
+        attempts: PaymentAttemptRepository,
+        gateway: PaymentGateway,
+        get_payable: GetPayableOrder,
+        confirm: ConfirmOrderPayment,
+        audit: AuditRecorder,
+    ) -> None:
+        self._attempts = attempts
+        self._gateway = gateway
+        self._get_payable = get_payable
+        self._confirm = confirm
+        self._audit = audit
+
+    def _replay(self, user_id: UUID, order_id: UUID, key: str) -> PaymentResult | None:
+        existing = self._attempts.find_by_key(user_id, key)
+        if existing is None:
+            return None
+        if existing.order_id != order_id:
+            raise IdempotencyKeyReused
+        return PaymentResult(existing, False)
+
+    def __call__(
+        self, user_id: UUID, order_id: UUID, idempotency_key: str, method: PaymentMethod
+    ) -> PaymentResult:
+        if replay := self._replay(user_id, order_id, idempotency_key):
+            return replay
+        order = self._get_payable(user_id, order_id)  # el importe sale solo de aquí (R2)
+        if order.status in (OrderStatus.CANCELLED, OrderStatus.EXPIRED):
+            raise OrderNotPayable(order.status)
+        if order.status != OrderStatus.PENDING_PAYMENT:
+            raise OrderAlreadyPaid
+        if self._attempts.count_rejected(user_id, order_id) >= MAX_REJECTED_ATTEMPTS:
+            raise TooManyAttempts
+        attempt_id = uuid4()
+        result = self._gateway.authorize(GatewayCharge(attempt_id, order.total_amount, method))
+        failure = result.failure_code
+        if result.approved:
+            outcome = self._confirm(user_id, order_id)
+            if outcome is PaymentOutcome.EXPIRED:
+                failure = FailureCode.ORDER_EXPIRED  # R6b: 2xx para conservar la expiración
+            elif outcome is PaymentOutcome.ALREADY_PAID:
+                if replay := self._replay(user_id, order_id, idempotency_key):
+                    return replay
+                raise OrderAlreadyPaid
+        attempt = new_attempt(
+            attempt_id=attempt_id,
+            order_id=order_id,
+            user_id=user_id,
+            idempotency_key=idempotency_key,
+            amount=order.total_amount,
+            method=method,
+            gateway=self._gateway.name,
+            failure_code=failure,
+        )
+        saved = self._attempts.add(attempt)  # tras confirmar: sin KEY SHARE previo al bloqueo
+        if saved is None:  # carrera con la misma clave (R3.3)
+            if replay := self._replay(user_id, order_id, idempotency_key):
+                return replay
+            raise IdempotencyKeyReused
+        self._audit.record(
+            AuditEntry(
+                "payments.attempt_recorded",
+                "payment_attempt",
+                str(saved.id),
+                user_id,
+                "customer",
+                after={
+                    "order_id": str(order_id),
+                    "status": saved.status.value,
+                    "failure_code": saved.failure_code.value if saved.failure_code else None,
+                    "amount": saved.amount,
+                },
+            )
+        )
+        return PaymentResult(saved, True)

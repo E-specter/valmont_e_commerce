@@ -36,6 +36,9 @@ from valmont.modules.orders.domain import (
     format_order_number,
 )
 
+# Reexportación pública para payments (E-P4): los mismos objetos que en `orders.domain`.
+__all__ = ["OrderNotFound", "OrderNotPayable", "OrderStatus"]
+
 # Puertos y datos de lectura de orders (SPEC §6, §7; T-073) y casos de uso (T-074+).
 
 
