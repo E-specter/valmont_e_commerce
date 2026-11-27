@@ -1,12 +1,22 @@
 import unicodedata
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal, Self
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
-from valmont.modules.identity.adapters.http import require_admin
+from valmont.modules.audit.adapters.http import AuditRecorderDep
+from valmont.modules.identity.adapters.http import CurrentUser, require_admin
+from valmont.modules.inventory.adapters.wiring import get_release_reservations
+from valmont.modules.inventory.application import ReleaseReservations
 from valmont.modules.orders.adapters.http import (
     HistoryEntryOut,
     OrderDetailOut,
@@ -18,6 +28,7 @@ from valmont.modules.orders.adapters.http import (
     get_product_snapshots,
 )
 from valmont.modules.orders.application import (
+    Actor,
     AdminOrderQuery,
     Clock,
     ExpireOverdueOrders,
@@ -25,14 +36,18 @@ from valmont.modules.orders.application import (
     ListAdminOrders,
     OrderRepository,
     PickupStoreProvider,
+    TransitionOrder,
 )
 from valmont.modules.orders.domain import (
+    ActorKind,
+    InvalidTransition,
+    Order,
     OrderNotFound,
     OrderStatus,
     admin_targets,
     format_order_number,
 )
-from valmont.shared.errors import ERROR_RESPONSES, AppError
+from valmont.shared.errors import ERROR_RESPONSES, AppError, ErrorOut
 from valmont.shared.money import Money
 from valmont.shared.product_snapshots import SqlProductSnapshots
 
@@ -151,6 +166,12 @@ def get_order(
         order = use_case(order_id)
     except OrderNotFound:
         raise AppError("not_found", "Pedido no encontrado.", 404) from None
+    return _detail(order, clock, store, products)
+
+
+def _detail(
+    order: Order, clock: Clock, store: PickupStoreProvider, products: SqlProductSnapshots
+) -> AdminOrderDetailOut:
     snapshots = products.get_published([line.product_id for line in order.lines])
     base = OrderDetailOut.build(order, clock.now(), store.get(), snapshots)
     targets = admin_targets(order.status, order.delivery.delivery_method)
@@ -170,3 +191,98 @@ def get_order(
         ],
         can_transition_to=[s for s in OrderStatus if s in targets],
     )
+
+
+# --- Transiciones (UC-ORDERS-09 y 10) ---
+
+
+class TransitionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    to: Literal[
+        OrderStatus.PREPARING,
+        OrderStatus.SHIPPED,
+        OrderStatus.READY_FOR_PICKUP,
+        OrderStatus.DELIVERED,
+        OrderStatus.CANCELLED,
+    ]
+    note: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+        | None
+    ) = None
+    carrier: str | None = Field(default=None, min_length=1, max_length=60)
+    tracking_code: str | None = Field(default=None, min_length=1, max_length=60)
+
+    @field_validator("note")
+    @classmethod
+    def _note_without_controls(cls, value: str | None) -> str | None:
+        # Sin caracteres de control (Cc), salvo el salto de línea.
+        if value and any(c != "\n" and unicodedata.category(c) == "Cc" for c in value):
+            raise ValueError("Caracteres no permitidos.")
+        return value
+
+    @model_validator(mode="after")
+    def _coherent(self) -> Self:
+        if self.to == OrderStatus.CANCELLED and self.note is None:
+            raise ValueError("La cancelación exige una nota.")
+        if self.to != OrderStatus.SHIPPED and (
+            self.carrier is not None or self.tracking_code is not None
+        ):
+            raise ValueError("carrier y tracking_code solo aplican a enviado.")
+        return self
+
+
+def current_actor(user: Annotated[CurrentUser, Depends(require_admin)]) -> Actor:
+    return Actor(user.user_id, ActorKind.ADMIN)  # sale del token, nunca del cuerpo
+
+
+def get_transition_order(
+    orders: Annotated[OrderRepository, Depends(get_orders)],
+    expire: Annotated[ExpireOverdueOrders, Depends(get_expire_overdue_orders)],
+    release: Annotated[ReleaseReservations, Depends(get_release_reservations)],
+    audit: AuditRecorderDep,
+    clock: Annotated[Clock, Depends(get_clock)],
+) -> TransitionOrder:
+    return TransitionOrder(orders, expire, release, audit, clock)
+
+
+@router.post(
+    "/{order_id}/transitions",
+    response_model=AdminOrderDetailOut,
+    responses={
+        **{s: ERROR_RESPONSES[s] for s in (401, 403, 404, 422, 503)},
+        409: {
+            "model": ErrorOut,
+            "description": "`invalid_transition`; `details`: `from`, `to` y `allowed`.",
+        },
+    },
+)
+def transition_order(
+    order_id: UUID,
+    body: TransitionIn,
+    actor: Annotated[Actor, Depends(current_actor)],
+    use_case: Annotated[TransitionOrder, Depends(get_transition_order)],
+    clock: Annotated[Clock, Depends(get_clock)],
+    store: Annotated[PickupStoreProvider, Depends(get_pickup_store)],
+    products: Annotated[SqlProductSnapshots, Depends(get_product_snapshots)],
+) -> AdminOrderDetailOut:
+    try:
+        order = use_case(
+            actor,
+            order_id,
+            body.to,
+            note=body.note,
+            carrier=body.carrier,
+            tracking_code=body.tracking_code,
+        )
+    except OrderNotFound:
+        raise AppError("not_found", "Pedido no encontrado.", 404) from None
+    except InvalidTransition as exc:
+        allowed = [s.value for s in OrderStatus if s in exc.allowed]
+        raise AppError(
+            "invalid_transition",
+            "Transición de estado no válida.",
+            409,
+            {"from": exc.from_status.value, "to": exc.to_status.value, "allowed": allowed},
+        ) from None
+    return _detail(order, clock, store, products)

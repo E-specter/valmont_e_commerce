@@ -1,5 +1,5 @@
 from collections.abc import Collection
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from enum import StrEnum
 from typing import Protocol
@@ -32,6 +32,7 @@ from valmont.modules.orders.domain import (
     TooManyPendingOrders,
     build_order,
     can_customer_cancel,
+    check_admin_transition,
     format_order_number,
 )
 
@@ -513,3 +514,82 @@ class ConfirmOrderPayment:
                 after={"status": OrderStatus.EXPIRED.value},
             )
         )
+
+
+@dataclass(frozen=True)
+class Actor:
+    """Quién opera: sale del token, nunca del cuerpo."""
+
+    user_id: UUID
+    kind: ActorKind
+
+
+class TransitionOrder:
+    """UC-ORDERS-09 y 10 (R1, R4, R10, R15, R19, R20): el administrador mueve el pedido."""
+
+    def __init__(
+        self,
+        orders: OrderRepository,
+        expire: ExpireOverdueOrders,
+        release: ReleaseReservations,
+        audit: AuditRecorder,
+        clock: Clock,
+    ) -> None:
+        self._orders = orders
+        self._expire = expire
+        self._release = release
+        self._audit = audit
+        self._clock = clock
+
+    def __call__(
+        self,
+        actor: Actor,
+        order_id: UUID,
+        to: OrderStatus,
+        *,
+        note: str | None = None,
+        carrier: str | None = None,
+        tracking_code: str | None = None,
+    ) -> Order:
+        if to == OrderStatus.CANCELLED and not note:
+            raise ValueError("La cancelación exige una nota.")
+        if to != OrderStatus.SHIPPED and (carrier is not None or tracking_code is not None):
+            raise ValueError("carrier y tracking_code solo aplican a enviado.")
+        # Pedido -> reservas -> stock (R4): se bloquea antes de comparar el estado.
+        order = self._orders.get(order_id, lock=True)
+        if order is None:
+            raise OrderNotFound
+        if self._expire(order_ids=[order_id]):  # R7: el vencido es terminal; check lo rechaza
+            order = replace(order, status=OrderStatus.EXPIRED)
+        from_status = order.status
+        check_admin_transition(from_status, to, order.delivery.delivery_method)
+        # R10/R15: reembolso simulado total al cancelar un pedido pagado; el stock no se repone.
+        refund = (
+            order.total_amount
+            if to == OrderStatus.CANCELLED and from_status != OrderStatus.PENDING_PAYMENT
+            else None
+        )
+        changed = self._orders.apply(
+            order_id,
+            StatusChange(from_status, to, actor.kind, actor.user_id, note, self._clock.now()),
+            refund_amount=refund,
+            carrier=carrier,
+            tracking_code=tracking_code,
+        )
+        if from_status == OrderStatus.PENDING_PAYMENT:
+            self._release(order_id)  # solo el pendiente conserva reservas activas
+        after: dict[str, str | int] = {"status": to.value}
+        if refund is not None:
+            after["refunded_amount"] = refund
+        self._audit.record(
+            AuditEntry(
+                "orders.status_changed",
+                "order",
+                str(order_id),
+                actor.user_id,
+                actor.kind.value,
+                before={"status": from_status.value},
+                after=after,
+            )
+        )
+        return changed

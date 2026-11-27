@@ -373,6 +373,15 @@ Y la fila de `docs/agents/_registry.md`: `docs/modules/orders/ · Carpeta · SPE
 
 ## Traspasos
 
+#### Traspaso T-079 — 2026-11-26 — backend-dev
+1. Estado: IN_REVIEW. Pruebas: NO EJECUTADO (D-028, D-033).
+2. Hecho: `application.py` (`Actor`, `TransitionOrder`, firmas del paquete); `adapters/admin_http.py` (`TransitionIn`, `current_actor` propio de orders, `get_transition_order`, `POST /{order_id}/transitions`, 409 `invalid_transition`; el detalle pasa a un helper `_detail` compartido con el `GET`). `domain.py`, `persistence.py`, `http.py`, `main.py`, inventory y `tests/**` sin cambios.
+3. Interpretaciones: (a) orden: valida `ValueError` (cancelado sin nota; `carrier`/`tracking_code` sin `enviado`) antes de bloquear; `get(lock=True)` (sin dueño; None -> `OrderNotFound`) -> `expire(order_ids=[id])`: si caduca el pedido pasa a `expirado` (`replace`) y `check_admin_transition` lanza el 409 con `from: expirado`, `allowed: []` (ajuste del Leader) -> `check_admin_transition` -> `apply`. (b) Reembolso = `total_amount` si `to = cancelado` y el origen no es `pendiente_pago`; en ese origen se llama `ReleaseReservations` y no hay reembolso; `pagado`/`en_preparacion` no tocan reservas ni stock (R15). (c) `shipped_at` lo fija `apply`; `carrier`/`tracking_code` opcionales. (d) Auditoría `orders.status_changed` con actor admin (`user_id`, `"admin"`), before `{status}`, after `{status[, refunded_amount]}`; la `note` solo va al historial. (e) `current_actor` se define en orders (devuelve `orders.Actor` con `ActorKind.ADMIN`); el de inventory devuelve otro tipo. (f) `TransitionIn` valida `to` con `Literal` de los 5 destinos, `note` recortada de espacios, 1-500 tras recortar y sin caracteres Cc salvo `
+` (obligatoria si cancelado; se guarda recortada), `carrier`/`tracking_code` 1-60 solo con `enviado`; todo 422 por el esquema. (g) El 409 de un vencido hace rollback (como T-076): la caducidad se materializa en la lectura siguiente. (h) `allowed` en el orden del enum, valores en cadena.
+4. Análisis estático: `uv run ruff format . -> 215 files left unchanged`; `uv run ruff check . -> All checks passed!`; `uv run python -c "import valmont.main"` -> IMPORT_OK; capas (grep) vacío. 409 documentado con `ErrorOut` (ERROR_RESPONSES no trae 409).
+5. Sin PII en logs: no se registra nada; la auditoría no lleva datos de entrega.
+12. Commits: ninguno, preparado. Mensaje: `feat(orders): transiciones de administración y cancelación con reembolso simulado (T-079)`.
+
 #### Traspaso T-078 — 2026-11-26 — backend-dev
 1. Estado: IN_REVIEW. Pruebas: NO EJECUTADO (D-028, D-033).
 2. Hecho: `application.py` (`ListAdminOrders`, `GetAdminOrder`); `adapters/admin_http.py` nuevo (router `/api/v1/orders/admin`, `AdminOrderSummaryOut`, `AdminOrderPageOut`, `AdminHistoryEntryOut`, `AdminOrderDetailOut`, 2 `GET` con `require_admin`); `main.py`: una línea, router de administración antes del del cliente.
