@@ -17,22 +17,25 @@ const code = (s: string): string => s.replace(BLOCK_COMMENT, '').replace(HTML_CO
 const SOURCES = walk(SRC).filter((f) => /\.(ts|js|mjs|astro)$/.test(f));
 
 const REGISTER_FILES = ['src/pages/registro.astro', 'src/components/auth/RegisterForm.astro', 'src/lib/server/register.ts', 'src/pages/auth/callback.ts'];
+// T-129 (cuenta): la fecha se muestra y se edita en el perfil; mismas reglas que en el registro (ni consola, ni URL, ni almacenamiento).
+const ACCOUNT_FILES = ['src/components/account/ProfileForm.astro', 'src/pages/cuenta/index.astro'];
+const BIRTH_FILES = [...REGISTER_FILES, ...ACCOUNT_FILES];
 // Código de sesión y de cliente que nunca debe mencionar la fecha.
 const NEVER_BIRTH = SOURCES.filter((f) => /src[\\/](islands|layouts|middleware\.ts)|lib[\\/]server[\\/](session|supabase|guard)\.ts|pages[\\/](bff|salir)/.test(f));
 
 describe('la fecha de nacimiento no se registra ni viaja por URL', () => {
-  test.each(REGISTER_FILES)('%s existe y no escribe en consola (console.*)', (f) => {
+  test.each(BIRTH_FILES)('%s existe y no escribe en consola (console.*)', (f) => {
     expect(code(read(f))).not.toMatch(/console\s*\./);
   });
 
-  test.each(REGISTER_FILES)('%s no interpola la fecha en una URL ni en una query', (f) => {
+  test.each(BIRTH_FILES)('%s no interpola la fecha en una URL ni en una query', (f) => {
     const src = code(read(f));
     expect(src).not.toMatch(/\$\{[^}]*birth[^}]*\}/i);
     expect(src).not.toMatch(/[?&]birth_date=/);
     expect(src).not.toMatch(/searchParams\.(set|append)\(\s*['"]birth/);
   });
 
-  test.each(REGISTER_FILES)('%s no usa almacenamiento del navegador ni cookies manuales', (f) => {
+  test.each(BIRTH_FILES)('%s no usa almacenamiento del navegador ni cookies manuales', (f) => {
     expect(code(read(f))).not.toMatch(/\b(localStorage|sessionStorage|indexedDB)\b|document\.cookie/);
   });
 
@@ -48,8 +51,8 @@ describe('la fecha de nacimiento no se registra ni viaja por URL', () => {
     expect(NEVER_BIRTH.filter((f) => /birth_date|birthDate|birth-date/i.test(code(readFileSync(f, 'utf8')))).map(rel)).toEqual([]);
   });
 
-  test('solo los archivos del registro y del callback (y los tipos de identity) manejan birth_date', () => {
-    const allowed = new Set([...REGISTER_FILES, 'src/lib/api/identity.ts'].map((f) => f.replaceAll('\\', '/')));
+  test('solo el registro, el callback, la cuenta (T-129) y los tipos de identity manejan birth_date', () => {
+    const allowed = new Set([...BIRTH_FILES, 'src/lib/api/identity.ts'].map((f) => f.replaceAll('\\', '/')));
     const users = SOURCES.filter((f) => /birth_date|birthDate/.test(code(readFileSync(f, 'utf8')))).map(rel);
     expect(users.filter((f) => !allowed.has(f) && !/components\/ui\/Field\.astro$/.test(f))).toEqual([]);
   });
