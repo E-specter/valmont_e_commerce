@@ -56,6 +56,7 @@
 | D-047 | 2026-11-27 | Endurecimiento: Idempotency-Key solo UUID, filtro bidi/invisibles común, cuerpo JSON 256 KiB, imágenes convertidas a WebP, limpieza de Storage también automática | APROBADA |
 | D-048 | 2026-11-27 | Pillow aprobado para convertir las imágenes de producto a WebP optimizado y eliminar todos sus metadatos | APROBADA |
 | D-049 | 2026-11-27 | Backoffice: menú con módulos «Pronto», tema por contexto, KPI derivados (endpoint de resumen después), solo transiciones válidas, fechas absolutas en Lima, importes como la tienda, reordenar con arrastre y botones | APROBADA |
+| D-050 | 2026-11-27 | Backoffice por SSR sin proxy, listado de productos ya, admin local para QA y revisión (ficha aceptada), cliente por id abreviado en el MVP, rango T-142…T-149 | APROBADA |
 
 ---
 
@@ -570,4 +571,14 @@
   6. **D-B6 = B:** los importes del backoffice se muestran **igual que en la tienda** (P-3), para que el administrador vea exactamente lo que ve el cliente. Los frames con 2 decimales fijos se ajustan al implementar.
   0. **Dirección visual de los frames de T-140: aprobada por el usuario.**
   7. **D-B7 = A:** reordenar imágenes con arrastrar y soltar más botones «Subir/Bajar» para teclado (WCAG 2.5.7).
+
+### D-050 — Implementación del backoffice: D-AB1…D-AB5 (APROBADA, 2026-11-27)
+- **Contexto:** plan de implementación del backoffice (T-142, `docs/modules/ui/STATUS.md` §10).
+- **Decisiones del usuario:**
+  1. **D-AB1 = A:** el backoffice llama a las rutas de administración por SSR (`serverTransport`) y sus acciones son formularios POST de la propia página (PRG). No hay proxy de administración; `/bff` sigue devolviendo 404 en `orders/admin`.
+  2. **D-AB2 = A:** el listado de productos (T-149) se hace ya, con el patrón visual del listado de pedidos aprobado, y se revisa visualmente al terminar.
+  3. **D-AB3 = A (ficha de auditoría aceptada):** qa-reviewer marca `role='admin'` en `app.profiles` de la BD local, con `docker exec` + `psql`, **solo** para usuarios `qa-*` que crea y borra su propia suite; `scripts/review-up.sh` crea un administrador de revisión `admin.demo@example.com`. Solo en local, nunca en producción. Se revierte con `role='customer'` o borrando el usuario.
+  4. **D-AB4 = A:** en el MVP, el detalle del pedido muestra el identificador abreviado del cliente y los datos de entrega; el nombre y el correo llegarán con el módulo Clientes (tarea de backend posterior).
+- **Decisión del Leader (D-AB5):** se confirma el rango T-142…T-149, y T-084 se reutiliza para el listado de pedidos.
+- **Consecuencias:** T-142, T-143 y T-144 (ola 1) READY; T-149 pasa de BLOCKED a READY tras T-084.
 

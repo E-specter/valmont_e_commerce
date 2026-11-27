@@ -1449,3 +1449,4 @@ Todos: RT-1…RT-12 y RT-B1…RT-B11 aplican; skills `frontend-module-implementa
 10. Documentación actualizada: este STATUS, `orders/STATUS.md`, `tasks.md`.
 11. Siguiente acción: lanzar la ola 1 (T-142 ∥ T-143 ∥ T-144) con `qa-reviewer` en paralelo.
 12. Commits: ninguno — preparado. Mensaje: `docs(ui): paquetes de implementación del backoffice (T-142)`.
+- **N-10 (D-050):** D-AB1 A, D-AB2 A (T-149 READY tras T-084), D-AB3 A (admin local para QA `qa-*` y `admin.demo@example.com` en review-up), D-AB4 A, D-AB5 rango T-142…T-149 confirmado.
