@@ -15,7 +15,7 @@ Rango reservado del módulo: **T-116–T-139**. En uso: T-116–T-131. Libres: *
 | T-119 | `SiteHeader`, `SiteFooter`, `PageTitle`, `lib/site.ts` y cableado de los layouts | frontend-dev + qa-reviewer | T-117, T-118, D-041 (P-1) | DONE (4974fb3) |
 | T-120 | Cliente de API del servidor (`lib/api/http.ts`, `server.ts`, `catalog.ts`) | frontend-dev + qa-reviewer | T-116 (esquema de variables) | DONE (d90bbc9) |
 | T-121 | Portada `/` (SSR con caché corta) | frontend-dev + qa-reviewer | T-118, T-119, T-120, D-041 (P-2) | DONE (6b54197) |
-| T-122 | "Nosotros" `/nosotros` y páginas legales `/privacidad`, `/terminos` | frontend-dev + qa-reviewer | T-119, T-123 (`DefinitionList`), D-041 (P-9) | READY |
+| T-122 | "Nosotros" `/nosotros` y páginas legales `/privacidad`, `/terminos` | frontend-dev + qa-reviewer | T-119, T-123 (`DefinitionList`), D-041 (P-9) | DONE (97fb7ad) |
 | T-123 | `Breadcrumb`, `Pagination`, `DefinitionList`, `ProductCard` (4 variantes) y `ProductGrid` | frontend-dev + qa-reviewer | T-117, T-118, T-120 (tipos) | DONE (eff4acc) |
 | T-124 | Catálogo `/relojes`: filtros por URL, chips, paginación y estados | frontend-dev + qa-reviewer | T-119, T-120, T-123, D-041 (P-2, P-3) | DONE (414be2f) |
 | T-125 | Ficha `/relojes/[slug]`, galería, `BuyBox` y página 404 | frontend-dev + qa-reviewer | T-119, T-120, T-123 | DONE (079de69) |
