@@ -270,3 +270,8 @@ Plan y paquetes escritos; sin código. Resumen en el traspaso al Leader (respues
 - **R-4 (limitador de frecuencia):** el hardening **no** incluye limitador de tasa (R-4 de payments lo cita junto al cuerpo). Sigue sin tarea; propongo decidirlo con el despliegue (Caddy o capa propia) en T-018h.
 - **R-5 (no verificado):** el formato exacto de la respuesta de listado de Storage (T-018f) y que `httpcore` a DEBUG vuelque cabeceras (T-018b, preventivo).
 - **R-6 (tasks.md):** la fila de T-018 mezclaba backend, despliegue y QA; se mantiene como paraguas y apunta a este STATUS.
+
+## Decisiones del usuario (D-047, 2026-11-27)
+- D-H1 = A (solo UUID) → **T-018c READY**. D-H2 = A (todos los módulos) → **T-018d READY**. D-H3 = 256 KiB.
+- **T-018i (nueva, BACKLOG hasta aprobar la dependencia):** las imágenes de producto subidas se convierten a WebP optimizado en el servidor antes de guardarse en Storage (D-H3 del usuario). Necesita una librería de imágenes.
+- D-H4 = B: además del script manual (T-018f), un temporizador en `deploy/`; se aplica en T-018g/h con ficha de auditoría y confirmación del usuario (D-011).

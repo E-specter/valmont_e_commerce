@@ -53,6 +53,7 @@
 | D-044 | 2026-11-27 | Revisión visual: foto del hero sustituida (marca ajena), Jaro solo en el wordmark, símbolo de la guía de marca, wordmark de cabecera más grande compatible con P-1 | APROBADA |
 | D-045 | 2026-11-27 | Fecha de nacimiento: obligatoria en el registro, fijable una vez, menores no se registran, clientes antiguos la completan antes de comprar; edad comprobada al crear el pedido | APROBADA |
 | D-046 | 2026-11-27 | Backoffice diseñado en Figma por frontend-lead desde el brief (opción 1); el usuario aprueba los frames antes de implementar | APROBADA |
+| D-047 | 2026-11-27 | Endurecimiento: Idempotency-Key solo UUID, filtro bidi/invisibles común, cuerpo JSON 256 KiB, imágenes convertidas a WebP, limpieza de Storage también automática | APROBADA |
 
 ---
 
@@ -540,4 +541,13 @@
 - **Decisión del usuario:** opción 1. frontend-lead diseña **en el archivo de Figma** (`xRC4mg5JmdqlZ6mbv97kGO`, MCP) los frames base del backoffice a partir de BRIEF §1 y §7 (contexto backoffice: verde dominante, amarillo como señal, sidebar fijo de 260 px, Geist, densidad alta, KPI, tablas, alertas, elevación por color, tablero 07 `125:14038`). El usuario los aprueba o corrige en Figma; después se extraen a `VIEWS.md` y se implementan como la tienda (D-031).
 - **Alternativas descartadas:** especificar solo por escrito en `VIEWS.md` (no se ve hasta construirlo); que el usuario diseñe en Figma.
 - **Consecuencias:** tarea T-140 (diseño del backoffice en Figma, frontend-lead); las pantallas de administración (T-084 y las de catálogo, inventario, promociones y reportes) pasan a depender de T-140 aprobada.
+
+### D-047 — Endurecimiento T-018: decisiones D-H1…D-H4 (APROBADA, 2026-11-27)
+- **Contexto:** plan de endurecimiento de backend-lead en `docs/modules/hardening/STATUS.md` (T-018a…h).
+- **Decisiones del usuario:**
+  1. **D-H1:** `Idempotency-Key` de pedidos y pagos **solo en formato UUID** (422 en otro caso). Cambio de contrato sin consumidor desplegado; checkout (T-082) y pago (T-098) generan la clave con `crypto.randomUUID()`. Habilita T-018c.
+  2. **D-H2:** filtro común en `shared/` contra controles bidireccionales y caracteres invisibles, **usado por todos los módulos** (identity, orders, catalog, inventory, promotions). Habilita T-018d.
+  3. **D-H3:** límite del cuerpo JSON de **256 KiB** (multipart, 6 MiB). **Además**, las imágenes de producto subidas se **convierten a WebP optimizado** (formato ligero recomendado para la web); requiere una tarea nueva (T-018i) y una librería de imágenes, pendiente de aprobación como dependencia.
+  4. **D-H4:** limpieza de imágenes huérfanas **también automática ya**: script manual (`--apply`) y temporizador en `deploy/`. El temporizador toca `deploy/` y exige la ficha de auditoría y la confirmación del usuario antes de aplicarse (D-011).
+- **Consecuencias:** T-018c y T-018d pasan a READY; T-018i (WebP) nueva; el temporizador de T-018f se separa y queda a la espera de la ficha (D-011).
 
