@@ -50,6 +50,7 @@ from valmont.modules.orders.domain import (
 from valmont.shared.errors import ERROR_RESPONSES, AppError, ErrorOut
 from valmont.shared.money import Money
 from valmont.shared.product_snapshots import SqlProductSnapshots
+from valmont.shared.text import has_unsafe_chars
 
 # Excepción documentada en modules.md §3: require_admin (y su CurrentUser) desde identity.
 # Se declara antes que el router del cliente (main.py): `/admin` no lo captura `/{order_id}`.
@@ -227,10 +228,7 @@ class TransitionIn(BaseModel):
         # Sin Cc ni Cs (sustituto suelto): no caben en un `text` de PostgreSQL.
         # Solo `note` admite el salto de línea; carrier y tracking_code son de una línea.
         keep = "\n" if info.field_name == "note" else ""
-        if value and any(
-            (c != keep and unicodedata.category(c) == "Cc") or unicodedata.category(c) == "Cs"
-            for c in value
-        ):
+        if value and has_unsafe_chars(value, keep):
             raise ValueError("Caracteres no permitidos.")
         return value
 

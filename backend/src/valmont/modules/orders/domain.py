@@ -1,10 +1,11 @@
 import re
-import unicodedata
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta, timezone
 from enum import StrEnum
 from uuid import UUID
+
+from valmont.shared.text import has_unsafe_chars, has_visible_char
 
 PAYMENT_WINDOW_MINUTES = 30  # ORDERS-R6: igual que la reserva de inventory, pero constante propia
 MAX_PENDING_ORDERS = 3  # ORDERS-R9
@@ -161,14 +162,14 @@ def estimated_delivery_on(created_at: datetime, lead_times: Iterable[int | None]
 
 def _reject_control_chars(field_name: str, value: str) -> None:
     # Cc: \x00 rompe un text de PostgreSQL. Cs: un sustituto suelto no se codifica en UTF-8.
-    if any(unicodedata.category(char) in ("Cc", "Cs") for char in value):
+    if has_unsafe_chars(value):
         raise DeliveryInvalid(field_name, "El texto contiene caracteres de control no permitidos.")
 
 
 def _text(field_name: str, value: str, low: int, high: int) -> str:
     _reject_control_chars(field_name, value)
     text = " ".join(value.split())
-    if not low <= len(text) <= high:
+    if not has_visible_char(text) or not low <= len(text) <= high:
         raise DeliveryInvalid(field_name, f"Debe tener entre {low} y {high} caracteres.")
     return text
 

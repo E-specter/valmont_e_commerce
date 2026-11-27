@@ -1,9 +1,10 @@
-import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
+
+from valmont.shared.text import has_unsafe_chars
 
 NOTE_MAX = 500  # INVENTORY-R5
 ON_HAND_MAX = 2**31 - 1  # on_hand es integer (SPEC §6): un valor mayor sería un 500 de la BD
@@ -162,7 +163,7 @@ class StockItem:
 
 def has_control_chars(text: str, allowed: str = "") -> bool:
     # Cc: \x00 rompe un text de PostgreSQL. Cs: un sustituto suelto no se codifica en UTF-8.
-    return any(unicodedata.category(c) in ("Cc", "Cs") and c not in allowed for c in text)
+    return has_unsafe_chars(text, allowed)
 
 
 def _invalid_note(message: str) -> InvalidMovement:

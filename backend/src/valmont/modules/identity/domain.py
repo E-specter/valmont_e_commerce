@@ -1,10 +1,11 @@
 import re
-import unicodedata
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
 from typing import Final, Literal
 from uuid import UUID
+
+from valmont.shared.text import has_unsafe_chars, has_visible_char
 
 FULL_NAME_MAX = 120
 SHORT_TEXT_MAX = 40  # style y cada material
@@ -69,7 +70,7 @@ class CurrentUser:
 def _reject_control_chars(value: str) -> None:
     # Cc: \x00 rompe un text de PostgreSQL. Cs: un sustituto suelto no se codifica en UTF-8.
     # Se comprueba antes de recortar: si no, un \t o \n en los extremos pasaría desapercibido.
-    if any(unicodedata.category(char) in ("Cc", "Cs") for char in value):
+    if has_unsafe_chars(value):
         raise ProfileError("El texto contiene caracteres de control no permitidos.")
 
 
@@ -77,7 +78,7 @@ def clean_text(value: str, max_length: int, *, collapse_spaces: bool = False) ->
     """Valida y recorta un texto de entrada: 1..max_length caracteres, sin control ni sustitutos."""
     _reject_control_chars(value)
     text = " ".join(value.split()) if collapse_spaces else value.strip()
-    if not 1 <= len(text) <= max_length:
+    if not has_visible_char(text) or not 1 <= len(text) <= max_length:
         raise ProfileError(f"El texto debe tener entre 1 y {max_length} caracteres.")
     return text
 

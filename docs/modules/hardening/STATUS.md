@@ -376,6 +376,18 @@ Flujo de `AddProductImage`: `image_format(data)` → `optimizer.optimize(data)` 
 12. Commits: ninguno — preparado. Rutas: las 4 de código + este STATUS. Mensaje: `feat(catalog): limpieza de imágenes huérfanas de Storage con script en dry-run por defecto (T-018f)`.
 
 
+### Traspaso backend-dev: T-018d (IN_REVIEW)
+1. Tarea: T-018d, rama `t018d` (desde 4643606). 2. Estado: IN_REVIEW.
+3. Hecho: nuevo `shared/text.py` con `has_unsafe_chars(text, allow="")` (Cc, Cs, Cf o relleno invisible U+2800, 3164, FFA0, 115F, 1160, 17B4-5, 034F; `allow` exime caracteres) y `has_visible_char(text)` (algun char que no es Z*, C* ni relleno).
+4. Sustituidas las 6 copias del filtro Cc/Cs (identity, orders, catalog, inventory, promotions, `TransitionIn._without_controls` en orders/admin_http); mismos codigos y mensajes, mismo recorte; `allow="
+"` donde ya estaba (catalog multiline, notas de inventario, `note` de transicion).
+5. `has_visible_char` exigido en: identity `clean_text` (full_name, privacy), orders `_text` (recipient_name, department, province, district, address_line), catalog `clean_text` obligatorio, promotions `name`. Mismo mensaje que el de longitud/vacio actual.
+6. Sin cambios: filtro `q` de orders/admin_http (Cc/Cs), application, persistence, migraciones, main, tests.
+7. Notas: `carrier`/`tracking_code`/`note` de transicion pasan por `has_unsafe_chars` pero no exigen parte visible (no esta en la lista del paquete); la nota de inventario tampoco. Las secuencias emoji con ZWJ (U+200D) quedan rechazadas por diseno del paquete.
+8. Estatico: `uv run ruff format src` -> 79 files left unchanged; `uv run ruff check src` -> All checks passed!; importar `valmont.main` -> OK.
+9. NO EJECUTADO: pruebas (D-028, D-033).
+10. Propuesto: fix(shared): rechazar controles bidireccionales e invisibles en el texto de entrada (T-018d). Preparado (git add), sin commit: shared/text.py + 5 domain.py + orders/adapters/admin_http.py.
+
 ### Traspaso backend-dev: T-018c y T-018e (IN_REVIEW)
 1. Tareas: T-018c (Idempotency-Key solo UUID) y T-018e (topes en el OpenAPI). Rama `t018ce`, base 93fb4e7.
 2. Hecho T-018c: `shared/idempotency.py` (nuevo) con `IDEMPOTENCY_KEY_PATTERN` e `IdempotencyKey` (firma exacta del paquete); orders y payments lo importan y borran su copia (y el import `Header`).

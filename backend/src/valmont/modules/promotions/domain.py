@@ -1,8 +1,9 @@
-import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
+
+from valmont.shared.text import has_unsafe_chars, has_visible_char
 
 # SPEC promotions R1, R2 y R4. Dominio puro: sin framework ni acceso a datos.
 PERCENT_MIN = 1
@@ -36,7 +37,7 @@ class PromotionError(ValueError):
 
 def _has_control_char(text: str) -> bool:
     # Mismo criterio que catalog e identity: Cc rompe un text de PostgreSQL y Cs no es UTF-8.
-    return any(unicodedata.category(char) in ("Cc", "Cs") for char in text)
+    return has_unsafe_chars(text)
 
 
 @dataclass(frozen=True)
@@ -55,7 +56,11 @@ class Promotion:
 
     def __post_init__(self) -> None:
         name = self.name.strip()
-        if _has_control_char(self.name) or not 1 <= len(name) <= NAME_MAX:
+        if (
+            _has_control_char(self.name)
+            or not has_visible_char(name)
+            or not 1 <= len(name) <= NAME_MAX
+        ):
             raise PromotionError(f"name: de 1 a {NAME_MAX} caracteres, sin caracteres de control")
         object.__setattr__(self, "name", name)  # recortado (frozen)
         self._check_value()

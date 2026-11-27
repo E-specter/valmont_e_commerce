@@ -7,6 +7,8 @@ from decimal import Decimal
 from enum import StrEnum
 from uuid import UUID
 
+from valmont.shared.text import has_unsafe_chars, has_visible_char
+
 PAGE_SIZE_DEFAULT = 24  # CATALOG-R9
 PAGE_SIZE_MAX = 48
 RELATED_MAX = 4  # CATALOG-R6
@@ -158,10 +160,10 @@ def clean_text(
     allowed = "\n" if multiline else ""
     # Cc: \x00 rompe un text de PostgreSQL. Cs: un sustituto suelto no se codifica en UTF-8.
     # Se comprueba antes de recortar: si no, un \t o \n en los extremos pasaría desapercibido.
-    if any(unicodedata.category(c) in ("Cc", "Cs") and c not in allowed for c in value):
+    if has_unsafe_chars(value, allowed):
         raise CatalogError("El texto contiene caracteres de control no permitidos.")
     text = value.strip()
-    if required and not text:
+    if required and not has_visible_char(text):
         raise CatalogError("El texto no puede estar vacío.")
     if max_length is not None and len(text) > max_length:
         raise CatalogError(f"El texto admite como máximo {max_length} caracteres.")
