@@ -259,6 +259,19 @@ Lista de revisión de la skill: importes del servidor (sin cambio) · identidad 
 
 ## Traspasos
 
+### Traspaso T-018a + T-018b — 2026-11-27 — backend-dev (IN_REVIEW)
+1. Tareas: T-018a y T-018b, en serie. 2. Estado: implementado, sin probar por QA.
+3. Archivos: `shared/hardening.py` (nuevo), `main.py` (import + 3 líneas de middleware), `shared/logs.py`, `shared/auth.py`.
+4. Firmas: las del paquete, sin cambios (`BodyLimitMiddleware`, `body_limit_for`, `security_headers_middleware`, `MAX_BODY_BYTES`=256 KiB, `MAX_MULTIPART_BODY_BYTES`=6 MiB, `NO_STORE_PREFIX`; `QUIET_LOGGERS`, `redact_db_detail`, `SafeFormatter`).
+5. Decisiones de implementación: el desbordamiento sin `Content-Length` devuelve `http.disconnect` a la app y se sustituye su respuesta por el 413 (flag + `send` protegido; también si la app lanza). `SafeFormatter` recorre `__cause__`/`__context__`/`.orig` y añade `[BD] sqlstate=… constraint=…` leyendo `.diag`. `Key (c)=(v)` pasa a `Key (c)=([omitido])`.
+6. Orden de middleware: BodyLimit (interno) < request_id < security_headers (externo).
+7. Evidencia (solo estática): `uv run ruff format .` → 283 files left unchanged; `uv run ruff check .` → All checks passed!; importar `valmont.main` → OK; humo ad hoc con TestClient (no es prueba): 413 con `max_bytes=262144`, `X-Request-ID`, `no-store`, `nosniff`; troceado sin Content-Length → 413; `/api/v1/identity/me` → 401 con ambas cabeceras; `/health` solo `nosniff`.
+8. NO EJECUTADO: pruebas (D-028, D-033).
+9. Para QA: `tests/shared/test_logs.py` hay que actualizar el patrón antiguo de `X-Request-ID`; el caso `integration` del `DETAIL` no se ejercitó con BD real (el atributo `.diag` es el de psycopg).
+10. Riesgos: un cuerpo de otro tipo que la app no lee (ruta sin parámetro de cuerpo) con chunked no se cuenta, porque nadie llama a `receive`; Content-Length sí se valida siempre.
+11. Sin dependencias, migraciones ni cambios de contrato. Falta anotar el 413 en `modules.md` §4.4 (Leader, al integrar).
+12. Commits: ninguno, preparado (`git add` de los 4 archivos). Mensajes: `feat(shared): cabeceras de seguridad y límite de cuerpo (T-018a)` y `fix(shared): logs sin datos sensibles y JWKS no-JSON como 503 (T-018b)`.
+
 ### Traspaso del plan T-018 — 2026-11-27 — backend-lead
 Plan y paquetes escritos; sin código. Resumen en el traspaso al Leader (respuesta de la tarea). Verificado: se recorrió el OpenAPI actual con `app.openapi()` (43 campos de cuerpo y 8 parámetros sin tope; la lista de T-018e); se leyó `jwt/jwks_client.py` de la versión instalada (el `JSONDecodeError` no se envuelve: hoy da 401); no se ejecutó ninguna prueba (D-028, D-033).
 

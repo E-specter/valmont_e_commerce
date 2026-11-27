@@ -371,7 +371,7 @@ def test_foreign_and_missing_orders_are_not_distinguishable_by_time(shop: OrderS
 
 
 # --------------------------------------------------------------------------------------------
-# Tamaño del cuerpo (R-4: sin límite transversal todavía)
+# Tamaño del cuerpo (R-4: límite transversal de 256 KiB desde T-018a)
 
 
 def test_a_huge_body_is_rejected_without_echo_or_500(shop: OrderShop) -> None:
@@ -382,7 +382,8 @@ def test_a_huge_body_is_rejected_without_echo_or_500(shop: OrderShop) -> None:
 
     for content in (huge_extra, huge_value):
         response = pay(shop, p.user, p.order_id, content=content)
-        assert response.status_code == 422, response.text[:200]
+        assert response.status_code == 413, response.text[:200]
+        assert response.json()["error"]["code"] == "payload_too_large"
         assert len(response.content) < 2_000 and junk[:64] not in response.text
     assert attempt_rows(shop.session, p.order_id) == []
 

@@ -6,6 +6,8 @@ from valmont.modules.audit.adapters.http import AuditRecorderDep
 from valmont.modules.audit.domain import AuditEntry
 from valmont.shared.db import SessionDep, get_session
 
+REQUEST_ID = "4c9b6f0d-2a13-4e7f-8b5c-9f0a1b2c3d4e"  # solo se reutiliza un UUID o 32 hex (T-018b)
+
 
 class FakeSession:
     def __init__(self) -> None:
@@ -25,6 +27,6 @@ def test_recorder_writes_in_the_request_session_with_its_request_id() -> None:
         recorder.record(AuditEntry("catalog.price_changed", "product", "p-1", after={"price": 1}))
         return [stmt.compile().params["request_id"] for stmt in session.statements]
 
-    response = TestClient(app).post("/test/audit", headers={"X-Request-ID": "req-7"})
+    response = TestClient(app).post("/test/audit", headers={"X-Request-ID": REQUEST_ID})
 
-    assert response.json() == ["req-7"]
+    assert response.json() == [REQUEST_ID]

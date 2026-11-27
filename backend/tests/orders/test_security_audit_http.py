@@ -525,7 +525,7 @@ def test_huge_or_odd_page_numbers_are_422_on_both_lists(
         assert response.status_code == 422, (path, response.text)
 
 
-def test_a_megabyte_delivery_field_is_422_and_creates_nothing(shop: OrderShop) -> None:
+def test_a_megabyte_delivery_field_is_413_and_creates_nothing(shop: OrderShop) -> None:
     user = shop.user()
     product = add_listed(shop.session, on_hand=5)
     stock_in_cart(shop, user, (product, 1))
@@ -533,7 +533,9 @@ def test_a_megabyte_delivery_field_is_422_and_creates_nothing(shop: OrderShop) -
 
     response = place(shop, user, delivery=SHIPPING | {"address_line": "A" * 1_000_000})
 
-    assert response.status_code == 422, response.text[:300]
+    # T-018a: el límite transversal (256 KiB) responde antes que la validación.
+    assert response.status_code == 413, response.text[:300]
+    assert response.json()["error"]["code"] == "payload_too_large"
     assert len(response.content) < 2_000  # el error no devuelve lo enviado
     assert effects(shop.session, user, product) == before
 

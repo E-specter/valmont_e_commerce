@@ -41,7 +41,7 @@ pytestmark = pytest.mark.integration
 
 ADMIN = uuid4()
 BASE = "/api/v1/inventory/admin"
-REQUEST_ID = "t043-prueba"
+REQUEST_ID = "6e1d8b2f-4c35-4a9b-8d7e-1b2c3d4e5f60"
 INT4_MAX = 2**31 - 1
 AUDIT = text(
     "SELECT action, actor_id, actor_role, request_id, before, after FROM app.audit_log"

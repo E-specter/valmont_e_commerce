@@ -26,7 +26,7 @@ pytestmark = pytest.mark.integration
 
 ADMIN = uuid4()
 BASE = "/api/v1/promotions/admin"
-REQUEST_ID = "t052-prueba"
+REQUEST_ID = "7f2e9c30-5d46-4bac-9e8f-2c3d4e5f6071"
 AUDIT = text(
     "SELECT action, actor_id, actor_role, request_id, before, after FROM app.audit_log"
     " WHERE entity_type = 'promotion' AND entity_id = :id ORDER BY id"

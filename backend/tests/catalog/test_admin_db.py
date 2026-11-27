@@ -38,7 +38,7 @@ pytestmark = pytest.mark.integration
 
 ADMIN = uuid4()
 BASE = "/api/v1/catalog/admin"
-REQUEST_ID = "t028-prueba"
+REQUEST_ID = "5d0c7a1e-3b24-4f8a-9c6d-0a1b2c3d4e5f"
 AUDIT = text(
     "SELECT action, actor_id, actor_role, request_id, before, after FROM app.audit_log"
     " WHERE entity_type = 'product' AND entity_id = :id ORDER BY id"

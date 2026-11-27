@@ -11,10 +11,49 @@ from valmont.shared.errors import error_response
 REQUEST_ID_HEADER = "X-Request-ID"
 LOG_FORMAT = "%(asctime)s %(levelname)s [%(request_id)s] %(name)s: %(message)s"
 _HANDLER_NAME = "valmont"
-_VALID_REQUEST_ID = re.compile(r"[A-Za-z0-9-]{1,64}")
+_VALID_REQUEST_ID = re.compile(
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[0-9a-fA-F]{32}"
+)
+QUIET_LOGGERS = ("sqlalchemy.engine", "httpcore")
+# Hasta la siguiente marca de SQLAlchemy o el final: un valor puede traer saltos de línea.
+_DB_END = r"(?=\n\s*(?:\[SQL:|\[parameters:|\(Background on this error)|\Z)"
+_DB_KEY = re.compile(r"Key \(([^)]*)\)=\(.*?" + _DB_END, re.DOTALL)
+_DB_ROW = re.compile(r"Failing row contains \(.*?" + _DB_END, re.DOTALL)
+_DB_DETAIL = re.compile(r"^(\s*)DETAIL:.*?" + _DB_END, re.DOTALL | re.MULTILINE)
 
 request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
 logger = logging.getLogger(__name__)
+
+
+def redact_db_detail(text: str) -> str:
+    """Quita de una traza los valores de columnas que PostgreSQL pone en `DETAIL` (RNF10)."""
+    text = _DB_KEY.sub(r"Key (\1)=([omitido])", text)
+    text = _DB_ROW.sub("Failing row contains ([omitido])", text)
+    return _DB_DETAIL.sub(r"\1DETAIL: [omitido]", text)
+
+
+def _db_errors(exc: BaseException | None) -> list[BaseException]:
+    found: list[BaseException] = []
+    stack = [exc]
+    while stack and len(found) < 20:
+        current = stack.pop()
+        if current is None or any(current is seen for seen in found):
+            continue
+        found.append(current)
+        stack += [current.__cause__, current.__context__, getattr(current, "orig", None)]
+    return found
+
+
+class SafeFormatter(logging.Formatter):
+    def formatException(self, ei) -> str:  # noqa: ANN001
+        lines = []
+        for exc in _db_errors(ei[1]):
+            diag = getattr(exc, "diag", None)
+            if diag is not None:
+                sqlstate = getattr(diag, "sqlstate", None) or getattr(exc, "sqlstate", None)
+                constraint = getattr(diag, "constraint_name", None) or "-"
+                lines.append(f"[BD] sqlstate={sqlstate or '-'} constraint={constraint}")
+        return "\n".join([redact_db_detail(super().formatException(ei)), *lines])
 
 
 class RequestIdFilter(logging.Filter):
@@ -30,9 +69,11 @@ def configure_logging(level: str) -> None:
         handler = logging.StreamHandler()
         handler.set_name(_HANDLER_NAME)
         handler.addFilter(RequestIdFilter())
-        handler.setFormatter(logging.Formatter(LOG_FORMAT))
+        handler.setFormatter(SafeFormatter(LOG_FORMAT))
         root.addHandler(handler)
     root.setLevel(level)
+    for name in QUIET_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
 
 
 async def request_id_middleware(

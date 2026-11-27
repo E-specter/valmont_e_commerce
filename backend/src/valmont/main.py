@@ -12,6 +12,7 @@ from valmont.modules.promotions.adapters import admin_http as promotions_admin_h
 from valmont.modules.wishlist.adapters import http as wishlist_http
 from valmont.shared.config import get_settings
 from valmont.shared.errors import register_error_handlers
+from valmont.shared.hardening import BodyLimitMiddleware, security_headers_middleware
 from valmont.shared.logs import configure_logging, request_id_middleware
 
 
@@ -20,7 +21,9 @@ def create_app() -> FastAPI:
     configure_logging(get_settings().log_level)
     app = FastAPI(title="Valmont API", version="0.1.0")
     register_error_handlers(app)
+    app.add_middleware(BodyLimitMiddleware)  # más interno
     app.middleware("http")(request_id_middleware)
+    app.middleware("http")(security_headers_middleware)  # más externo: alcanza el 500 y el 413
 
     @app.get("/health", tags=["platform"])
     def health() -> dict[str, str]:

@@ -1,3 +1,4 @@
+import json
 import logging
 from dataclasses import dataclass
 from functools import cache
@@ -56,6 +57,9 @@ def verify_token(token: str) -> TokenClaims:
         user_id = UUID(str(claims["sub"]))
     except jwt.PyJWKClientConnectionError as exc:  # antes que PyJWTError: es una subclase
         logger.warning("JWKS de Supabase Auth inalcanzable: %s", exc)
+        raise AppError("auth_unavailable", "Autenticación no disponible.", 503) from None
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:  # antes que ValueError: lo son
+        logger.warning("JWKS de Supabase Auth no devolvió JSON válido (%s)", type(exc).__name__)
         raise AppError("auth_unavailable", "Autenticación no disponible.", 503) from None
     except jwt.PyJWTError, ValueError:
         raise unauthenticated() from None

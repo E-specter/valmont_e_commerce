@@ -5,6 +5,8 @@ from fastapi.testclient import TestClient
 from valmont.main import create_app
 from valmont.shared.errors import AppError
 
+CRASH_ID = "2b7e1c4a-6d35-4f90-a1b8-3c4d5e6f7a80"  # solo se reutiliza un UUID o 32 hex (T-018b)
+
 
 @pytest.fixture
 def app() -> FastAPI:
@@ -64,7 +66,7 @@ def test_unhandled_error_returns_500_without_trace_and_logs_it(
 ) -> None:
     client = TestClient(app, raise_server_exceptions=False)
 
-    response = client.get("/test/crash", headers={"X-Request-ID": "crash-1"})
+    response = client.get("/test/crash", headers={"X-Request-ID": CRASH_ID})
 
     assert response.status_code == 500
     assert response.json() == {
@@ -74,7 +76,7 @@ def test_unhandled_error_returns_500_without_trace_and_logs_it(
             "details": None,
         }
     }
-    assert response.headers["X-Request-ID"] == "crash-1"
+    assert response.headers["X-Request-ID"] == CRASH_ID
     [logged] = [r for r in caplog.records if r.exc_info]
     assert str(logged.exc_info[1]) == "detalle interno"
-    assert logged.request_id == "crash-1"
+    assert logged.request_id == CRASH_ID
