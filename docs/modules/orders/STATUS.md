@@ -11,8 +11,8 @@
 | T-073 | Migración `0010`, filas y repositorio SQL (incluido el reloj de la BD y la caducidad) | backend-dev + qa-reviewer | T-072; E-2 registrada; T-016, T-026 integradas | DONE (3194a85) |
 | T-074 | Crear pedido (`CreateOrder`) y `POST /orders` | backend-dev + qa-reviewer | T-071, T-073; cart (T-059), inventory (T-042), promotions (T-051) integradas | DONE (d9682c6) |
 | T-075 | Lectura propia y caducidad (`ExpireOverdueOrders`, `ListMyOrders`, `GetMyOrder`) y 2 `GET` | backend-dev + qa-reviewer | T-074 | DONE (ca7a40a) |
-| T-076 | Cancelar el pedido propio (`CancelMyOrder`) y `POST /orders/{id}/cancel` | backend-dev + qa-reviewer | T-075 | READY |
-| T-077 | Puerto para payments: `GetPayableOrder` y `ConfirmOrderPayment` | backend-dev + qa-reviewer | T-075 | BACKLOG |
+| T-076 | Cancelar el pedido propio (`CancelMyOrder`) y `POST /orders/{id}/cancel` | backend-dev + qa-reviewer | T-075 | DONE (780a33e) |
+| T-077 | Puerto para payments: `GetPayableOrder` y `ConfirmOrderPayment` | backend-dev + qa-reviewer | T-075 | READY |
 | T-078 | Administración: listado y detalle (`ListAdminOrders`, `GetAdminOrder`) y 2 `GET` | backend-dev + qa-reviewer | T-075 | BACKLOG |
 | T-079 | Administración: transiciones y cancelación con reembolso simulado (`TransitionOrder`) y `POST …/transitions` | backend-dev + qa-reviewer | T-078 | BACKLOG |
 | T-080 | Integración transversal y revisión de seguridad del backend de orders | qa-reviewer (con Opus en la ronda final, decisions.md) | T-074…T-079 | BACKLOG |
@@ -458,3 +458,4 @@ Y la fila de `docs/agents/_registry.md`: `docs/modules/orders/ · Carpeta · SPE
 - **R-9 (QA de T-073, menor):** `SqlClock.now()` devuelve la hora en la zona de la sesión de la BD; la local está en UTC. T-074 lo normaliza con `.astimezone(UTC)` si toca `SqlClock`, o lo deja anotado para el despliegue.
 - **R-10 (QA de T-073, menor):** `apply` lanza `InvalidTransition(..., frozenset())`; el 409 de §7 (`details.allowed`) lo calcula el caso de uso con `admin_targets` (T-079).
 - **R-11 (QA de T-074, a resolver en T-075):** el dominio `Order` y `SqlOrderRepository.get` no cargan `carrier`, `tracking_code` ni `shipped_at` (están en `app.deliveries`), y `DeliveryOut` los emite como `null`. Es correcto para pedidos nuevos; para leer pedidos enviados, T-075 debe añadirlos a `DeliveryDetails` u `Order` (o a un objeto `Delivery`, SPEC §5) y al repositorio, y T-079 los escribe al enviar. RESUELTA en T-075 (ca7a40a): ruta A; el repositorio devuelve `Delivery` solo cuando hay datos de envío.
+- **R-12 (T-076, aceptado):** cancelar un pedido vencido responde 409 `not_cancellable` con `status: "expirado"`. El 409 deshace la transacción, así que la caducidad (historial `system`, auditoría y liberación) se guarda en la siguiente lectura (R7 perezosa). La disponibilidad ya ignora las reservas vencidas, así que el stock no queda retenido. CA-15 se probó con un pago simulado (repositorio + `ConsumeReservations`); se repite con `ConfirmOrderPayment` real en T-077.
