@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Response
+from fastapi import APIRouter, Depends, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
@@ -44,17 +44,12 @@ from valmont.modules.payments.domain import (
 )
 from valmont.shared.db import SessionDep
 from valmont.shared.errors import ERROR_RESPONSES, ErrorOut, error_response
+from valmont.shared.idempotency import IdempotencyKey
 from valmont.shared.money import Money
 
 router = APIRouter(prefix="/api/v1/payments", tags=["payments"])
 
 _NO_STORE = {"Cache-Control": "no-store"}
-
-# Duplicada de orders a propósito (E-P5): payments no importa `orders.adapters.http`.
-IdempotencyKey = Annotated[
-    str,
-    Header(alias="idempotency-key", min_length=16, max_length=64, pattern=r"^[A-Za-z0-9_-]+$"),
-]
 
 
 class PayOrderIn(BaseModel):

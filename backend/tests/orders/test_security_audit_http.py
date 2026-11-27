@@ -72,7 +72,7 @@ def routes(order_id: object) -> list[tuple[str, str, Any]]:
 
 
 def call(shop: OrderShop, method: str, path: str, body: Any, auth: dict[str, str]) -> Any:
-    sent = {"Idempotency-Key": f"key-{uuid4().hex}", **auth}
+    sent = {"Idempotency-Key": str(uuid4()), **auth}
     return shop.client.request(method, path, headers=sent, json=body)
 
 
@@ -368,7 +368,7 @@ def test_a_lone_surrogate_in_a_delivery_field_is_422_on_that_field(
         PATH,
         user,
         f'{{"delivery": {{{body}, "{field}": "Ana \\ud800 Torres"}}}}',
-        **{"Idempotency-Key": f"key-{uuid4().hex}"},
+        **{"Idempotency-Key": str(uuid4())},
     )
 
     assert response.status_code == 422, response.text
@@ -451,7 +451,7 @@ def test_the_same_key_with_another_delivery_returns_the_original_and_changes_not
     user = shop.user()
     product = add_listed(shop.session, on_hand=5)
     stock_in_cart(shop, user, (product, 1))
-    key = "clave-abuso-0000000001"
+    key = "4af85c9c-c02b-5d3c-8d20-7984cd87adde"
     first = place(shop, user, key=key)
     assert first.status_code == 201, first.text
     stock_in_cart(shop, user, (add_listed(shop.session, on_hand=5), 1))  # carrito nuevo
@@ -471,7 +471,7 @@ def test_the_key_of_a_cancelled_order_returns_that_order_and_never_buys_again(
     user = shop.user()
     product = add_listed(shop.session, on_hand=5)
     stock_in_cart(shop, user, (product, 1))
-    key = "clave-cancelada-000001"
+    key = "41042122-ee6f-5cc6-aa58-4684a256c1b9"
     first = place(shop, user, key=key)
     assert shop.client.post(f"{PATH}/{first.json()['id']}/cancel", headers=headers(user)).is_success
     stock_in_cart(shop, user, (product, 1))  # vuelve a ponerlo en el carrito
@@ -483,15 +483,15 @@ def test_the_key_of_a_cancelled_order_returns_that_order_and_never_buys_again(
     assert effects(shop.session, user, product) == before  # la reutilización no compra
 
 
-def test_keys_differing_only_in_case_are_different_purchases(shop: OrderShop) -> None:
+def test_keys_differing_only_in_case_are_the_same_purchase(shop: OrderShop) -> None:
+    # T-018c: la clave es un UUID y se normaliza a minúsculas; no hay dos compras.
     user = shop.user()
     stock_in_cart(shop, user, (add_listed(shop.session, on_hand=5), 1))
-    first = place(shop, user, key="CLAVE-MAYUS-00000001")
-    stock_in_cart(shop, user, (add_listed(shop.session, on_hand=5), 1))
-    second = place(shop, user, key="clave-mayus-00000001")
+    first = place(shop, user, key="3F2B8C1E-5A4D-4E7B-9C06-1D2E3F4A5B6C")
+    second = place(shop, user, key="3f2b8c1e-5a4d-4e7b-9c06-1d2e3f4a5b6c")
 
-    assert (first.status_code, second.status_code) == (201, 201)
-    assert first.json()["id"] != second.json()["id"]
+    assert (first.status_code, second.status_code) == (201, 200)
+    assert first.json()["id"] == second.json()["id"]
 
 
 # --------------------------------------------------------------------------------------------

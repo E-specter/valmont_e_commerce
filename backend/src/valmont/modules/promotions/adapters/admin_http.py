@@ -31,6 +31,8 @@ from valmont.modules.promotions.application import (
     UpdatePromotion,
 )
 from valmont.modules.promotions.domain import (
+    NAME_MAX,
+    PRODUCTS_MAX,
     Promotion,
     PromotionError,
     PromotionKind,
@@ -42,6 +44,10 @@ from valmont.shared.errors import ERROR_RESPONSES, AppError
 from valmont.shared.money import Money
 
 PAGE_SIZE_DEFAULT = 24  # como catalog (SPEC §7)
+
+# Topes solo declarados en el OpenAPI (T-018e): el dominio recorta y valida.
+Name = Annotated[str, Field(json_schema_extra={"maxLength": NAME_MAX})]
+ProductIds = Annotated[list[UUID], Field(json_schema_extra={"maxItems": PRODUCTS_MAX})]
 PAGE_SIZE_MAX = 48
 
 # Lecturas de presentación (sku, nombre, categoría): tablas ligeras de catalog, solo lectura.
@@ -105,12 +111,12 @@ def _cents(money: Money | None) -> int | None:
 class PromotionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: str
+    name: Name
     kind: PromotionKind
     percent_off: StrictInt | None = None
     amount_off: Money | None = None
     scope: PromotionScope
-    product_ids: list[UUID] | None = None
+    product_ids: ProductIds | None = None
     category_id: UUID | None = None
     starts_at: AwareDatetime
     ends_at: AwareDatetime
@@ -124,7 +130,7 @@ class PromotionUpdateIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     # Omitibles pero no nulos: Pydantic no valida el default, así que un null explícito → 422.
-    name: str = None  # type: ignore[assignment]
+    name: Name = None  # type: ignore[assignment]
     kind: PromotionKind = None  # type: ignore[assignment]
     scope: PromotionScope = None  # type: ignore[assignment]
     starts_at: AwareDatetime = None  # type: ignore[assignment]
@@ -132,7 +138,7 @@ class PromotionUpdateIn(BaseModel):
     # Anulables: null descarta el valor (R14).
     percent_off: StrictInt | None = None
     amount_off: Money | None = None
-    product_ids: list[UUID] | None = None
+    product_ids: ProductIds | None = None
     category_id: UUID | None = None
 
     def to_changes(self) -> dict[str, object]:

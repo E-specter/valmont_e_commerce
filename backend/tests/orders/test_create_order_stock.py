@@ -103,7 +103,7 @@ def test_the_line_snapshot_does_not_change_when_catalog_promotions_or_stock_chan
     )
     sku, _, _ = identity_of(shop.session, product)
     stock_in_cart(shop, user, (product, 2))
-    key = "clave-de-instantanea-01"
+    key = "cd200e9b-f68b-51b4-b606-972ed28e322c"
     first = place(shop, user, key=key)
     assert first.status_code == 201, first.text
 
@@ -463,7 +463,7 @@ def test_repeating_the_key_returns_200_with_the_same_order_and_changes_nothing(
     product = add_listed(shop.session, on_hand=5)
     other = add_listed(shop.session, on_hand=5)
     stock_in_cart(shop, user, (product, 2), (other, 1, False))
-    key = "clave-de-reintento-0003"
+    key = "bb74418f-1fe4-512c-9c00-4db6236061f6"
     first = place(shop, user, key=key)
     assert first.status_code == 201
     stock_in_cart(shop, user, (product, 1))  # el cliente vuelve a elegir lo mismo
@@ -481,7 +481,7 @@ def test_repeating_the_key_returns_200_with_the_same_order_and_changes_nothing(
 
 def test_repeating_the_key_with_another_body_returns_the_original_order(shop: OrderShop) -> None:
     user, _ = quick(shop)
-    key = "clave-de-reintento-0004"
+    key = "800c0a2e-a387-5151-ac4c-70de19ddb4d9"
     first = place(shop, user, key=key)
 
     again = place(
@@ -498,11 +498,11 @@ def test_a_replay_still_works_when_the_cart_is_empty_or_the_user_is_at_the_cap(
     shop: OrderShop,
 ) -> None:
     user, _ = quick(shop)
-    first = place(shop, user, key="clave-de-reintento-0005")
+    first = place(shop, user, key="d93b9b98-0b55-5f7b-9f4d-d425353c4948")
     for _n in range(2):
         buy(shop, user)  # ya hay 3 pendientes
 
-    again = place(shop, user, key="clave-de-reintento-0005")
+    again = place(shop, user, key="d93b9b98-0b55-5f7b-9f4d-d425353c4948")
 
     assert again.status_code == 200 and again.json()["id"] == first.json()["id"]
 
@@ -511,7 +511,7 @@ def test_a_unique_violation_on_insert_is_409_idempotency_conflict_and_undoes_eve
     shop: OrderShop,
 ) -> None:
     user, product = quick(shop)
-    key = "clave-de-carrera-0001"
+    key = "56d92902-c907-5fbe-84c0-f026e55d48c2"
     assert place(shop, user, key=key).status_code == 201
     again = add_listed(shop.session, on_hand=5)
     stock_in_cart(shop, user, (again, 1))

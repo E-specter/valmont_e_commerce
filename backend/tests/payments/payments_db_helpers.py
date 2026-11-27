@@ -29,8 +29,8 @@ LAST4 = "7391"
 
 
 def new_key() -> str:
-    """Clave de idempotencia válida (16-64) y única: 'pay-' + 32 hex = 36 caracteres."""
-    return f"pay-{uuid4().hex}"
+    """Clave de idempotencia válida (un UUID, T-018c) y única."""
+    return str(uuid4())
 
 
 def user_with_order(session: Session) -> tuple[UUID, UUID]:

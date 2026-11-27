@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, Response
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from valmont.modules.audit.adapters.http import AuditRecorderDep
@@ -62,6 +62,7 @@ from valmont.modules.orders.domain import (
 from valmont.shared.config import get_settings
 from valmont.shared.db import SessionDep
 from valmont.shared.errors import ERROR_RESPONSES, AppError, ErrorOut
+from valmont.shared.idempotency import IdempotencyKey
 from valmont.shared.money import Money
 from valmont.shared.product_snapshots import ProductSnapshot, SqlProductSnapshots, image_url
 
@@ -75,19 +76,32 @@ def _money(cents: int) -> Money:
 # --- Entrada (SPEC §7; R13): esquema cerrado por modalidad, sin importes ni user_id ---
 
 
+def _declared_max(limit: int) -> type[str]:
+    """Tope solo declarado en el OpenAPI (T-018e): el dominio recorta y valida (R13)."""
+    return Annotated[str, Field(json_schema_extra={"maxLength": limit})]  # type: ignore[return-value]
+
+
+# Literales de domain.DeliveryDetails (no son constantes allí): nombre 80, ubicación 40,
+# dirección y referencia 150, teléfono `+` y 15 dígitos.
+_Name = _declared_max(80)
+_Phone = _declared_max(16)
+_Location = _declared_max(40)
+_Address = _declared_max(150)
+
+
 class _DeliveryBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    recipient_name: str
-    phone: str
+    recipient_name: _Name
+    phone: _Phone
 
 
 class ShippingIn(_DeliveryBase):
     delivery_method: Literal["shipping"]
-    department: str
-    province: str
-    district: str
-    address_line: str
-    reference: str | None = None
+    department: _Location
+    province: _Location
+    district: _Location
+    address_line: _Address
+    reference: _Address | None = None
 
 
 class PickupIn(_DeliveryBase):
@@ -446,12 +460,6 @@ def _translated() -> Iterator[None]:
         raise _conflict("underage", "Debes tener 18 años cumplidos para comprar.") from None
 
 
-IdempotencyKey = Annotated[
-    str,
-    Header(alias="idempotency-key", min_length=16, max_length=64, pattern=r"^[A-Za-z0-9_-]+$"),
-]
-
-
 @router.post(
     "",
     status_code=201,
@@ -490,7 +498,11 @@ def create_order(
 def list_my_orders(
     user: Annotated[CurrentUser, Depends(current_user)],
     use_case: Annotated[ListMyOrders, Depends(get_list_my_orders)],
-    status: Annotated[list[OrderStatus] | None, Query()] = None,
+    status: Annotated[
+        Annotated[list[OrderStatus], Field(json_schema_extra={"maxItems": len(OrderStatus)})]
+        | None,
+        Query(),
+    ] = None,
     page: Annotated[int, Query(ge=1, le=1000)] = 1,
     page_size: Annotated[int, Query(ge=1, le=50)] = 20,
 ) -> OrderPageOut:

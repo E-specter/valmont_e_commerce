@@ -71,7 +71,7 @@ class Api:
         return {"Authorization": f"Bearer {make_token(str(user))}"}
 
     def create(self, user: UUID, key: str | None = None) -> Any:
-        sent = self.auth(user) | {"Idempotency-Key": key or f"key-{uuid4().hex}"}
+        sent = self.auth(user) | {"Idempotency-Key": key or str(uuid4())}
         return self.client.post(PATH, headers=sent, json={"delivery": SHIPPING})
 
     def cancel(self, user: UUID, order_id: object) -> Any:
@@ -188,7 +188,7 @@ def test_the_same_key_sent_twice_at_once_by_http_leaves_one_order_and_no_500(
 ) -> None:
     product = world.product(on_hand=5)
     user = api.known(world.user((product, 2)))
-    key = f"clave-doble-{uuid4().hex[:12]}"
+    key = str(uuid4())
 
     responses = together(lambda: api.create(user, key), lambda: api.create(user, key))
 

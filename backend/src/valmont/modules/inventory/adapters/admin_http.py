@@ -27,6 +27,7 @@ from valmont.modules.inventory.application import (
     StockReader,
 )
 from valmont.modules.inventory.domain import (
+    NOTE_MAX,
     PAGE_SIZE_DEFAULT,
     PAGE_SIZE_MAX,
     AvailabilityStatus,
@@ -175,7 +176,9 @@ class MovementIn(BaseModel):
     # En ajuste_inventario, la cantidad contada (0 vale); en el resto, unidades (≥ 1, lo
     # comprueba el dominio con loc en quantity).
     quantity: Annotated[StrictInt, Field(ge=0, le=INT4_MAX)]
-    note: str | None = None  # el dominio la normaliza y la valida (INVENTORY-R5)
+    # Tope solo declarado (T-018e): el dominio recorta y valida.
+    note: Annotated[str, Field(json_schema_extra={"maxLength": NOTE_MAX})] | None = None
+    # el dominio la normaliza y la valida (INVENTORY-R5)
 
 
 class SettingsIn(BaseModel):

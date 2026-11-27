@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Annotated, Literal, Self
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Path, Query
 from pydantic import AfterValidator, BaseModel, Field, model_validator
 
 from valmont.modules.catalog.adapters.persistence import (
@@ -18,6 +18,7 @@ from valmont.modules.catalog.application import (
 from valmont.modules.catalog.domain import (
     PAGE_SIZE_DEFAULT,
     PAGE_SIZE_MAX,
+    SLUG_MAX,
     AttributeKind,
     AttributeValue,
     Availability,
@@ -63,7 +64,10 @@ def _image_url(storage_path: str) -> str:
 # --- Esquemas de entrada ---
 
 # Validados por campo: un carácter de control da 422 con loc ["query", <parámetro>].
-QueryText = Annotated[str, AfterValidator(clean_text)]
+# Tope solo declarado en el OpenAPI (T-018e): no se valida antes de normalizar.
+QueryText = Annotated[
+    str, Field(json_schema_extra={"maxLength": SLUG_MAX}), AfterValidator(clean_text)
+]
 SearchText = Annotated[
     str, Field(max_length=100), AfterValidator(lambda v: clean_text(v, required=False))
 ]
@@ -248,7 +252,9 @@ def list_products(params: Annotated[ProductListIn, Query()], repo: Products) -> 
 # 422 solo sustituye el HTTPValidationError que FastAPI añade a toda ruta con parámetros:
 # un slug de texto nunca falla la validación, y uno mal formado responde 404.
 @router.get("/products/{slug}", responses={s: ERROR_RESPONSES[s] for s in (404, 422)})
-def get_product(slug: str, repo: Products) -> ProductDetailOut:
+def get_product(
+    slug: Annotated[str, Path(json_schema_extra={"maxLength": SLUG_MAX})], repo: Products
+) -> ProductDetailOut:
     try:
         check_slug(slug)  # un NUL u otro texto imposible no llega a la BD
     except CatalogError:

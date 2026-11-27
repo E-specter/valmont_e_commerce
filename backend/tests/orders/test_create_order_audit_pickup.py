@@ -73,7 +73,7 @@ def test_a_new_order_has_exactly_one_initial_history_row_by_the_customer(shop: O
 
 def test_a_replay_does_not_add_history(shop: OrderShop) -> None:
     user, _ = quick(shop)
-    key = "clave-de-historial-001"
+    key = "6926408e-0576-572c-9e11-b1e554c68897"
     first = place(shop, user, key=key).json()
 
     place(shop, user, key=key)
@@ -116,7 +116,7 @@ def test_creation_is_audited_with_the_actor_the_entity_and_the_amounts(shop: Ord
 
 def test_one_audit_entry_per_order_and_none_for_a_replay(shop: OrderShop) -> None:
     user, _ = quick(shop)
-    key = "clave-de-auditoria-01"
+    key = "a3b3b62b-2a39-52cd-a8e9-3dda6ef56bee"
     first = place(shop, user, key=key).json()
     place(shop, user, key=key)
     other = add_listed(shop.session, on_hand=5)
@@ -172,7 +172,7 @@ def test_logs_never_contain_the_name_the_phone_or_the_address(
     product = add_listed(shop.session, on_hand=0 if outcome == "blocked" else 5)
     if outcome != "empty":
         stock_in_cart(shop, user, (product, 1))
-    key = "clave-de-registros-001"
+    key = "3e8ac10d-e5c7-5743-b0fe-03adefd738e9"
     delivery: dict[str, Any] = SHIPPING
     if outcome == "invalid":
         delivery = SHIPPING | {"phone": "x"}
@@ -237,7 +237,7 @@ def test_a_shipping_order_has_no_store_even_when_one_is_configured(shop: OrderSh
 
 def test_the_store_shown_is_the_current_one_not_a_copy_frozen_in_the_order(shop: OrderShop) -> None:
     user, _ = quick(shop)
-    key = "clave-de-boutique-001"
+    key = "bf3c7833-c210-5f2f-ad3f-f6b82e91cbd7"
     first = place(shop, user, key=key, delivery=PICKUP)
     assert first.json()["delivery"]["pickup_store"] == STORE
 
@@ -344,7 +344,7 @@ def test_repeating_a_pickup_key_without_a_store_returns_the_original_order_with_
 ) -> None:
     # La idempotencia va antes que la comprobación de la boutique (decisión del Leader, T-074).
     user, product = quick(shop)
-    key = "clave-de-boutique-002"
+    key = "d937b1f9-05d1-59e3-9282-5ec92d70d8fa"
     first = place(shop, user, key=key, delivery=PICKUP)
     assert first.status_code == 201
     shop.set_store()

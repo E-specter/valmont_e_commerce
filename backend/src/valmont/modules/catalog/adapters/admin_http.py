@@ -13,6 +13,7 @@ from fastapi import (
     Depends,
     File,
     Form,
+    Path,
     Query,
     Request,
     Response,
@@ -71,6 +72,10 @@ from valmont.modules.catalog.domain import (
     PAGE_SIZE_DEFAULT,
     PAGE_SIZE_MAX,
     SKU_MAX,
+    SLUG_MAX,
+    SPEC_LABEL_MAX,
+    SPEC_VALUE_MAX,
+    SPECS_MAX,
     AdminProductQuery,
     AdminProductView,
     AttributeKind,
@@ -185,21 +190,43 @@ def _code(code: str) -> str:
 
 # --- Esquemas de entrada (campos extra prohibidos: un status en el cuerpo → 422) ---
 
-Sku = Annotated[str, AfterValidator(lambda v: clean_text(v, SKU_MAX))]
-Name = Annotated[str, AfterValidator(lambda v: clean_text(v, NAME_MAX))]
-Description = Annotated[
-    str, AfterValidator(lambda v: clean_text(v, DESCRIPTION_MAX, required=False, multiline=True))
+# Los topes solo se declaran en el OpenAPI (json_schema_extra): validar antes de normalizar
+# rechazaría textos que recortados caben (T-018e).
+Sku = Annotated[
+    str,
+    Field(json_schema_extra={"maxLength": SKU_MAX}),
+    AfterValidator(lambda v: clean_text(v, SKU_MAX)),
 ]
-Slug = Annotated[str, AfterValidator(check_slug)]
+Name = Annotated[
+    str,
+    Field(json_schema_extra={"maxLength": NAME_MAX}),
+    AfterValidator(lambda v: clean_text(v, NAME_MAX)),
+]
+Description = Annotated[
+    str,
+    Field(json_schema_extra={"maxLength": DESCRIPTION_MAX}),
+    AfterValidator(lambda v: clean_text(v, DESCRIPTION_MAX, required=False, multiline=True)),
+]
+Slug = Annotated[str, Field(json_schema_extra={"maxLength": SLUG_MAX}), AfterValidator(check_slug)]
 Diameter = Annotated[Decimal, Field(gt=0, max_digits=4, decimal_places=1)]
 NonNegative = Annotated[StrictInt, Field(ge=0, le=INT4_MAX)]
 Positive = Annotated[StrictInt, Field(gt=0, le=INT4_MAX)]
 Position = Annotated[StrictInt, Field(ge=-INT4_MAX, le=INT4_MAX)]
-CategoryName = Annotated[str, AfterValidator(lambda v: clean_text(v, CATEGORY_NAME_MAX))]
-CategoryDescription = Annotated[
-    str, AfterValidator(lambda v: clean_text(v, CATEGORY_DESCRIPTION_MAX, required=False))
+CategoryName = Annotated[
+    str,
+    Field(json_schema_extra={"maxLength": CATEGORY_NAME_MAX}),
+    AfterValidator(lambda v: clean_text(v, CATEGORY_NAME_MAX)),
 ]
-Label = Annotated[str, AfterValidator(lambda v: clean_text(v, LABEL_MAX))]
+CategoryDescription = Annotated[
+    str,
+    Field(json_schema_extra={"maxLength": CATEGORY_DESCRIPTION_MAX}),
+    AfterValidator(lambda v: clean_text(v, CATEGORY_DESCRIPTION_MAX, required=False)),
+]
+Label = Annotated[
+    str,
+    Field(json_schema_extra={"maxLength": LABEL_MAX}),
+    AfterValidator(lambda v: clean_text(v, LABEL_MAX)),
+]
 
 
 def _fits_price_column(money: Money) -> Money:
@@ -214,12 +241,13 @@ Price = Annotated[Money, AfterValidator(_fits_price_column)]
 class SpecIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    label: str
-    value: str
+    label: Annotated[str, Field(json_schema_extra={"maxLength": SPEC_LABEL_MAX})]
+    value: Annotated[str, Field(json_schema_extra={"maxLength": SPEC_VALUE_MAX})]
 
 
 Specs = Annotated[
     list[SpecIn],
+    Field(json_schema_extra={"maxItems": SPECS_MAX}),
     AfterValidator(lambda specs: check_specs(SpecEntry(s.label, s.value) for s in specs)),
 ]
 
@@ -561,7 +589,11 @@ def _attribute_routes(path: str, kind: AttributeKind) -> None:
         return AdminAttributeValueOut.from_domain(value)
 
     @router.patch(f"{path}/{{code}}", responses=_errors(404, 422), name=f"update_{kind}")
-    def update(code: str, body: AttributeValueUpdateIn, repo: Attributes) -> AdminAttributeValueOut:
+    def update(
+        code: Annotated[str, Path(json_schema_extra={"maxLength": SLUG_MAX})],
+        body: AttributeValueUpdateIn,
+        repo: Attributes,
+    ) -> AdminAttributeValueOut:
         changes = {name: getattr(body, name) for name in body.model_fields_set}
         with _domain_errors():
             value = UpdateAttributeValue(repo)(kind, _code(code), changes)
@@ -586,7 +618,11 @@ def get_image_storage() -> ImageStorage:
 
 
 Storage = Annotated[ImageStorage, Depends(get_image_storage)]
-Alt = Annotated[str, AfterValidator(lambda v: clean_text(v, ALT_MAX))]
+Alt = Annotated[
+    str,
+    Field(json_schema_extra={"maxLength": ALT_MAX}),
+    AfterValidator(lambda v: clean_text(v, ALT_MAX)),
+]
 _MAX_MIB = IMAGE_MAX_BYTES // 2**20
 _BODY_MAX = IMAGE_MAX_BYTES + 64 * 1024  # el archivo más el resto del multipart (alt, límites)
 _IMAGE_ERRORS: dict[int | str, dict[str, Any]] = {

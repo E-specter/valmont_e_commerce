@@ -105,7 +105,7 @@ def test_the_409_of_age_is_the_same_on_every_retry_and_still_changes_nothing(
     user, product = customer(shop, born)
     before = effects(shop.session, user, product)
 
-    responses = [place(shop, user, key="clave-de-edad-0000001") for _ in range(3)]
+    responses = [place(shop, user, key="f98d6cd1-898a-5e84-b4a7-520ae23ae07a") for _ in range(3)]
 
     assert len({r.text for r in responses}) == 1
     assert {r.status_code for r in responses} == {409}
@@ -199,12 +199,12 @@ def test_replaying_a_created_order_is_200_even_if_the_profile_no_longer_qualifie
     shop: OrderShop, later: date | None
 ) -> None:
     user, product = customer(shop, ADULT_BIRTH)
-    first = place(shop, user, key="clave-de-repeticion-001")
+    first = place(shop, user, key="00bfd361-6d4f-56a4-971f-22a657042d3d")
     assert first.status_code == 201
     set_birth_date(shop.session, user, later)  # p. ej. una corrección hecha por soporte
     before = effects(shop.session, user, product)
 
-    replay = place(shop, user, key="clave-de-repeticion-001")
+    replay = place(shop, user, key="00bfd361-6d4f-56a4-971f-22a657042d3d")
 
     assert replay.status_code == 200, replay.text
     assert replay.json()["id"] == first.json()["id"]
@@ -213,12 +213,12 @@ def test_replaying_a_created_order_is_200_even_if_the_profile_no_longer_qualifie
 
 def test_the_key_of_someone_elses_order_does_not_return_it_to_a_minor(shop: OrderShop) -> None:
     adult, _ = customer(shop, ADULT_BIRTH)
-    created = place(shop, adult, key="clave-compartida-00001")
+    created = place(shop, adult, key="62359521-bf17-5f26-82ac-6086c65869b5")
     assert created.status_code == 201
     minor, product = customer(shop, MINOR_BIRTH)
     before = effects(shop.session, minor, product)
 
-    response = place(shop, minor, key="clave-compartida-00001")
+    response = place(shop, minor, key="62359521-bf17-5f26-82ac-6086c65869b5")
 
     rejected(response, "underage")
     assert created.json()["id"] not in response.text
@@ -289,13 +289,13 @@ def test_without_a_valid_token_the_answer_is_401_and_never_reveals_the_age(
 
 def test_a_decision_is_made_with_the_database_value_not_a_cached_one(shop: OrderShop) -> None:
     user, _ = customer(shop, MINOR_BIRTH)
-    rejected(place(shop, user, key="clave-sin-cache-000001"), "underage")
+    rejected(place(shop, user, key="7bf9bb2a-0ed3-5052-872e-b64898831ca7"), "underage")
 
     set_birth_date(shop.session, user, ADULT_BIRTH)  # soporte corrige la fecha
     product = add_listed(shop.session, on_hand=5)
     stock_in_cart(shop, user, (product, 1))
 
-    assert place(shop, user, key="clave-sin-cache-000002").status_code == 201
+    assert place(shop, user, key="045f4c5a-8481-5a6b-b896-c11d398cbb2b").status_code == 201
 
 
 # --------------------------------------------------------------------------------------------
@@ -348,9 +348,9 @@ def test_the_birth_date_never_reaches_responses_logs_or_the_audit_trail(
     caplog.set_level(logging.DEBUG)
     born = {"underage": MINOR_BIRTH, "missing": None}.get(outcome, date(2005, 3, 4))
     user, _ = customer(shop, born)
-    responses = [place(shop, user, key="clave-de-privacidad-001")]
+    responses = [place(shop, user, key="7a51c8d9-c09a-5846-9dfb-4ae8da752ac9")]
     if outcome == "replay":
-        responses.append(place(shop, user, key="clave-de-privacidad-001"))
+        responses.append(place(shop, user, key="7a51c8d9-c09a-5846-9dfb-4ae8da752ac9"))
 
     everything = [r.text for r in responses] + [caplog.text]
     audit = shop.session.execute(text("SELECT before, after FROM app.audit_log")).all()

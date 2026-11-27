@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 from tests.orders.orders_create_helpers import DETAIL_KEYS, LINE_KEYS
+from tests.shared.idempotency_key_helpers import IDEMPOTENCY_KEY_PATTERN
 from valmont.main import create_app
 from valmont.modules.orders.adapters.pickup import SettingsPickupStore
 from valmont.modules.orders.application import PickupStore
@@ -70,12 +71,12 @@ def test_idempotency_key_is_a_required_header(spec: dict[str, Any]) -> None:
     assert not [p for p in post(spec)["parameters"] if p["in"] in ("query", "path")]
 
 
-def test_the_header_documents_the_length_and_charset(spec: dict[str, Any]) -> None:
+def test_the_header_documents_a_36_character_uuid(spec: dict[str, Any]) -> None:
     [header] = [p for p in post(spec)["parameters"] if p["in"] == "header"]
     node = header["schema"]
 
-    assert (node.get("minLength"), node.get("maxLength")) == (16, 64)
-    assert node.get("pattern") is not None and "A-Za-z0-9" in node["pattern"]
+    assert (node.get("minLength"), node.get("maxLength")) == (36, 36)
+    assert node.get("pattern") == IDEMPOTENCY_KEY_PATTERN
 
 
 def test_the_request_body_is_create_order_in_and_is_closed(spec: dict[str, Any]) -> None:

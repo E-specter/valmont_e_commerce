@@ -99,7 +99,7 @@ def shop(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> Iterator[Order
 
 
 def fresh_key() -> str:
-    return f"key-{uuid4().hex}"
+    return str(uuid4())
 
 
 def place(

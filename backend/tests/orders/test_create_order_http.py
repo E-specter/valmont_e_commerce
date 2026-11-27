@@ -409,16 +409,6 @@ def test_a_missing_idempotency_key_is_422_on_the_header_and_creates_nothing(
     assert effects(shop.session, user, product) == before
 
 
-@pytest.mark.parametrize("length", [16, 64])
-def test_the_key_limits_are_inclusive_and_all_allowed_characters_work(
-    shop: OrderShop, length: int
-) -> None:
-    user, _ = quick(shop)
-    key = ("aZ09_-" * 20)[:length]
-
-    assert place(shop, user, key=key).status_code == 201
-
-
 def test_the_key_header_name_is_case_insensitive_like_any_http_header(shop: OrderShop) -> None:
     user, _ = quick(shop)
     response = place(shop, user, key=None, headers={"idempotency-key": helpers.fresh_key()})
@@ -536,11 +526,11 @@ def test_the_image_is_null_when_the_product_is_no_longer_published_even_on_a_rep
     gone = add_listed(shop.session, on_hand=5, image=("p/a.jpg", "Reloj A"))
     stays = add_listed(shop.session, on_hand=5, image=("p/b.jpg", "Reloj B"))
     stock_in_cart(shop, user, (gone, 1), (stays, 1))
-    first = place(shop, user, key="clave-de-reintento-0001")
+    first = place(shop, user, key="33bf9a17-075a-52f0-b627-64232c88330d")
     assert first.status_code == 201
 
     set_product(shop.session, gone, status="draft")
-    replay = place(shop, user, key="clave-de-reintento-0001")
+    replay = place(shop, user, key="33bf9a17-075a-52f0-b627-64232c88330d")
 
     assert replay.status_code == 200
     images = {ln["product_id"]: ln["image"] for ln in replay.json()["lines"]}
@@ -557,10 +547,12 @@ def test_the_images_of_all_lines_are_read_with_one_query(shop: OrderShop) -> Non
         add_listed(shop.session, on_hand=5, image=(f"p/{n}.jpg", "Reloj")) for n in range(4)
     ]
     stock_in_cart(shop, user, *((p, 1) for p in products))
-    place(shop, user, key="clave-de-reintento-0002")
+    place(shop, user, key="d97e7ac9-bc13-5866-9cf6-a4f102966f59")
 
     with captured(shop.session) as statements:
-        replay = place(shop, user, key="clave-de-reintento-0002")  # sin PrepareCheckout
+        replay = place(
+            shop, user, key="d97e7ac9-bc13-5866-9cf6-a4f102966f59"
+        )  # sin PrepareCheckout
 
     assert replay.status_code == 200
     assert len([s for s in statements if "product_images" in s]) == 1
@@ -636,7 +628,7 @@ def test_a_user_id_in_headers_or_the_query_string_is_ignored(shop: OrderShop) ->
 
 def test_a_customer_with_an_empty_cart_cannot_take_the_order_of_another(shop: OrderShop) -> None:
     owner, product = quick(shop)
-    key = "clave-compartida-0001"
+    key = "9589aac9-ed44-5078-8fd3-86793499ef6a"
     mine = place(shop, owner, key=key)
     other = shop.user()
 
@@ -654,7 +646,7 @@ def test_each_customer_gets_their_own_order_with_the_same_key_and_the_same_produ
     product = add_listed(shop.session, on_hand=5)
     stock_in_cart(shop, first, (product, 1))
     stock_in_cart(shop, second, (product, 2))
-    key = "clave-compartida-0002"
+    key = "fa278fee-461f-54f4-8d34-c4941590f3d0"
 
     one = place(shop, first, key=key)
     two = place(shop, second, key=key)

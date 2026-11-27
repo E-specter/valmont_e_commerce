@@ -362,6 +362,18 @@ Flujo de `AddProductImage`: `image_format(data)` → `optimizer.optimize(data)` 
 
 ## Traspasos
 
+### Traspaso backend-dev: T-018c y T-018e (IN_REVIEW)
+1. Tareas: T-018c (Idempotency-Key solo UUID) y T-018e (topes en el OpenAPI). Rama `t018ce`, base 93fb4e7.
+2. Hecho T-018c: `shared/idempotency.py` (nuevo) con `IDEMPOTENCY_KEY_PATTERN` e `IdempotencyKey` (firma exacta del paquete); orders y payments lo importan y borran su copia (y el import `Header`).
+3. Hecho T-018e: `json_schema_extra` con `maxLength`/`maxItems` desde constantes de dominio en catalog (admin, ficha, filtros, `code`/`slug` de ruta), identity (perfil y preferencias), inventory (`note`) y promotions (`name`, `product_ids`). Sin `max_length` real: validación sin cambios.
+4. Literales aceptados por el paquete: `phone` 16 y `birth_date` 10 (no hay constante de dominio).
+5. Sin tope y sin cubrir (para la lista de excepciones de QA): `file`; `case_diameter_mm` y `case_diameter_mm_min/max` (Decimal: la rama string de `anyOf` no admite el tope a nivel de campo); respuestas (`ErrorBody`).
+6. Orders (autorizado por el Leader): `ShippingIn`, `PickupIn` y `status` de `GET /orders` ya declaran topes (literales de `DeliveryDetails`; `maxItems` 8). `orders/adapters/http.py` mezcla T-018c y T-018e: un solo commit o `git add -p`. `admin_http.py` de orders ya tenía topes.
+7. Docs pendientes (el paquete no me autoriza): ORDERS-R8 y §7 de orders, R3/E-P5 de payments (formato UUID, ya sin copia duplicada) y la fila de contrato; los actualiza backend-lead.
+8. Estático: `uv run ruff format src` → sin cambios; `uv run ruff check src` → All checks passed; `import valmont.main` y `app.openapi()` → OK (la cabecera declara minLength/maxLength 36 y patrón en las dos rutas). NO EJECUTADO: pruebas (D-028, D-033).
+9. Aviso: un `ruff format .` inicial pudo tocar `backend/tests/**` de QA (mismo worktree); no los preparé. QA debe verificar sus archivos.
+10. Commits: ninguno, preparado. T-018c: `shared/idempotency.py`, `modules/orders/adapters/http.py`, `modules/payments/adapters/http.py`: `feat(orders): Idempotency-Key solo en formato UUID en pedidos y pagos (T-018c)`. T-018e: los 5 archivos del paquete (catalog x2, identity, inventory, promotions): `docs(api): límites de longitud declarados en el OpenAPI (T-018e)`.
+
 ### Traspaso T-018a + T-018b — 2026-11-27 — backend-dev (IN_REVIEW)
 1. Tareas: T-018a y T-018b, en serie. 2. Estado: implementado, sin probar por QA.
 3. Archivos: `shared/hardening.py` (nuevo), `main.py` (import + 3 líneas de middleware), `shared/logs.py`, `shared/auth.py`.

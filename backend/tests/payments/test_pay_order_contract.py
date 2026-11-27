@@ -13,6 +13,7 @@ import pytest
 
 from tests.payments.pay_order_helpers import ATTEMPT_KEYS
 from tests.payments.test_layers import PAYMENTS, SRC, imports_of, starts_with_any
+from tests.shared.idempotency_key_helpers import IDEMPOTENCY_KEY_PATTERN
 from valmont.main import create_app
 
 PATH = "/api/v1/payments/orders/{order_id}/attempts"
@@ -66,13 +67,13 @@ def test_the_order_id_is_a_uuid_path_parameter(spec: dict[str, Any]) -> None:
     assert param["schema"]["format"] == "uuid"
 
 
-def test_idempotency_key_is_a_required_header_with_length_and_charset(spec: dict[str, Any]) -> None:
+def test_idempotency_key_is_a_required_header_that_documents_a_uuid(spec: dict[str, Any]) -> None:
     [header] = [p for p in post(spec)["parameters"] if p["in"] == "header"]
     node = header["schema"]
 
     assert header["name"].lower() == "idempotency-key" and header["required"] is True
-    assert (node.get("minLength"), node.get("maxLength")) == (16, 64)
-    assert node.get("pattern") is not None and "A-Za-z0-9" in node["pattern"]
+    assert (node.get("minLength"), node.get("maxLength")) == (36, 36)
+    assert node.get("pattern") == IDEMPOTENCY_KEY_PATTERN
     assert not [p for p in post(spec)["parameters"] if p["in"] == "query"]
 
 

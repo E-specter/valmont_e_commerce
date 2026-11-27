@@ -70,7 +70,7 @@ def test_an_oversized_order_body_is_413_with_headers_and_creates_nothing(shop: O
     user, product = quick(shop)
     before = effects(shop.session, user, product)
     headers = auth_of(shop, user) | {
-        "Idempotency-Key": f"key-{uuid4().hex}",
+        "Idempotency-Key": str(uuid4()),
         "Content-Type": "application/json",
     }
     big = b'{"delivery": {"reference": "' + b"x" * (MAX_BODY_BYTES + 1) + b'"}}'
@@ -121,7 +121,7 @@ def test_payments_keep_their_own_no_store_once_and_every_status_is_hardened(
 def test_a_payment_body_over_the_limit_is_413_and_makes_no_attempt(shop: OrderShop) -> None:
     p = placed_order(shop)
     headers = auth_of(shop, p.user) | {
-        "Idempotency-Key": f"pay-{uuid4().hex}",
+        "Idempotency-Key": str(uuid4()),
         "Content-Type": "application/json",
     }
 

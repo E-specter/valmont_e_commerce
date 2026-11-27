@@ -222,7 +222,7 @@ def test_the_header_is_required(shop: OrderShop) -> None:
     ],
     ids=["15", "65", "espacios", "punto-y-coma", "tab", "sql", "salto-de-linea"],
 )
-def test_a_key_outside_16_to_64_url_safe_characters_is_422(shop: OrderShop, key: str) -> None:
+def test_a_key_that_is_not_a_uuid_is_422(shop: OrderShop, key: str) -> None:
     p = placed_order(shop)
 
     response = pay(shop, p.user, p.order_id, "4242", key=key)
@@ -231,23 +231,6 @@ def test_a_key_outside_16_to_64_url_safe_characters_is_422(shop: OrderShop, key:
     assert response.json()["error"]["details"][0]["loc"] == ["header", "idempotency-key"]
     assert attempt_rows(shop.session, p.order_id) == []
     assert status_of(shop.session, p.order_id) == "pendiente_pago"
-
-
-@pytest.mark.parametrize("length", [16, 64])
-def test_the_key_limits_16_and_64_are_accepted(shop: OrderShop, length: int) -> None:
-    p = placed_order(shop)
-
-    response = pay(shop, p.user, p.order_id, "4242", key="K" * length)
-
-    assert response.status_code == 201, response.text
-
-
-def test_hyphen_and_underscore_are_valid_key_characters(shop: OrderShop) -> None:
-    p = placed_order(shop)
-
-    response = pay(shop, p.user, p.order_id, "4242", key="clave_pago-0123456789_ABC")
-
-    assert response.status_code == 201, response.text
 
 
 # --------------------------------------------------------------------------------------------

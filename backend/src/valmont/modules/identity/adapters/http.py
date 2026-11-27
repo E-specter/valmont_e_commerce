@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import AfterValidator, BaseModel, ConfigDict, StrictBool, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StrictBool, model_validator
 
 from valmont.modules.identity.adapters.persistence import SqlProfileRepository
 from valmont.modules.identity.application import (
@@ -14,6 +14,10 @@ from valmont.modules.identity.application import (
     UpdateProfile,
 )
 from valmont.modules.identity.domain import (
+    FULL_NAME_MAX,
+    MATERIALS_MAX,
+    PRIVACY_VERSION_MAX,
+    SHORT_TEXT_MAX,
     BirthDateInvalid,
     BirthDateLocked,
     CurrentUser,
@@ -79,10 +83,13 @@ def _money(cents: int | None) -> Money | None:
 class PreferencesIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    style: str | None = None
+    style: Annotated[str, Field(json_schema_extra={"maxLength": SHORT_TEXT_MAX})] | None = None
     budget_min: Money | None = None
     budget_max: Money | None = None
-    materials: list[str] = []
+    materials: Annotated[
+        list[Annotated[str, Field(json_schema_extra={"maxLength": SHORT_TEXT_MAX})]],
+        Field(json_schema_extra={"maxItems": MATERIALS_MAX}),
+    ] = []
 
     @model_validator(mode="after")
     def _check_invariants(self) -> Self:
@@ -99,13 +106,30 @@ class ProfileUpdateIn(BaseModel):
     # extra="forbid": un role o user_id en el cuerpo → 422 (IDENTITY-R1).
     model_config = ConfigDict(extra="forbid")
 
-    full_name: Annotated[str, AfterValidator(normalize_full_name)] | None = None
-    phone: Annotated[str, AfterValidator(normalize_phone)] | None = None
+    # Topes solo declarados (T-018e): se validan tras normalizar. phone: `+` y 15 dígitos.
+    full_name: (
+        Annotated[
+            str,
+            Field(json_schema_extra={"maxLength": FULL_NAME_MAX}),
+            AfterValidator(normalize_full_name),
+        ]
+        | None
+    ) = None
+    phone: (
+        Annotated[str, Field(json_schema_extra={"maxLength": 16}), AfterValidator(normalize_phone)]
+        | None
+    ) = None
     # Omitibles pero no nulos: Pydantic no valida el default, así que un null explícito → 422.
     preferences: PreferencesIn = None
     marketing_opt_in: StrictBool = None  # "yes" o "true" → 422
-    accept_privacy_version: Annotated[str, AfterValidator(normalize_privacy_version)] = None
-    birth_date: Annotated[str, AfterValidator(parse_birth_date)] = None  # AAAA-MM-DD; null → 422
+    accept_privacy_version: Annotated[
+        str,
+        Field(json_schema_extra={"maxLength": PRIVACY_VERSION_MAX}),
+        AfterValidator(normalize_privacy_version),
+    ] = None
+    birth_date: Annotated[
+        str, Field(json_schema_extra={"maxLength": 10}), AfterValidator(parse_birth_date)
+    ] = None  # AAAA-MM-DD; null → 422
 
     def to_changes(self) -> ProfileChanges:
         changes = {name: getattr(self, name) for name in self.model_fields_set}
