@@ -568,5 +568,6 @@
   4. **D-B4 = A:** en el detalle del pedido solo se pintan las transiciones válidas (`can_transition_to`).
   5. **D-B5 = A:** fechas absolutas `dd/mm/aaaa hh:mm` (24 h) en `America/Lima`.
   6. **D-B6 = B:** los importes del backoffice se muestran **igual que en la tienda** (P-3), para que el administrador vea exactamente lo que ve el cliente. Los frames con 2 decimales fijos se ajustan al implementar.
+  0. **Dirección visual de los frames de T-140: aprobada por el usuario.**
   7. **D-B7 = A:** reordenar imágenes con arrastrar y soltar más botones «Subir/Bajar» para teclado (WCAG 2.5.7).
 
