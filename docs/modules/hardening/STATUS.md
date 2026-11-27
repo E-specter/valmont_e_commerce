@@ -12,7 +12,7 @@ Transversal: no es un módulo con SPEC propia. Cada paquete corrige hallazgos de
 | T-018c | `Idempotency-Key` solo UUID, una definición en `shared/` (orders y payments) | backend-dev + qa-reviewer | **D-H1** (contrato, Leader + frontend-lead) | DONE (45ae4c1) |
 | T-018d | Texto de entrada: rechazar controles bidireccionales y caracteres invisibles; nombres sin parte visible | backend-dev + qa-reviewer | **D-H2** (cambio en 6 módulos, Leader) | PROPUESTO |
 | T-018e | Límites de longitud en el OpenAPI (solo documentación) | backend-dev + qa-reviewer | ninguna | READY |
-| T-018f | Limpieza de archivos huérfanos de Storage (`dry-run` por defecto) | backend-dev + qa-reviewer | ninguna | IN_REVIEW |
+| T-018f | Limpieza de archivos huérfanos de Storage (`dry-run` por defecto) | backend-dev + qa-reviewer | ninguna | DONE (42af4eb) |
 
 | T-018e | Límites de longitud en el OpenAPI (solo documentación) | backend-dev + qa-reviewer | ninguna | DONE (45ae4c1) |
 | T-018f | Limpieza de archivos huérfanos de Storage (`dry-run` por defecto) | backend-dev + qa-reviewer | ninguna | READY |
@@ -426,3 +426,4 @@ Plan y paquetes escritos; sin código. Resumen en el traspaso al Leader (respues
 - D-H4 = B: además del script manual (T-018f), un temporizador en `deploy/`; se aplica en T-018g/h con ficha de auditoría y confirmación del usuario (D-011).
 - **T-018r (DONE 085b32c, qa-reviewer):** aislamiento de la BD de pruebas. `tests/identity/test_birth_date_migration.py`, `tests/payments/test_migration.py` y el resto de pruebas de migración bajan y suben `valmont_test`; con varias ejecuciones de integración a la vez (agentes en paralelo) provocan `UndefinedColumn`/`UndefinedTable`, `DeadlockDetected` y destinos de downgrade inválidos. Corrección propuesta: las pruebas de migración usan una BD propia creada y borrada por la sesión de pruebas (p. ej. `valmont_test_migrations`), sin tocar la compartida. Incluye: datos sobrantes `lectura-*` que rompen `tests/catalog/test_http_db.py::test_categories_and_attributes_show_only_active_values_by_position`, y la prueba de tiempos comparados de `tests/payments/test_t096_journey_and_attacks.py` (~línea 276), inestable bajo carga.
 - **R-8 (decisión del Leader, 2026-11-27):** se mantiene la conversión a sRGB con `ImageCms` (lcms2 incluido en la rueda de Pillow): solo el administrador sube imágenes y la entrada está acotada (5 MiB y 25 MP); un perfil ICC roto se asume sRGB.
+- **T-018h (añadidos tras T-018f):** fijar `connect_timeout` en `get_engine()` (con la BD caída el script se cuelga >90 s); el temporizador diario del script de limpieza (ficha D-011); MENOR: un archivo suelto en la raíz del bucket se trataría como candidato (no es el layout `<product_id>/<image_id>.<ext>`).
