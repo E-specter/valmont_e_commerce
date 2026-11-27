@@ -684,6 +684,17 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-120 (implementación) — 2026-11-26 — frontend-dev
+1. Tarea: T-120 · 2. Estado: IN_REVIEW (listo para QA).
+3. Hecho: `http.ts` (tipos 3.1, `ApiError`, `toQueryString`, helper `parseResponse`), `server.ts` (`serverTransport`) y `catalog.ts` (tipos y 4 funciones) con las firmas del paquete sin cambios.
+4. Archivos: `frontend/src/lib/api/{http,server,catalog}.ts`.
+5. Estático: `npm run check → 0 errors, 0 warnings, 0 hints (46 files)`. NO EJECUTADO: build y pruebas (D-033).
+6. Contrato: `/openapi.json` real coincide con catalog §7: `ProductSummaryOut`/`ProductDetailOut` (con `original_price` y `discount_amount` obligatorios y anulables), `AvailabilityOut`, `ProductSort`, parámetros de `/catalog/products`, 404 y 422 con `ErrorOut`. Sin huecos de contrato.
+7. Decisiones: `parseResponse` exportado de `http.ts` (adición a la firma; lo reutilizará `browser.ts` de T-126). `path` que no empiece por `/` o empiece por `//` lanza `ApiError` status 0 `invalid_request` sin llamar a `fetch`. `AbortSignal.timeout(8000)` combinado con la señal del llamador; sin reintentos. `getProduct` codifica el slug con `encodeURIComponent`.
+8. Seguridad: `API_BASE_URL` solo vía `astro:env/server`; sin `PUBLIC_*`; no se registra nada; ninguna función acepta precios, totales ni ids de usuario.
+9. Nota para QA: `server.ts` importa `astro:env/server`; en Vitest se resuelve con `getViteConfig` o se simula con `vi.mock`.
+12. Commits: ninguno, preparado. Mensaje: `feat(ui): cliente de API del servidor y de catálogo (T-120)`.
+
 #### Traspaso T-118 (implementación) — 2026-11-26 — frontend-dev
 1. Tarea: T-118 · 2. Estado: IN_REVIEW (listo para QA).
 3. Hecho: `Card`, `Badge`, `Chip`, `Price`, `Availability`, `Notice`, `EmptyState`, `Skeleton`, `availability.ts`, `lib/format.ts` y `/dev/ui-b` (404 fuera de DEV). Firmas del paquete sin cambios.

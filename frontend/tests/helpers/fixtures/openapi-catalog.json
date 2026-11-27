@@ -1,0 +1,863 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "fixture catalog (copia recortada de /openapi.json, 2026-11-26)",
+  "version": "0.1.0"
+ },
+ "paths": {
+  "/api/v1/catalog/products": {
+   "get": {
+    "tags": [
+     "catalog"
+    ],
+    "summary": "List Products",
+    "operationId": "list_products_api_v1_catalog_products_get",
+    "parameters": [
+     {
+      "name": "q",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 100
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Q"
+      }
+     },
+     {
+      "name": "category",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Category"
+      }
+     },
+     {
+      "name": "movement",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Movement"
+      }
+     },
+     {
+      "name": "case_material",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Case Material"
+      }
+     },
+     {
+      "name": "case_diameter_mm_min",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Case Diameter Mm Min"
+      }
+     },
+     {
+      "name": "case_diameter_mm_max",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Case Diameter Mm Max"
+      }
+     },
+     {
+      "name": "water_resistance_m_min",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Water Resistance M Min"
+      }
+     },
+     {
+      "name": "price_min",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer",
+         "minimum": 0
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Price Min"
+      }
+     },
+     {
+      "name": "price_max",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer",
+         "minimum": 0
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Price Max"
+      }
+     },
+     {
+      "name": "available",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Available"
+      }
+     },
+     {
+      "name": "sort",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "$ref": "#/components/schemas/ProductSort"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Sort"
+      }
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 1000,
+       "minimum": 1,
+       "default": 1,
+       "title": "Page"
+      }
+     },
+     {
+      "name": "page_size",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 48,
+       "minimum": 1,
+       "default": 24,
+       "title": "Page Size"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProductPageOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "`validation_error`: datos de entrada no válidos.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/catalog/products/{slug}": {
+   "get": {
+    "tags": [
+     "catalog"
+    ],
+    "summary": "Get Product",
+    "operationId": "get_product_api_v1_catalog_products__slug__get",
+    "parameters": [
+     {
+      "name": "slug",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Slug"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProductDetailOut"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "`not_found`: el recurso no existe o no es visible.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "`validation_error`: datos de entrada no válidos.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/catalog/categories": {
+   "get": {
+    "tags": [
+     "catalog"
+    ],
+    "summary": "List Categories",
+    "operationId": "list_categories_api_v1_catalog_categories_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/CategoryOut"
+         },
+         "type": "array",
+         "title": "Response List Categories Api V1 Catalog Categories Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/catalog/attributes": {
+   "get": {
+    "tags": [
+     "catalog"
+    ],
+    "summary": "List Attributes",
+    "operationId": "list_attributes_api_v1_catalog_attributes_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AttributesOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "ProductSort": {
+    "type": "string",
+    "enum": [
+     "newest",
+     "price_asc",
+     "price_desc",
+     "relevance"
+    ],
+    "title": "ProductSort"
+   },
+   "ProductPageOut": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/ProductSummaryOut"
+      },
+      "type": "array",
+      "title": "Items"
+     },
+     "total": {
+      "type": "integer",
+      "title": "Total"
+     },
+     "page": {
+      "type": "integer",
+      "title": "Page"
+     },
+     "page_size": {
+      "type": "integer",
+      "title": "Page Size"
+     }
+    },
+    "type": "object",
+    "required": [
+     "items",
+     "total",
+     "page",
+     "page_size"
+    ],
+    "title": "ProductPageOut"
+   },
+   "ProductSummaryOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "slug": {
+      "type": "string",
+      "title": "Slug"
+     },
+     "sku": {
+      "type": "string",
+      "title": "Sku"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "category": {
+      "$ref": "#/components/schemas/valmont__modules__catalog__adapters__http__CategoryRefOut"
+     },
+     "price": {
+      "$ref": "#/components/schemas/Money-Output"
+     },
+     "original_price": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Money-Output"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "discount_amount": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Money-Output"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "movement": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/AttributeValueOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "case_material": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/AttributeValueOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "case_diameter_mm": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Case Diameter Mm"
+     },
+     "water_resistance_m": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Water Resistance M"
+     },
+     "main_image": {
+      "$ref": "#/components/schemas/ProductImageOut"
+     },
+     "availability": {
+      "$ref": "#/components/schemas/AvailabilityOut"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "slug",
+     "sku",
+     "name",
+     "category",
+     "price",
+     "original_price",
+     "discount_amount",
+     "movement",
+     "case_material",
+     "case_diameter_mm",
+     "water_resistance_m",
+     "main_image",
+     "availability"
+    ],
+    "title": "ProductSummaryOut"
+   },
+   "valmont__modules__catalog__adapters__http__CategoryRefOut": {
+    "properties": {
+     "slug": {
+      "type": "string",
+      "title": "Slug"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     }
+    },
+    "type": "object",
+    "required": [
+     "slug",
+     "name"
+    ],
+    "title": "CategoryRefOut"
+   },
+   "Money-Output": {
+    "properties": {
+     "amount": {
+      "type": "integer",
+      "minimum": 0,
+      "title": "Amount"
+     },
+     "currency": {
+      "type": "string",
+      "const": "PEN",
+      "title": "Currency",
+      "default": "PEN"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "amount",
+     "currency"
+    ],
+    "title": "Money",
+    "description": "Dinero en la API: céntimos enteros (sin float) y una sola moneda en el MVP."
+   },
+   "AttributeValueOut": {
+    "properties": {
+     "code": {
+      "type": "string",
+      "title": "Code"
+     },
+     "label": {
+      "type": "string",
+      "title": "Label"
+     }
+    },
+    "type": "object",
+    "required": [
+     "code",
+     "label"
+    ],
+    "title": "AttributeValueOut"
+   },
+   "ProductImageOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "url": {
+      "type": "string",
+      "title": "Url"
+     },
+     "alt": {
+      "type": "string",
+      "title": "Alt"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "url",
+     "alt"
+    ],
+    "title": "ProductImageOut"
+   },
+   "AvailabilityOut": {
+    "properties": {
+     "status": {
+      "type": "string",
+      "enum": [
+       "in_stock",
+       "low_stock",
+       "out_of_stock",
+       "on_request"
+      ],
+      "title": "Status"
+     },
+     "lead_time_days": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Lead Time Days"
+     }
+    },
+    "type": "object",
+    "required": [
+     "status",
+     "lead_time_days"
+    ],
+    "title": "AvailabilityOut"
+   },
+   "ErrorOut": {
+    "properties": {
+     "error": {
+      "$ref": "#/components/schemas/ErrorBody"
+     }
+    },
+    "type": "object",
+    "required": [
+     "error"
+    ],
+    "title": "ErrorOut",
+    "description": "Formato común de error (modules.md §4.4), para declararlo en el OpenAPI."
+   },
+   "ErrorBody": {
+    "properties": {
+     "code": {
+      "type": "string",
+      "title": "Code"
+     },
+     "message": {
+      "type": "string",
+      "title": "Message"
+     },
+     "details": {
+      "title": "Details"
+     }
+    },
+    "type": "object",
+    "required": [
+     "code",
+     "message"
+    ],
+    "title": "ErrorBody"
+   },
+   "ProductDetailOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid",
+      "title": "Id"
+     },
+     "slug": {
+      "type": "string",
+      "title": "Slug"
+     },
+     "sku": {
+      "type": "string",
+      "title": "Sku"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "category": {
+      "$ref": "#/components/schemas/valmont__modules__catalog__adapters__http__CategoryRefOut"
+     },
+     "price": {
+      "$ref": "#/components/schemas/Money-Output"
+     },
+     "original_price": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Money-Output"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "discount_amount": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Money-Output"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "movement": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/AttributeValueOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "case_material": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/AttributeValueOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "case_diameter_mm": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Case Diameter Mm"
+     },
+     "water_resistance_m": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Water Resistance M"
+     },
+     "main_image": {
+      "$ref": "#/components/schemas/ProductImageOut"
+     },
+     "availability": {
+      "$ref": "#/components/schemas/AvailabilityOut"
+     },
+     "description": {
+      "type": "string",
+      "title": "Description"
+     },
+     "specs": {
+      "items": {
+       "$ref": "#/components/schemas/SpecOut"
+      },
+      "type": "array",
+      "title": "Specs"
+     },
+     "images": {
+      "items": {
+       "$ref": "#/components/schemas/ProductImageOut"
+      },
+      "type": "array",
+      "title": "Images"
+     },
+     "related": {
+      "items": {
+       "$ref": "#/components/schemas/ProductSummaryOut"
+      },
+      "type": "array",
+      "title": "Related"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "slug",
+     "sku",
+     "name",
+     "category",
+     "price",
+     "original_price",
+     "discount_amount",
+     "movement",
+     "case_material",
+     "case_diameter_mm",
+     "water_resistance_m",
+     "main_image",
+     "availability",
+     "description",
+     "specs",
+     "images",
+     "related"
+    ],
+    "title": "ProductDetailOut"
+   },
+   "SpecOut": {
+    "properties": {
+     "label": {
+      "type": "string",
+      "title": "Label"
+     },
+     "value": {
+      "type": "string",
+      "title": "Value"
+     }
+    },
+    "type": "object",
+    "required": [
+     "label",
+     "value"
+    ],
+    "title": "SpecOut"
+   },
+   "CategoryOut": {
+    "properties": {
+     "slug": {
+      "type": "string",
+      "title": "Slug"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Description"
+     }
+    },
+    "type": "object",
+    "required": [
+     "slug",
+     "name",
+     "description"
+    ],
+    "title": "CategoryOut"
+   },
+   "AttributesOut": {
+    "properties": {
+     "movements": {
+      "items": {
+       "$ref": "#/components/schemas/AttributeValueOut"
+      },
+      "type": "array",
+      "title": "Movements"
+     },
+     "case_materials": {
+      "items": {
+       "$ref": "#/components/schemas/AttributeValueOut"
+      },
+      "type": "array",
+      "title": "Case Materials"
+     }
+    },
+    "type": "object",
+    "required": [
+     "movements",
+     "case_materials"
+    ],
+    "title": "AttributesOut"
+   }
+  }
+ }
+}
