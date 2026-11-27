@@ -11,6 +11,7 @@ import valmont.modules.catalog.adapters.persistence  # noqa: F401
 import valmont.modules.identity.adapters.persistence  # noqa: F401
 import valmont.modules.inventory.adapters.persistence  # noqa: F401
 import valmont.modules.orders.adapters.persistence  # noqa: F401
+import valmont.modules.payments.adapters.persistence  # noqa: F401
 import valmont.modules.promotions.adapters.persistence  # noqa: F401
 import valmont.modules.wishlist.adapters.persistence  # noqa: F401
 from valmont.shared.db import Base, get_engine

@@ -13,6 +13,7 @@ from tests.orders.orders_db_helpers import (
     insert_line_row,
     insert_order_row,
 )
+from tests.payments.payments_db_helpers import insert_attempt_row, rejected_row
 
 pytestmark = pytest.mark.integration
 
@@ -33,6 +34,7 @@ EXPECTED_TABLES = {
     "order_lines": {"SELECT", "INSERT"},  # la instantánea del pedido no se edita
     "order_status_history": {"SELECT", "INSERT"},  # solo inserción (RF12.02, ORDERS-R11)
     "orders": {"SELECT", "INSERT", "UPDATE"},
+    "payment_attempts": {"SELECT", "INSERT"},  # intentos de pago: solo inserción (T-093, R1)
     "product_availability": {"SELECT"},
     "product_effective_price": {"SELECT"},
     "product_images": CRUD,
@@ -385,6 +387,78 @@ def test_app_role_cannot_change_the_schema(app_session: Session, statement: str)
         app_session.begin_nested(),
     ):
         app_session.execute(text(statement))
+
+
+def test_app_role_inserts_and_reads_payment_attempts_without_any_sequence(
+    app_session: Session,
+) -> None:
+    # T-093 / CA-PAYMENTS-15: SELECT e INSERT sobre payment_attempts; la tabla no tiene secuencia
+    # (el id es un uuid de la aplicación), así que no hay nada más que conceder.
+    user = uuid4()
+    app_session.execute(text("INSERT INTO app.profiles (user_id) VALUES (:user)"), {"user": user})
+    order = insert_order_row(app_session, user)
+    approved = insert_attempt_row(app_session, order, user)
+    rejected_row(app_session, order, user)
+    params = {"order": order, "id": approved["id"]}
+
+    count = text("SELECT count(*) FROM app.payment_attempts WHERE order_id = :order")
+    status = text("SELECT status FROM app.payment_attempts WHERE id = :id")
+
+    assert app_session.scalar(count, params) == 2
+    assert app_session.scalar(status, params) == "approved"
+    # El INSERT ... ON CONFLICT DO NOTHING ... RETURNING del repositorio también lo permite.
+    conflict = text(
+        "INSERT INTO app.payment_attempts (id, order_id, user_id, idempotency_key, status,"
+        " amount, card_last4, gateway) VALUES (gen_random_uuid(), :order, :user, :key,"
+        " 'approved', 1, '4242', 'simulated') ON CONFLICT (user_id, idempotency_key)"
+        " DO NOTHING RETURNING created_at"
+    )
+    key = app_session.scalar(
+        text("SELECT idempotency_key FROM app.payment_attempts WHERE id = :id"), params
+    )
+    assert app_session.execute(conflict, {"order": order, "user": user, "key": key}).first() is None
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "UPDATE app.payment_attempts SET status = 'rejected', failure_code = 'card_declined'"
+        " WHERE order_id = :order",
+        "UPDATE app.payment_attempts SET amount = 1 WHERE order_id = :order",
+        "UPDATE app.payment_attempts SET card_last4 = '0000' WHERE order_id = :order",
+        "UPDATE app.payment_attempts SET gateway = 'otra' WHERE order_id = :order",
+        "DELETE FROM app.payment_attempts WHERE order_id = :order",
+    ],
+)
+def test_app_role_is_denied_changes_to_payment_attempts(
+    app_session: Session, statement: str
+) -> None:
+    # CA-PAYMENTS-15: la tabla es de solo inserción para valmont_app. Hay una fila que casa: si
+    # el permiso no lo frenara, la sentencia la tocaría.
+    user = uuid4()
+    app_session.execute(text("INSERT INTO app.profiles (user_id) VALUES (:user)"), {"user": user})
+    order = insert_order_row(app_session, user)
+    insert_attempt_row(app_session, order, user)
+
+    with pytest.raises(DBAPIError, match="permission denied"), app_session.begin_nested():
+        app_session.execute(text(statement), {"order": order})
+
+    still = text("SELECT status, amount, card_last4 FROM app.payment_attempts WHERE order_id = :o")
+    assert app_session.execute(still, {"o": order}).all() == [("approved", 100_000, "4242")]
+
+
+def test_app_role_cannot_truncate_payment_attempts(app_session: Session) -> None:
+    with pytest.raises(DBAPIError, match="permission denied"), app_session.begin_nested():
+        app_session.execute(text("TRUNCATE app.payment_attempts"))
+
+
+def test_app_role_has_no_privilege_on_payment_attempts_beyond_select_and_insert(
+    db_session: Session,
+) -> None:
+    # TRUNCATE, REFERENCES y TRIGGER tampoco: el mapa global lo dice, aquí se nombra la tabla.
+    granted = privileges(db_session, TABLE_PRIVILEGES)["payment_attempts"]
+
+    assert granted == {"SELECT", "INSERT"}
 
 
 def test_downgrade_to_0005_revokes_the_grants_and_upgrade_restores_them(

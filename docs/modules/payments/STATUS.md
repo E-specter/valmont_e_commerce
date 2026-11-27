@@ -206,6 +206,21 @@ IDs reservados del módulo: T-090–T-099. En uso: T-090–T-098; **libre: T-099
 
 ## Traspasos
 
+#### Traspaso T-093 — 2026-11-27 — backend-dev
+
+1. Tarea: T-093, migración `0011`, fila y repositorio SQL de intentos de pago.
+2. Estado: IN_REVIEW (a la espera de QA).
+3. Hecho: `0011_payments.py` (tabla, 7 CHECK, FK RESTRICT, UNIQUE, índice parcial `uq_payment_attempts_order_approved`, índice de listado, `GRANT SELECT, INSERT`, downgrade); `PaymentAttemptRow` y `SqlPaymentAttemptRepository`; registro en `migrations/env.py`.
+4. Archivos: `backend/migrations/versions/0011_payments.py`, `backend/src/valmont/modules/payments/adapters/persistence.py`, `backend/migrations/env.py` (una línea).
+5. Decisiones: `add` usa `pg_insert ... on_conflict_do_nothing(index_elements=[user_id, idempotency_key]).returning(created_at)` (sí se expresa con el ORM); `IntegrityError` con `uq_payment_attempts_order_approved` -> `OrderAlreadyPaid`, el resto se relanza. Sin permisos sobre secuencias (no hay identidad).
+6. Estático: `ruff format .` -> 241 files left unchanged; `ruff check .` -> All checks passed; `import valmont.main` -> OK.
+7. Migración local: `alembic upgrade head` -> 0010 -> 0011; `alembic check` -> No new upgrade operations detected; `downgrade -1` + `upgrade head` -> OK; `alembic current` -> 0011 (head).
+8. NO EJECUTADO: pruebas (D-028, D-033). `test_app_role` debe incluir `payment_attempts: {SELECT, INSERT}` (es de QA).
+9. Riesgos: tras `IntegrityError` la sesión queda abortada: el caso de uso (T-094) debe terminar la transacción con `OrderAlreadyPaid`.
+10. Discrepancias: ninguna.
+11. Siguiente: QA escribe y ejecuta las pruebas.
+12. Commit: ninguno, preparado. Mensaje propuesto: `feat(payments): esquema 0011 y repositorio de intentos de pago (T-093)`.
+
 #### Traspaso T-091 y T-092 — 2026-11-27 — backend-dev
 1. Estado final: IN_REVIEW (ambas). Sin commit.
 2. Cambios: T-091 `orders/adapters/wiring.py` con `get_get_payable_order` y `get_confirm_order_payment` (firmas del paquete; construyen con `SqlOrderRepository`, `SqlClock`, inventory y `AuditRecorderDep`; sin commit). T-092 dominio, puertos y `SimulatedGateway` (D-043 sobre `card_last4`).
