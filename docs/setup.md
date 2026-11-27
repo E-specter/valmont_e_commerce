@@ -129,6 +129,16 @@ Cada componente tendrá un `.env.example` sin valores reales cuando aparezca la 
 | context7 | plugin (D-035), OAuth | Documentación de FastAPI, SQLAlchemy, Alembic, Pydantic y Astro |
 | GitHub MCP | desactivado en el proyecto | Falla con HTTP 400 (cabecera de autorización) |
 
+## Limpieza automática de Storage (producción)
+
+Solo en el servidor de producción (T-018j, D-047 D-H4). Borra cada día a las 03:30 (hora del servidor) las imágenes de Storage sin fila en `product_images` y con más de 24 h (script de T-018f). Archivos: `deploy/systemd/valmont-storage-cleanup.{service,timer}` y `valmont-alert@.service`.
+
+- **Requisitos:** stack de `deploy/compose.yml` arrancado; un usuario sin privilegios (`valmont`) en el grupo `docker`; ajustar `WorkingDirectory=` (marcador `/opt/valmont`, la raíz del repo desplegado) y `User=`/`Group=` si difieren. Sin secretos en los archivos: las variables ya están en el contenedor `backend`.
+- **Instalar:** `sudo cp deploy/systemd/valmont-* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now valmont-storage-cleanup.timer`.
+- **Ver el resultado:** `systemctl list-timers valmont-storage-cleanup.timer`; `journalctl -u valmont-storage-cleanup` (la última línea es el JSON `{mode, scanned, orphans, deleted, failed}`). Un fallo (salida distinta de 0) deja una línea `err` en `journalctl -t valmont-alert`; para avisar de verdad, cambiar `ExecStart` de `valmont-alert@.service` por la alerta del servidor.
+- **Probar sin esperar:** `sudo systemctl start valmont-storage-cleanup.service` (ejecuta con `--apply`).
+- **Revertir:** `sudo systemctl disable --now valmont-storage-cleanup.timer` y borrar los tres archivos de `/etc/systemd/system/` seguido de `sudo systemctl daemon-reload`.
+
 ## Problemas conocidos
 
 | Problema | Causa | Cómo evitarlo |

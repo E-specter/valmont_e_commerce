@@ -1,0 +1,42 @@
+# Limpieza diaria de imágenes huérfanas de Storage (T-018j, D-047 D-H4, T-018f). Se lanza desde
+# valmont-storage-cleanup.timer; instalación y reversión en docs/setup.md (Limpieza automática de Storage).
+#
+# Requisitos del servidor:
+#   - El stack de deploy/compose.yml arrancado y migrado (el servicio `backend` en marcha).
+#   - Un usuario SIN privilegios (aquí `valmont`) que pertenezca al grupo `docker`. Ojo: pertenecer a
+#     `docker` equivale a root sobre el host; por eso no es root y el archivo lo endurece con NoNewPrivileges.
+#   - Ajustar WorkingDirectory al directorio donde está desplegado el repo (aquí el marcador /opt/valmont:
+#     la raíz que contiene deploy/compose.yml). Si el usuario no es `valmont`, cambiar User= y Group=.
+#
+# Sin secretos: DATABASE_URL, SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY ya están en el contenedor backend.
+# Salida del script (T-018f): 0 correcto; 1 Storage no responde o falló algún borrado; 2 tope de borrados
+# superado (no borra nada). Cualquier salida distinta de 0 deja el servicio en `failed`, queda en journald
+# y activa OnFailure=.
+#
+# Endurecimiento: NoNewPrivileges y ProtectSystem=strict no impiden hablar con /var/run/docker.sock
+# (conectar a un socket no escribe en el sistema de archivos). El cliente docker puede querer escribir su
+# configuración (~/.docker): se redirige a un directorio de ejecución propio, RuntimeDirectory, que sigue
+# siendo escribible bajo ProtectSystem=strict. Si el plugin `docker compose` estuviera instalado solo en
+# ~/.docker/cli-plugins del usuario, no se encontraría: instalarlo a nivel de sistema (paquete docker-compose-plugin).
+# No se usa ProtectHome: el repo desplegado puede estar bajo /home.
+
+[Unit]
+Description=Limpieza diaria de imagenes huerfanas de Storage (Valmont)
+Documentation=file:///opt/valmont/docs/setup.md
+Wants=docker.service
+After=docker.service network-online.target
+OnFailure=valmont-alert@%n.service
+
+[Service]
+Type=oneshot
+User=valmont
+Group=valmont
+SupplementaryGroups=docker
+WorkingDirectory=/opt/valmont
+TimeoutStartSec=10min
+NoNewPrivileges=yes
+ProtectSystem=strict
+PrivateTmp=yes
+RuntimeDirectory=valmont-storage-cleanup
+Environment=DOCKER_CONFIG=/run/valmont-storage-cleanup
+ExecStart=/usr/bin/docker compose -f deploy/compose.yml exec -T backend python -m valmont.scripts.cleanup_orphan_images --apply --json

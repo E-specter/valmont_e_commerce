@@ -1,0 +1,12 @@
+# Plantilla mínima de alerta (T-018j): se lanza con OnFailure=valmont-alert@%n.service y %i es la unidad
+# que falló. Solo deja una línea de prioridad `err` en journald (journalctl -p err -t valmont-alert).
+# Opción más simple: sin dependencias ni credenciales. Para avisar de verdad (correo, chat), sustituir
+# ExecStart por el comando de la alerta real del servidor, o vigilar journald con esa herramienta.
+# Se instala junto a los otros dos archivos en /etc/systemd/system/.
+
+[Unit]
+Description=Alerta de fallo de %i
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemd-cat -t valmont-alert -p err echo "La unidad %i ha fallado; ver journalctl -u %i"

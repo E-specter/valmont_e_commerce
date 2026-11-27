@@ -1,0 +1,14 @@
+# Dispara valmont-storage-cleanup.service cada día a las 03:30, hora del servidor (T-018j, D-047 D-H4).
+# Persistent=true: si el servidor estaba apagado a esa hora, se ejecuta al volver a arrancar.
+# El script respeta una gracia de 24 h, así que un retraso no borra archivos recién subidos.
+
+[Unit]
+Description=Temporizador diario de limpieza de Storage (Valmont)
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+Unit=valmont-storage-cleanup.service
+
+[Install]
+WantedBy=timers.target
