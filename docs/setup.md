@@ -92,6 +92,13 @@ Servicios activos: Postgres 17, Auth (GoTrue), Kong, PostgREST, Storage (bucket 
 
 Tras el APROBADO de QA, el Leader integra en `main` con fast-forward y ejecuta, desde la copia de `main`: `bash scripts/review-up.sh`. El script es idempotente y exige `backend/.env`. Hace, en orden: arranca Supabase local si no está en marcha, `uv sync`, `alembic upgrade head`, backend de desarrollo en :8000, `npm install` y `astro dev` en :4321. Arrancar y detener el stack local de desarrollo está autorizado; instalar, configurar, borrar volúmenes o desplegar siguen bajo la puerta Docker (D-011).
 
+Qué se ve en cada servicio:
+- **Studio** (http://127.0.0.1:54323): las tablas de Valmont están en el esquema **`app`** (D-010), no en `public`. En Table Editor, cambia el selector "schema: public" por `app`. La BD de desarrollo es `postgres`; las pruebas de QA usan `valmont_test` y la dejan vacía, así que no dejan datos visibles.
+- **Mailpit** (http://127.0.0.1:54324): solo llegan los correos que envía Auth (confirmación de registro, recuperación). Un usuario creado con la API de administración y `email_confirm: true` no genera correo.
+- **API** (http://127.0.0.1:8000/docs): para las rutas protegidas, "Authorize" con el `access_token` de un usuario (`POST /auth/v1/token?grant_type=password` en http://127.0.0.1:54321).
+- **Tienda** (http://localhost:4321): hasta que se implementen las pantallas de `docs/design_ui/VIEWS.md`, solo existe la portada esqueleto.
+- **Datos de demostración:** `seed_dev` (catálogo, arriba). Para ver pedidos, crea uno por la API con un cliente confirmado (carrito → `POST /api/v1/orders` con `Idempotency-Key`).
+
 ### Herramientas de agentes
 
 Los plugins viven en `.claude/settings.json`. Las skills de terceros (`find-skills`, `modern-web-guidance`) se instalan con la CLI `skills`; su lock es `skills-lock.json` y sus carpetas están ignoradas por git. Para restaurarlas: `npm run skills:install`.
@@ -124,6 +131,8 @@ Cada componente tendrá un `.env.example` sin valores reales cuando aparezca la 
 
 | Problema | Causa | Cómo evitarlo |
 |---|---|---|
+| Studio no muestra ninguna tabla | Abre el esquema `public`; las tablas están en `app` (D-010) | Table Editor → selector de esquema → `app` (ver §3, Revisión manual) |
+| Mailpit vacío | Los usuarios creados por la API de administración ya confirmados no reciben correo | Registrar por el flujo normal (`/auth/v1/signup` o la pantalla de registro) para ver la confirmación |
 | `EnterWorktree` falla | El repo no tiene commits (o no es repo git) | Resuelto con el commit base (D-013); si reaparece, comprobar `git log` |
 | "Device or resource busy" al mover carpetas | Windows bloquea archivos abiertos (VS Code, `.venv`, terminales) | No mover `backend/` ni `frontend/`; cerrar los procesos o copiar en vez de mover |
 | `docker` no se encuentra justo después de instalar | La terminal abierta antes de instalar no tiene el PATH nuevo | Abrir una terminal nueva (o anteponer `C:\Program Files\Docker\Docker\resources\bin` al PATH) |

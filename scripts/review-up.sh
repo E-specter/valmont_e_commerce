@@ -34,4 +34,4 @@ for i in $(seq 1 30); do up http://127.0.0.1:8000/health && up http://localhost:
 echo "main @ $(git log -1 --format='%h %s')"
 up http://127.0.0.1:8000/health && echo "API      http://127.0.0.1:8000/docs" || echo "API      NO RESPONDE (log: valmont-backend.log en %TEMP% o $logs)"
 up http://localhost:4321 && echo "Tienda   http://localhost:4321" || echo "Tienda   NO RESPONDE (cd frontend && npx astro dev logs)"
-echo "Studio   http://127.0.0.1:54323 · Mailpit http://127.0.0.1:54324"
+echo "Studio   http://127.0.0.1:54323 (Table Editor → esquema app) · Mailpit http://127.0.0.1:54324"
