@@ -16,6 +16,61 @@ const SOURCES = walk(SRC).filter((f) => /\.(ts|js|mjs|astro|css)$/.test(f));
 const SESSION_FILES = ['src/middleware.ts', 'src/lib/server/supabase.ts', 'src/lib/server/session.ts', 'src/lib/server/guard.ts', 'src/pages/bff/[...path].ts', 'src/pages/auth/callback.ts', 'src/pages/salir.ts', 'src/lib/api/browser.ts'];
 const CLIENT_SIDE = SOURCES.filter((f) => /src[\\/](islands|components|layouts)[\\/]/.test(f) || /lib[\\/]api[\\/]browser\.ts$/.test(f));
 
+// T-150 · review-up.sh lee la service_role en memoria para crear el administrador local y se la pasa SOLO al proceso hijo.
+// La regla revisa el código del script (sin comentarios): (a) el bloque que genera frontend/.env no la menciona ni escribe la clave
+// secreta; (b) ningún echo/printf/cat/tee ni redirección a archivo usa la variable; (c) no se exporta y se hace unset después.
+const REVIEW_SCRIPT = join(ROOT, 'scripts', 'review-up.sh');
+const NOT_FOUND = -1;
+const FORBIDDEN_IN_ENV_BLOCK = ['SERVICE_ROLE', 'service_role', 'SECRET_KEY', 'sb_secret', 'JWT_SECRET'];
+const PRINTERS = ['echo', 'printf', 'cat', 'tee', 'dd'];
+const SAFE_REDIRECTS = ['2>/dev/null', '>/dev/null', '>&2', '2>&1'];
+
+/** El código del script: sin líneas de comentario ni comentarios al final de una línea. */
+const shellCode = (script: string): string[] =>
+  script.split('\n').map((l) => l.replace('\r', '')).filter((l) => !l.trimStart().startsWith('#')).map((l) => (l.includes(' # ') ? l.slice(0, l.indexOf(' # ')) : l));
+
+/** Nombre de la variable que recibe la clave: la línea `x="$(… SERVICE_ROLE_KEY …)"`. */
+function secretVariable(script: string): string | undefined {
+  const line = shellCode(script).find((l) => l.includes('SERVICE_ROLE_KEY') && l.includes('$(') && l.includes('='));
+  return line?.trimStart().replace('export ', '').split('=')[0];
+}
+
+/** Comandos sueltos de una línea (separados por &&, ||, ; o |): así `cmd "$sr" || echo "aviso"` no confunde dos comandos. */
+const commands = (line: string): string[] => line.replaceAll('&&', '\n').replaceAll('||', '\n').replaceAll(';', '\n').replaceAll('|', '\n').split('\n');
+const hasRef = (cmd: string, v: string): boolean => cmd.includes(`$${v}`) || cmd.includes(`\${${v}}`);
+const words = (cmd: string): string[] => cmd.replaceAll('(', ' ').replaceAll(')', ' ').split(' ').filter(Boolean);
+
+function reviewScriptViolations(script: string): string[] {
+  const lines = shellCode(script);
+  const v = secretVariable(script);
+  if (!v) return ['no se encontró la variable que recibe la service_role (¿cambió el script?)'];
+  const out: string[] = [];
+  // (a) bloque que genera frontend/.env: desde `if [ ! -f frontend/.env ]` hasta su `fi`
+  const start = lines.findIndex((l) => l.includes('-f frontend/.env'));
+  const end = start === NOT_FOUND ? NOT_FOUND : lines.findIndex((l, i) => i > start && l.trim() === 'fi');
+  if (start === NOT_FOUND || end === NOT_FOUND) out.push('no se encontró el bloque que genera frontend/.env');
+  else {
+    const block = lines.slice(start, end + 1);
+    block.filter((l) => hasRef(l, v) || FORBIDDEN_IN_ENV_BLOCK.some((w) => l.includes(w))).forEach((l) => out.push(`(a) el bloque de frontend/.env menciona la clave: ${l.trim()}`));
+  }
+  lines.forEach((line) => {
+    // frontend/.env como destino en cualquier parte del script, con la variable o la clave
+    if (line.includes('frontend/.env') && (hasRef(line, v) || FORBIDDEN_IN_ENV_BLOCK.some((w) => line.includes(w)))) out.push(`(a) escribe la clave en frontend/.env: ${line.trim()}`);
+    commands(line).forEach((cmd) => {
+      if (!hasRef(cmd, v)) return;
+      const clean = SAFE_REDIRECTS.reduce((acc, s) => acc.replaceAll(s, ' '), cmd);
+      // (b) imprimir o redirigir a un archivo
+      if (words(clean).some((w) => PRINTERS.includes(w)) || clean.includes('>') || clean.includes('<<<')) out.push(`(b) imprime o escribe la variable: ${cmd.trim()}`);
+    });
+    // (c) exportar
+    if (words(line).includes('export') && (hasRef(line, v) || words(line).some((w) => w === v || w.startsWith(`${v}=`)))) out.push(`(c) exporta la variable: ${line.trim()}`);
+  });
+  const assigned = lines.findIndex((l) => l.trimStart().startsWith(`${v}=`));
+  const unsetAt = lines.findIndex((l, i) => i > assigned && words(l).includes('unset') && words(l).includes(v));
+  if (unsetAt === NOT_FOUND) out.push(`(c) falta «unset ${v}» después de la asignación`);
+  return out;
+}
+
 describe('el navegador no guarda ni lee la sesión', () => {
   test('ningún archivo de src/ usa localStorage, sessionStorage, indexedDB ni document.cookie', () => {
     const bad = SOURCES.filter((f) => /\b(localStorage|sessionStorage|indexedDB)\b|document\.cookie/.test(code(read(f)))).map(rel);
@@ -63,12 +118,50 @@ describe('los secretos viven solo donde deben', () => {
     expect(users).toEqual(['src/env.d.ts', 'src/lib/server/session.ts', 'src/lib/server/supabase.ts']);
   });
 
-  test('ninguna service_role ni JWT secret en el frontend, su configuración, .env.example ni review-up.sh', () => {
-    const files = [...SOURCES, join(FRONTEND, 'astro.config.mjs'), join(FRONTEND, '.env.example'), join(FRONTEND, 'package.json'), join(ROOT, 'scripts', 'review-up.sh')];
-    // Los comentarios del script (# …) pueden nombrarla para prohibirla; solo cuenta el código.
-    const live = (f: string) => (f.endsWith('.sh') ? read(f).replace(/^\s*#.*$/gm, '').replace(/\s#\s.*$/gm, '') : read(f));
-    const bad = files.filter((f) => /service[_-]?role|SERVICE_ROLE|JWT_SECRET|jwt_secret/i.test(live(f))).map((f) => relative(ROOT, f).replaceAll('\\', '/'));
+  test('ninguna service_role ni JWT secret en el frontend ni en su configuración, ni variables PUBLIC_* con ellas (T-150 la usa solo en el script, ver abajo)', () => {
+    const files = [...SOURCES, join(FRONTEND, 'astro.config.mjs'), join(FRONTEND, '.env.example'), join(FRONTEND, 'package.json')];
+    const bad = files.filter((f) => /service[_-]?role|SERVICE_ROLE|JWT_SECRET|jwt_secret/i.test(read(f))).map((f) => relative(ROOT, f).replaceAll('\\', '/'));
     expect(bad).toEqual([]);
+    const publicSecrets = [...SOURCES, join(FRONTEND, '.env.example')].filter((f) => /PUBLIC_\w*(SERVICE|SECRET)/i.test(read(f))).map(rel);
+    expect(publicSecrets).toEqual([]);
+  });
+
+  test('review-up.sh (T-150): la service_role solo viaja al proceso hijo; nunca se escribe, se imprime ni se exporta, y se hace unset', () => {
+    expect(reviewScriptViolations(read(REVIEW_SCRIPT))).toEqual([]);
+  });
+
+  describe('la regla de review-up.sh detecta los usos prohibidos (casos negativos sobre copias del script)', () => {
+    const real = read(REVIEW_SCRIPT);
+    const BEFORE_UNSET = 'unset st anon';
+    const withLine = (line: string): string => real.replace(BEFORE_UNSET, `${line}\n  ${BEFORE_UNSET}`);
+
+    test('el script real está limpio y la regla ve la variable que contiene la clave', () => {
+      expect(secretVariable(real)).toBe('sr');
+      expect(real).toContain(BEFORE_UNSET);
+    });
+
+    test.each([
+      ['escribe la service_role en frontend/.env con printf', `printf 'SUPABASE_SERVICE_ROLE_KEY=%s\\n' "$sr" >>frontend/.env`],
+      ['escribe la service_role en frontend/.env con echo y ${}', 'echo "SUPABASE_SERVICE_ROLE_KEY=${sr}" >> frontend/.env'],
+      ['la añade a frontend/.env con tee', 'echo "$sr" | tee -a frontend/.env'],
+      ['escribe la clave secreta de Supabase en el bloque de .env', 'echo "SUPABASE_SECRET_KEY=abc" >> frontend/.env'],
+    ])('falla si el script %s', (_name, line) => {
+      expect(reviewScriptViolations(withLine(line)).length).toBeGreaterThan(0);
+    });
+
+    test('falla si imprime la clave (echo, printf o cat)', () => {
+      ['echo "$sr"', 'printf "%s" "$sr"', 'cat <<< "$sr"'].forEach((line) => expect(reviewScriptViolations(`${real}\n${line}\n`).length, line).toBeGreaterThan(0));
+    });
+
+    test('falla si la exporta o si no hace unset', () => {
+      expect(reviewScriptViolations(real.replace('sr="$(', 'export sr="$(')).length).toBeGreaterThan(0);
+      expect(reviewScriptViolations(`${real}\nexport sr\n`).length).toBeGreaterThan(0);
+      expect(reviewScriptViolations(real.replace('unset sr', ': ')).length).toBeGreaterThan(0);
+    });
+
+    test('los comentarios que la nombran no cuentan; el código sí', () => {
+      expect(reviewScriptViolations(`${real}\n# printf "%s" "$sr" >> frontend/.env  (comentario)\n`)).toEqual([]);
+    });
   });
 
   test('sin claves ni JWT escritos en el código (eyJ…, sb_publishable_, sb_secret_)', () => {
