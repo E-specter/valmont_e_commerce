@@ -1107,7 +1107,7 @@ Plan completo en este documento. Estado: IN_REVIEW. Sin pruebas ejecutadas (plan
 | T-084 | Listado de pedidos `/admin/pedidos` (**reutiliza el ID**; el detalle pasa a T-146) | frontend-dev + qa-reviewer | T-142, T-143, T-144 | DONE (63e5182) |
 | T-146 | Detalle de pedido, transiciones y diálogo «Cancelar y reembolsar» | frontend-dev + qa-reviewer | T-142, T-143, T-144 | DONE (101d720) |
 | T-147 | Formulario de producto (crear y editar), publicación, `Select`, `Textarea`, `RadioGroup`, `SpecsEditor` | frontend-dev + qa-reviewer | T-142, T-143, T-144 | DONE (824c83b) |
-| T-148 | Imágenes del producto: subida, `alt`, reordenar (D-B7), borrar, errores 413/415/409/503 | frontend-dev + qa-reviewer | T-147 | READY al integrar T-147 |
+| T-148 | Imágenes del producto: subida, `alt`, reordenar (D-B7), borrar, errores 413/415/409/503 | frontend-dev + qa-reviewer | T-147 | DONE (b375e50) |
 | T-149 | Listado de productos `/admin/productos` (sin frame: patrón de pedidos) | frontend-dev + qa-reviewer | T-143, T-144; **D-AB2** | DONE (c400a1c) |
 
 IDs T-142…T-149 reservados a esta pista (el Leader los confirma). **Sin paquete, a propósito:** inventario y promociones (contrato listo, sin diseño: H-B7), reportes (H-B1), clientes y auditoría (H-B3) y el endpoint de resumen (T-141, backend). Sus entradas del menú salen «Pronto».
