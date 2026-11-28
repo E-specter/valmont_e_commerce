@@ -1,0 +1,106 @@
+---
+// Alertas del panel: solo con N > 0. La de «vencen pronto» se omite (H-B2). Sin alertas no se pinta la tarjeta.
+import Icon from '../ui/Icon.astro';
+import type { Count, DashboardData } from '../../lib/admin/dashboard';
+
+interface Props {
+  data: DashboardData;
+}
+const { data } = Astro.props;
+const n = (c: Count) => (c.ok ? c.total : 0);
+const out = n(data.outOfStock);
+const low = n(data.lowStock);
+type Alert = { tone: 'error' | 'warning'; title: string; text: string };
+const alerts: Alert[] = [];
+if (out > 0)
+  alerts.push({
+    tone: 'error',
+    title: `${out} ${out === 1 ? 'producto agotado' : 'productos agotados'}`,
+    text: 'Siguen publicados; confirma su política de venta.',
+  });
+if (low > 0)
+  alerts.push({
+    tone: 'warning',
+    title: `${low} ${low === 1 ? 'producto con stock bajo' : 'productos con stock bajo'}`,
+    text: 'Revisa el stock antes de publicar nuevas ventas.',
+  });
+---
+
+{
+  alerts.length > 0 && (
+    <section class="card" aria-labelledby="alertas-h">
+      <h2 id="alertas-h">Alertas</h2>
+      <ul>
+        {alerts.map((a) => (
+          <li data-tone={a.tone}>
+            <Icon name="alert-triangle" size={20} />
+            <div>
+              <strong>{a.title}</strong>
+              <p>{a.text}</p>
+              <a href="/admin/productos">Ver productos</a>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+<style>
+  @layer components {
+    .card {
+      border: 1px solid var(--stroke-default);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      padding-block-end: var(--space-16);
+    }
+    h2 {
+      margin: 0;
+      padding: var(--space-16);
+      font-size: var(--text-body-ui);
+      font-weight: var(--weight-semibold);
+    }
+    ul {
+      display: grid;
+      gap: var(--space-12);
+      margin: 0;
+      padding: 0 var(--space-16);
+      list-style: none;
+    }
+    li {
+      display: flex;
+      gap: var(--space-12);
+      padding: var(--space-12) var(--space-16);
+      border: 1.5px solid var(--stroke-default);
+      border-radius: var(--radius-md);
+    }
+    li[data-tone='error'] {
+      border-color: var(--color-red-strong);
+    }
+    li[data-tone='warning'] {
+      border-color: var(--color-yellow);
+    }
+    div {
+      display: grid;
+      gap: var(--space-4);
+    }
+    p {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: var(--text-caption);
+    }
+    a {
+      color: var(--color-yellow);
+      font-weight: var(--weight-semibold);
+      min-block-size: var(--touch-target);
+      display: inline-flex;
+      align-items: center;
+    }
+    a:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+  }
+</style>

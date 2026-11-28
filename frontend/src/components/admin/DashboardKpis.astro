@@ -1,0 +1,29 @@
+---
+// Cuatro KPI del panel. «Ventas del período» queda `pending`: no hay contrato de reportes (H-B1).
+import KpiCard from './KpiCard.astro';
+import type { Count, DashboardData } from '../../lib/admin/dashboard';
+
+interface Props {
+  data: DashboardData;
+}
+const { data } = Astro.props;
+const show = (c: Count) => (c.ok ? String(c.total) : undefined);
+const state = (c: Count) => (c.ok ? ('data' as const) : ('error' as const));
+---
+
+<div class="kpis">
+  <KpiCard label="Por preparar" value={show(data.toPrepare)} state={state(data.toPrepare)} hint="Pedidos pagados sin preparar" href="/admin/pedidos?status=pagado" />
+  <KpiCard label="Pendientes de pago" value={show(data.pendingPayment)} state={state(data.pendingPayment)} hint="Reservan stock hasta que vencen" href="/admin/pedidos?status=pendiente_pago" />
+  <KpiCard label="Stock bajo" value={show(data.lowStock)} state={state(data.lowStock)} hint="Por debajo del umbral configurado" href="/admin/productos" />
+  <KpiCard label="Ventas del período" state="pending" hint="Pendiente: reportes (RF07)" />
+</div>
+
+<style>
+  @layer components {
+    .kpis {
+      display: grid;
+      gap: var(--space-16);
+      grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    }
+  }
+</style>

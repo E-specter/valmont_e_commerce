@@ -157,6 +157,11 @@ if (profile) {
               <li>
                 <TextLink href="/cuenta/lista-de-deseos" arrow>Lista de deseos</TextLink>
               </li>
+              {profile.role === 'admin' && (
+                <li>
+                  <TextLink href="/admin" arrow>Ir al backoffice</TextLink>
+                </li>
+              )}
             </ul>
             <form method="post" action="/salir">
               <Button type="submit" variant="secondary">Cerrar sesión</Button>

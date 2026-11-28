@@ -1,0 +1,58 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import DashboardKpis from '../../components/admin/DashboardKpis.astro';
+import DashboardAlerts from '../../components/admin/DashboardAlerts.astro';
+import DashboardOrders from '../../components/admin/DashboardOrders.astro';
+import DashboardStock from '../../components/admin/DashboardStock.astro';
+import { loadDashboard, type DashboardData } from '../../lib/admin/dashboard';
+import { adminErrorResponse, requireAdmin } from '../../lib/server/admin';
+
+export const prerender = false;
+
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+
+const gate = await requireAdmin(Astro);
+if (!gate.ok) return gate.response;
+const { api, profile } = gate.ctx;
+
+let data: DashboardData;
+try {
+  data = await loadDashboard(api);
+} catch (e) {
+  // loadDashboard solo relanza 401 y 403; cualquier otro fallo inesperado nunca es un 500 mudo.
+  const handled = await adminErrorResponse(Astro, e);
+  if (handled) return handled;
+  return Astro.rewrite('/admin/no-disponible');
+}
+---
+
+<AdminLayout title="Panel" section="panel" userName={profile.full_name} description="Resumen operativo del día.">
+  <DashboardKpis data={data} />
+  <div class="zone">
+    <DashboardOrders items={data.ordersToPrepare} />
+    <div class="side">
+      <DashboardAlerts data={data} />
+      <DashboardStock items={data.lowStockItems} />
+    </div>
+  </div>
+</AdminLayout>
+
+<style>
+  @layer components {
+    .zone {
+      display: grid;
+      gap: var(--space-24);
+      margin-block-start: var(--space-24);
+      align-items: start;
+    }
+    .side {
+      display: grid;
+      gap: var(--space-24);
+    }
+    @media (min-width: 64rem) {
+      .zone {
+        grid-template-columns: minmax(0, 1fr) 23.75rem;
+      }
+    }
+  }
+</style>

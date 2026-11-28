@@ -1,0 +1,111 @@
+---
+// «Pedidos por preparar»: `items === null` es el fallo de su llamada; el resto de la página sigue viva.
+import DataTable, { type DataTableColumn } from '../ui/DataTable.astro';
+import StatusPill from '../ui/StatusPill.astro';
+import Notice from '../ui/Notice.astro';
+import Button from '../ui/Button.astro';
+import { orderPill } from '../../lib/admin/status';
+import { formatDateTimeNumeric, formatMoney } from '../../lib/format';
+import type { AdminOrderSummary } from '../../lib/api/admin-orders';
+
+interface Props {
+  items: AdminOrderSummary[] | null;
+}
+const { items } = Astro.props;
+const MSG_FAILED = 'No se pudieron cargar los pedidos';
+const MSG_FAILED_HINT = 'Revisa tu conexión e inténtalo de nuevo.';
+const MSG_EMPTY = 'Nada por preparar';
+const columns: DataTableColumn[] = [
+  { key: 'number', header: 'Pedido' },
+  { key: 'recipient', header: 'Destinatario' },
+  { key: 'status', header: 'Estado' },
+  { key: 'total', header: 'Total', align: 'end' },
+  { key: 'created', header: 'Fecha' },
+];
+---
+
+<section class="card" aria-labelledby="por-preparar-h">
+  <header>
+    <h2 id="por-preparar-h">Pedidos por preparar</h2>
+    <a class="all" href="/admin/pedidos?status=pagado">Ver todos los pedidos</a>
+  </header>
+  {
+    items === null ? (
+      <Notice tone="error" title={MSG_FAILED}>
+        <p>{MSG_FAILED_HINT}</p>
+        <Button slot="actions" href={Astro.url.pathname} variant="secondary" size="sm">Reintentar</Button>
+      </Notice>
+    ) : items.length === 0 ? (
+      <p class="empty">{MSG_EMPTY}</p>
+    ) : (
+      <DataTable columns={columns} caption="Pedidos por preparar">
+        {items.map((o) => {
+          const pill = orderPill(o.status);
+          return (
+            <tr>
+              <td class="number"><a href={`/admin/pedidos/${encodeURIComponent(o.id)}`}>{o.number}</a></td>
+              <td>{o.recipient_name}</td>
+              <td><StatusPill label={pill.label} tone={pill.tone} /></td>
+              <td data-align="end">{formatMoney(o.total)}</td>
+              <td class="date">{formatDateTimeNumeric(o.created_at)}</td>
+            </tr>
+          );
+        })}
+      </DataTable>
+    )
+  }
+</section>
+
+<style>
+  @layer components {
+    .card {
+      display: grid;
+      gap: var(--space-8);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-16);
+    }
+    h2 {
+      margin: 0;
+      font-size: var(--text-body-ui);
+      font-weight: var(--weight-semibold);
+    }
+    a {
+      min-block-size: var(--touch-target);
+      display: inline-flex;
+      align-items: center;
+      font-weight: var(--weight-semibold);
+    }
+    .all {
+      color: var(--color-yellow);
+    }
+    .number a {
+      color: var(--text-primary);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .number a:hover {
+      text-decoration: underline;
+    }
+    a:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    .date {
+      white-space: nowrap;
+    }
+    .empty {
+      margin: 0;
+      padding: var(--space-24);
+      border: 1px solid var(--stroke-default);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+    }
+  }
+</style>

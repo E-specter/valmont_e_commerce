@@ -693,6 +693,19 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-145 (panel `/admin` + acceso del administrador) — 2026-11-27 — frontend-dev
+1. Tarea: T-145, más (a) enlace «Ir al backoffice» en `/cuenta` y (b) destino `/admin` tras ingresar (autorizados por el Leader).
+2. Estado: IN_REVIEW. 3. Rama `t145-ui` (desde e38ab9b).
+4. Archivos nuevos: `pages/admin/index.astro`, `components/admin/{DashboardKpis,DashboardAlerts,DashboardOrders,DashboardStock}.astro`, `lib/admin/dashboard.ts` (firmas exactas del paquete). Editados: `pages/cuenta/index.astro` (solo un `<li>` si `profile.role === 'admin'`), `pages/ingresar.astro` (solo tras el éxito del login). `nav.ts` ya tenía `panel` habilitado: sin cambio.
+5. `loadDashboard`: 4 llamadas con `Promise.allSettled`; 401/403 se relanzan, otro fallo o forma inesperada da `{ ok: false }` y `null` solo en ese bloque.
+6. Ingreso: sin `next` válido (`safeNext(raw, '') === ''`) y con sesión nueva, `GET /identity/me` con `serverTransport` y el token recién emitido; `role === 'admin'` → `/admin`; cualquier fallo → `/cuenta`. Un `next` explícito gana. Resto del flujo intacto.
+7. Figma: `194:206` consultado una vez (sesión creada); capturas y datos del frame no repetidos.
+8. Decisiones propias: «Ver inventario» e «Inventario» del frame no se pintan (`/admin/inventario` está deshabilitado); la alerta de stock bajo/agotado enlaza a `/admin/productos`. Sin alerta «vencen pronto» (H-B2). Alertas con pluralización 1/N. KPI enlazan a `/admin/pedidos?status=…`.
+9. Sin blocker. Riesgo: `/admin/productos` como destino de las alertas es provisional hasta T-inventario.
+10. Análisis estático: `npm run check → 0 errors, 0 warnings, 6 hints`.
+11. NO EJECUTADO: pruebas y build (D-028, D-033). Pruebas obligatorias: las del paquete T-145 más (a) y (b): cliente sin enlace, admin con enlace; login sin `next` admin → `/admin`, cliente → `/cuenta`, `me` falla → `/cuenta`, `next` explícito gana.
+12. Commit: ninguno, preparado. Mensaje: `feat(ui): panel del backoffice y acceso del administrador desde la tienda (T-145)`.
+
 #### Traspaso T-084 (listado de pedidos del backoffice) — 2026-11-27 — frontend-dev
 1. Tarea: T-084. Estado: IN_REVIEW (pendiente de QA).
 2. Hecho: `pages/admin/pedidos/index.astro` (SSR, `requireAdmin`, `adminErrorResponse`, `parseOrderQuery`, `page_size` 20), `components/admin/OrderFilters.astro` y `OrdersTable.astro` con las firmas del paquete; `nav.ts`: Pedidos `enabled: true` (única línea compartida).

@@ -1,0 +1,81 @@
+---
+// Mini tabla «Stock bajo»: `items === null` es el fallo de su llamada. `available` es el del servidor.
+import DataTable, { type DataTableColumn } from '../ui/DataTable.astro';
+import Notice from '../ui/Notice.astro';
+import Button from '../ui/Button.astro';
+import type { StockItem } from '../../lib/api/admin-inventory';
+
+interface Props {
+  items: StockItem[] | null;
+}
+const { items } = Astro.props;
+const MSG_FAILED = 'No se pudo cargar el stock';
+const MSG_FAILED_HINT = 'Revisa tu conexión e inténtalo de nuevo.';
+const MSG_EMPTY = 'Sin productos con stock bajo';
+const columns: DataTableColumn[] = [
+  { key: 'name', header: 'Producto' },
+  { key: 'available', header: 'Disp.', align: 'end' },
+];
+---
+
+<section class="card" aria-labelledby="stock-bajo-h">
+  <h2 id="stock-bajo-h">Stock bajo</h2>
+  {
+    items === null ? (
+      <Notice tone="error" title={MSG_FAILED}>
+        <p>{MSG_FAILED_HINT}</p>
+        <Button slot="actions" href={Astro.url.pathname} variant="secondary" size="sm">Reintentar</Button>
+      </Notice>
+    ) : items.length === 0 ? (
+      <p class="empty">{MSG_EMPTY}</p>
+    ) : (
+      <DataTable columns={columns} caption="Productos con stock bajo">
+        {items.map((i) => (
+          <tr>
+            <td class="name"><a href={`/admin/productos/${encodeURIComponent(i.product_id)}`}>{i.name}</a></td>
+            <td data-align="end">{i.available}</td>
+          </tr>
+        ))}
+      </DataTable>
+    )
+  }
+</section>
+
+<style>
+  @layer components {
+    .card {
+      display: grid;
+      gap: var(--space-8);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+    }
+    h2 {
+      margin: 0;
+      font-size: var(--text-body-ui);
+      font-weight: var(--weight-semibold);
+    }
+    .name a {
+      min-block-size: var(--touch-target);
+      display: inline-flex;
+      align-items: center;
+      color: var(--text-primary);
+      font-weight: var(--weight-semibold);
+      text-decoration: none;
+    }
+    .name a:hover {
+      text-decoration: underline;
+    }
+    .name a:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    .empty {
+      margin: 0;
+      padding: var(--space-24);
+      border: 1px solid var(--stroke-default);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+    }
+  }
+</style>

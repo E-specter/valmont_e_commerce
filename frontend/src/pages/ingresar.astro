@@ -3,6 +3,8 @@ import AuthForm from '../components/auth/AuthForm.astro';
 import AuthSplit from '../components/auth/AuthSplit.astro';
 import WatchmakerArtwork from '../components/auth/WatchmakerArtwork.astro';
 import { SERVICE_UNAVAILABLE_MESSAGE } from '../lib/auth-messages';
+import { getProfile } from '../lib/api/identity';
+import { serverTransport } from '../lib/api/server';
 import { mapAuthError } from '../lib/server/auth-errors';
 import { safeNext } from '../lib/server/guard';
 
@@ -14,10 +16,13 @@ const NO_STORE = 'private, no-store';
 Astro.response.headers.set('Cache-Control', NO_STORE);
 const MSG_PASSWORD_REQUIRED = 'Ingresa tu contraseña';
 const FALLBACK = '/cuenta';
+const ADMIN_HOME = '/admin';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 let next = safeNext(url.searchParams.get('next'), FALLBACK);
 let email = '';
+// `next` explícito y válido (query o formulario): solo entonces se reenvía en el campo oculto.
+let explicitNext = safeNext(url.searchParams.get('next'), '') !== '';
 let errors: { form?: string; email?: string; password?: string } = {};
 
 // Astro.redirect() descarta las cabeceras: la respuesta se arma a mano.
@@ -37,7 +42,9 @@ if (request.method === 'POST') {
     return new Response(null, { status: 415, headers: { 'Cache-Control': NO_STORE } });
   }
   const str = (k: string) => (typeof data.get(k) === 'string' ? (data.get(k) as string) : '');
-  next = safeNext(str('next') || url.searchParams.get('next'), FALLBACK);
+  const rawNext = str('next') || url.searchParams.get('next');
+  explicitNext = safeNext(rawNext, '') !== '';
+  next = safeNext(rawNext, FALLBACK);
   email = str('email').trim().slice(0, 320);
   const password = str('password');
 
@@ -49,8 +56,19 @@ if (request.method === 'POST') {
     Astro.response.status = 422;
   } else {
     try {
-      const { error } = await locals.supabase.auth.signInWithPassword({ email, password });
-      if (!error) return see(next);
+      const { data: signed, error } = await locals.supabase.auth.signInWithPassword({ email, password });
+      if (!error) {
+        // Sin `next` explícito, el administrador entra por el backoffice. El rol lo dice el backend; si falla, /cuenta.
+        if (!explicitNext && signed?.session?.access_token) {
+          try {
+            const me = await getProfile(serverTransport({ accessToken: signed.session.access_token }));
+            if (me?.role === 'admin') next = ADMIN_HOME;
+          } catch {
+            // se queda en /cuenta
+          }
+        }
+        return see(next);
+      }
       const mapped = mapAuthError(error);
       Astro.response.status = mapped.status;
       errors = { form: mapped.message };
@@ -65,5 +83,5 @@ if (request.method === 'POST') {
 
 <AuthSplit variant="login">
   <WatchmakerArtwork slot="art" variant="movement" />
-  <AuthForm mode="login" email={email} errors={errors} next={next} />
+  <AuthForm mode="login" email={email} errors={errors} next={explicitNext ? next : undefined} />
 </AuthSplit>
