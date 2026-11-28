@@ -1,0 +1,102 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import OrderFilters from '../../../components/admin/OrderFilters.astro';
+import OrdersTable from '../../../components/admin/OrdersTable.astro';
+import Button from '../../../components/ui/Button.astro';
+import EmptyState from '../../../components/ui/EmptyState.astro';
+import Notice from '../../../components/ui/Notice.astro';
+import Pagination from '../../../components/ui/Pagination.astro';
+import { fieldErrors } from '../../../lib/admin/errors';
+import { orderQueryString, parseOrderQuery } from '../../../lib/admin/order-query';
+import { ApiError, type Page } from '../../../lib/api/http';
+import {
+  listAdminOrders,
+  type AdminOrderQuery,
+  type AdminOrderSummary,
+  type OrderStatus,
+} from '../../../lib/api/admin-orders';
+import { adminErrorResponse, requireAdmin } from '../../../lib/server/admin';
+
+export const prerender = false;
+
+const MSG_LOAD_FAILED = 'No se pudieron cargar los pedidos';
+const MSG_LOAD_HINT = 'Revisa tu conexión e inténtalo de nuevo. Si el problema continúa, avisa a soporte.';
+const MSG_EMPTY_FILTERED = 'No hay pedidos con estos filtros';
+const MSG_EMPTY_FILTERED_HINT = 'Prueba con otro estado o amplía el rango de fechas.';
+const MSG_NO_PAGE = 'Esta página no existe';
+const MSG_NO_PAGE_HINT = 'Hay pedidos, pero no en esta página. Vuelve a la primera.';
+const MSG_EMPTY = 'Aún no hay pedidos';
+const MSG_EMPTY_HINT = 'Cuando los clientes compren, sus pedidos aparecerán aquí.';
+
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+
+const gate = await requireAdmin(Astro);
+if (!gate.ok) return gate.response;
+const { api, profile } = gate.ctx;
+
+const PATH = '/admin/pedidos';
+const { query } = parseOrderQuery(Astro.url.searchParams);
+const withQuery = (q: AdminOrderQuery) => {
+  const s = orderQueryString(q);
+  return s ? `${PATH}?${s}` : PATH;
+};
+
+let result: Page<AdminOrderSummary> | null = null;
+let errors: { q?: string; created_from?: string; created_to?: string } | null = null;
+let failed = false;
+try {
+  result = await listAdminOrders(api, query);
+  // Un 200 con otra forma es un fallo del servicio, nunca un 500 de la página.
+  if (!result || !Array.isArray(result.items) || typeof result.total !== 'number') throw new ApiError(0, 'invalid_response', '');
+} catch (e) {
+  const handled = await adminErrorResponse(Astro, e);
+  if (handled) return handled;
+  if (e instanceof ApiError && e.status === 422) {
+    errors = fieldErrors(e, ['q', 'created_from', 'created_to']);
+  } else {
+    failed = true;
+    Astro.response.status = 503;
+  }
+}
+
+const hasFilters = Boolean(query.status || query.q || query.created_from || query.created_to);
+const backQuery = orderQueryString(query);
+// Cambiar el estado conserva texto y fechas y vuelve a la página 1.
+const hrefForStatus = (s: OrderStatus | null) => withQuery({ ...query, page: undefined, status: s ?? undefined });
+const hrefForPage = (n: number) => withQuery({ ...query, page: n });
+---
+
+<AdminLayout title="Pedidos" section="pedidos" userName={profile.full_name} description="Consulta y gestiona los pedidos de los clientes.">
+  {
+    failed ? (
+      <Notice tone="error" title={MSG_LOAD_FAILED}>
+        <p>{MSG_LOAD_HINT}</p>
+        <Button slot="actions" href={Astro.url.pathname + Astro.url.search} variant="secondary" size="sm">Reintentar</Button>
+      </Notice>
+    ) : (
+      <>
+        <OrderFilters values={query} errors={errors ?? {}} action={PATH} hrefForStatus={hrefForStatus} />
+        {result && result.items.length > 0 && <OrdersTable items={result.items} backQuery={backQuery} />}
+        {
+          result && result.items.length === 0 && result.total > 0 && (
+            <EmptyState icon="search" title={MSG_NO_PAGE} description={MSG_NO_PAGE_HINT}>
+              <Button slot="action" href={withQuery({ ...query, page: undefined })} variant="secondary">Ir a la página 1</Button>
+            </EmptyState>
+          )
+        }
+        {
+          result && result.items.length === 0 && result.total === 0 && (
+            <EmptyState
+              icon="search"
+              title={hasFilters ? MSG_EMPTY_FILTERED : MSG_EMPTY}
+              description={hasFilters ? MSG_EMPTY_FILTERED_HINT : MSG_EMPTY_HINT}
+            >
+              {hasFilters && <Button slot="action" href={PATH} variant="secondary">Limpiar filtros</Button>}
+            </EmptyState>
+          )
+        }
+        {result && <Pagination page={result.page} pageSize={result.page_size} total={result.total} hrefFor={hrefForPage} />}
+      </>
+    )
+  }
+</AdminLayout>

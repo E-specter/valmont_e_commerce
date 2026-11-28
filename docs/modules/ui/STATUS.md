@@ -693,6 +693,17 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-084 (listado de pedidos del backoffice) — 2026-11-27 — frontend-dev
+1. Tarea: T-084. Estado: IN_REVIEW (pendiente de QA).
+2. Hecho: `pages/admin/pedidos/index.astro` (SSR, `requireAdmin`, `adminErrorResponse`, `parseOrderQuery`, `page_size` 20), `components/admin/OrderFilters.astro` y `OrdersTable.astro` con las firmas del paquete; `nav.ts`: Pedidos `enabled: true` (única línea compartida).
+3. Filtros: formulario GET sin `page` (vuelve a 1); `status` viaja en un `hidden`; chips como enlaces (`hrefForStatus` conserva `q` y fechas); «Limpiar filtros» enlaza a `/admin/pedidos`.
+4. Tabla: número enlaza a `/admin/pedidos/{id}?volver=<orderQueryString codificada>` (sin `volver` si está vacía); fila `id="o-{id}"`; distrito o «Recojo en tienda»; «Vence …» solo en `pendiente_pago`, con `formatDateTimeNumeric` completo (el frame muestra «dd/mm hh:mm»).
+5. Estados: vacío con y sin filtros, 422 (`fieldErrors` de `q`, `created_from`, `created_to` junto al campo, sin tabla), fallo → 503 con `Notice` y «Reintentar». 401/403/404 por `adminErrorResponse`. Cargando (`197:778`) no se pinta (AB-5).
+6. Figma consultados: `197:200`, `197:554`, `197:1058` (una vez cada uno). Desviaciones: sin columna de chevron (el número es el único foco); etiqueta «Número o destinatario» (H-B5) y «Desde/Hasta»; «Unidades» por «Artículos»; sin texto «Mostrando 1–8 de 47» (usa `Pagination` de ui).
+7. Estático: `npm run check → 0 errors, 0 warnings, 4 hints` (avisos previos en tests/e2e ajenos). `NO EJECUTADO: pruebas ni build (D-033)`.
+8. Pendiente para QA: contraste AA de `Field tone="dark"` y chips bajo `[data-context]`; la alineación vertical de «Aplicar/Limpiar» (margen fijo) a 1440; `?page` mayor al total muestra el vacío con la paginación.
+9. Commit: ninguno — preparado. Mensaje: `feat(ui): listado de pedidos del backoffice (T-084)`.
+
 #### Traspaso T-147 (implementación) — 2026-11-27 — frontend-dev
 1. Estado: IN_REVIEW. Hecho: `/admin/productos/nuevo` y `/admin/productos/[product_id]` (SSR, POST+PRG; `_action` save|publish|unpublish), `ProductForm`, `SpecsEditor`, `PublishPanel`, `ui/{Select,Textarea,RadioGroup}`, islas `specs-editor` y `unsaved-changes`, `lib/admin/product-form.ts` (firmas del paquete + `saveErrors`, `EMPTY_PRODUCT_VALUES`, `MSG_*` del formulario) y `productos` habilitado en `nav.ts`.
 2. Seguridad: `Origin` 403 antes de la guardia, `formData()` en `try` (415), 303 `private, no-store`, UUID inválido → rewrite `/404` sin llamada, sin mutación por GET, `status`/`id`/`images` nunca se leen del cuerpo.

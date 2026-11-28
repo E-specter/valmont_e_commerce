@@ -1,0 +1,89 @@
+---
+// Filtros del listado de pedidos: formulario GET (funciona sin JavaScript) + chips de estado como enlaces.
+import Button from '../ui/Button.astro';
+import Chip from '../ui/Chip.astro';
+import Field from '../ui/Field.astro';
+import { ORDER_STATUSES, ORDER_STATUS_LABEL } from '../../lib/admin/status';
+import type { OrderStatus } from '../../lib/api/admin-orders';
+
+interface Props {
+  values: { status?: OrderStatus; q?: string; created_from?: string; created_to?: string };
+  errors?: { q?: string; created_from?: string; created_to?: string };
+  action: string;
+  hrefForStatus: (s: OrderStatus | null) => string;
+}
+const { values, errors = {}, action, hrefForStatus } = Astro.props;
+---
+
+<form class="filters" method="get" action={action} role="search" aria-label="Filtrar pedidos">
+  <!-- Aplicar conserva el estado activo; no envía `page`, así que vuelve a la página 1 -->
+  {values.status && <input type="hidden" name="status" value={values.status} />}
+  <div class="row">
+    <div class="search">
+      <Field id="f-q" name="q" type="search" label="Número o destinatario" value={values.q} maxlength={100} error={errors.q} tone="dark" />
+    </div>
+    <div class="date">
+      <Field id="f-desde" name="created_from" type="date" label="Desde" value={values.created_from} error={errors.created_from} tone="dark" />
+    </div>
+    <div class="date">
+      <Field id="f-hasta" name="created_to" type="date" label="Hasta" value={values.created_to} error={errors.created_to} tone="dark" />
+    </div>
+    <div class="actions">
+      <Button type="submit">Aplicar</Button>
+      <Button href={action} variant="ghost">Limpiar filtros</Button>
+    </div>
+  </div>
+  <nav class="states" aria-label="Filtrar por estado">
+    <span class="label">Estado</span>
+    <Chip label="Todos" href={hrefForStatus(null)} active={!values.status} />
+    {ORDER_STATUSES.map((s) => <Chip label={ORDER_STATUS_LABEL[s]} href={hrefForStatus(s)} active={values.status === s} />)}
+  </nav>
+</form>
+
+<style>
+  @layer components {
+    .filters {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-16);
+      padding: var(--space-16) var(--space-24);
+      border: 1px solid var(--stroke-default);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: var(--space-16);
+    }
+    .search {
+      flex: 1 1 18rem;
+      min-inline-size: 0;
+    }
+    .date {
+      flex: 0 1 12.5rem;
+      min-inline-size: 10rem;
+    }
+    /* Alineados con la caja de los campos: la etiqueta ocupa la fila superior */
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-8);
+      margin-block-start: calc(var(--space-24) + var(--space-4));
+    }
+    .states {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-8);
+    }
+    .label {
+      color: var(--color-mint);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-bold);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+  }
+</style>

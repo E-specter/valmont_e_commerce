@@ -1,0 +1,83 @@
+---
+// Tabla del listado de pedidos. Datos por props; importes y fechas formateados, nunca calculados (RN-09).
+import DataTable, { type DataTableColumn } from '../ui/DataTable.astro';
+import StatusPill from '../ui/StatusPill.astro';
+import { orderPill } from '../../lib/admin/status';
+import { formatDateTimeNumeric, formatMoney } from '../../lib/format';
+import type { AdminOrderSummary } from '../../lib/api/admin-orders';
+
+interface Props {
+  items: AdminOrderSummary[];
+  /** `orderQueryString` de la consulta actual: el detalle lo usa para volver con los mismos filtros. */
+  backQuery: string;
+}
+const { items, backQuery } = Astro.props;
+
+const columns: DataTableColumn[] = [
+  { key: 'number', header: 'Pedido' },
+  { key: 'recipient', header: 'Destinatario' },
+  { key: 'district', header: 'Distrito' },
+  { key: 'units', header: 'Unidades', align: 'end' },
+  { key: 'status', header: 'Estado' },
+  { key: 'total', header: 'Total', align: 'end' },
+  { key: 'created', header: 'Creado' },
+];
+const detailHref = (id: string) =>
+  `/admin/pedidos/${encodeURIComponent(id)}${backQuery ? `?volver=${encodeURIComponent(backQuery)}` : ''}`;
+---
+
+<DataTable columns={columns} caption="Pedidos">
+  {
+    items.map((o) => {
+      const pill = orderPill(o.status);
+      return (
+        <tr id={`o-${o.id}`}>
+          <td class="number"><a href={detailHref(o.id)}>{o.number}</a></td>
+          <td>{o.recipient_name}</td>
+          <td>{o.district ?? 'Recojo en tienda'}</td>
+          <td data-align="end">{o.item_count}</td>
+          <td><StatusPill label={pill.label} tone={pill.tone} /></td>
+          <td data-align="end">{formatMoney(o.total)}</td>
+          <td class="created">
+            <span>{formatDateTimeNumeric(o.created_at)}</span>
+            {o.status === 'pendiente_pago' && o.expires_at && (
+              <small>Vence {formatDateTimeNumeric(o.expires_at)}</small>
+            )}
+          </td>
+        </tr>
+      );
+    })
+  }
+</DataTable>
+
+<style>
+  @layer components {
+    .number a {
+      min-block-size: var(--touch-target);
+      display: inline-flex;
+      align-items: center;
+      color: var(--text-primary);
+      font-weight: var(--weight-semibold);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .number a:hover {
+      text-decoration: underline;
+    }
+    .number a:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    .created {
+      white-space: nowrap;
+    }
+    .created span,
+    .created small {
+      display: block;
+    }
+    .created small {
+      color: var(--color-yellow);
+      font-size: var(--text-caption);
+    }
+  }
+</style>

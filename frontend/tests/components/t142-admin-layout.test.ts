@@ -18,13 +18,17 @@ const FAR_FUTURE = 4102444800;
 // /admin/sin-permiso y /admin/no-disponible. Seguridad: un cliente que recibe el 403 no ve ninguna entrada de administración.
 const ONE = 1;
 const EIGHT = 8;
-const SEVEN = 7;
+const NONE_CURRENT = 0;
 const FORBIDDEN = 403;
 const UNAVAILABLE = 503;
 const ORIGIN = 'http://localhost:4321';
 const NO_STORE = 'private, no-store';
 const LABELS = ['Panel', 'Pedidos', 'Productos', 'Inventario', 'Promociones', 'Reportes', 'Clientes', 'Auditoría'];
 const MENU_ONLY = LABELS.filter((l) => l !== 'Panel');
+// Pantallas ya entregadas del menú (cada tarea del backoffice añade su sección aquí: T-084 → pedidos). El resto sigue «Pronto» (D-B1).
+const SHIPPED = ['panel', 'pedidos', 'productos'];
+const SHIPPED_LABELS = LABELS.filter((l) => SHIPPED.includes(l.toLowerCase()));
+const PENDING_LABELS = LABELS.filter((l) => !SHIPPED_LABELS.includes(l));
 const PROTECTED_WORDS = ['Pedidos', 'Productos', 'Inventario', 'Promociones', 'Reportes', 'Clientes', 'Auditoría', 'Pronto'];
 const LEAKS = ['Authorization', 'API_BASE_URL', 'api/v1', 'Bearer', 'ana.torres@example.com', '3f1c2a9e-5b7d-4c1e-9a10-0123456789ab', 'customer'];
 const HOSTILE = '<img src=x onerror=alert(1)><script>window.__x=1</script>';
@@ -101,7 +105,7 @@ describe('AdminLayout · marco completo', () => {
     expect(items.map((li, i) => text(li).startsWith(LABELS[i]))).toEqual(LABELS.map(() => true));
   });
 
-  test('section="panel": Panel es un enlace a /admin con aria-current="page"; las que aún no tienen pantalla no tienen href y dicen «Pronto» (T-147 habilita Productos)', async () => {
+  test('section="panel": Panel es un enlace a /admin con aria-current="page"; las pantallas ya entregadas son enlaces y el resto no tiene href y dice «Pronto»', async () => {
     const doc = await layout({ section: 'panel' });
     const nav = doc.querySelector('nav[aria-label="Administración"]')!;
     const current = [...nav.querySelectorAll('[aria-current]')];
@@ -110,33 +114,39 @@ describe('AdminLayout · marco completo', () => {
     expect(current[0].tagName).toBe('A');
     expect(current[0].getAttribute('href')).toBe('/admin');
     expect(text(current[0])).toContain('Panel');
-    const enabledLabels = ADMIN_NAV.filter((e) => e.enabled).map((e) => e.label);
-    expect(nav.querySelectorAll('a[href]').length).toBe(enabledLabels.length);
+    expect(nav.querySelectorAll('a[href]').length).toBe(SHIPPED.length);
     const disabled = [...nav.querySelectorAll('[aria-disabled="true"]')];
-    expect(disabled.length).toBe(EIGHT - enabledLabels.length);
+    expect(disabled.length).toBe(EIGHT - SHIPPED.length);
     disabled.forEach((el) => {
       expect(el.hasAttribute('href')).toBe(false);
       expect(el.hasAttribute('tabindex')).toBe(false);
       expect(text(el)).toContain('Pronto');
     });
-    expect(disabled.map((el) => LABELS.find((l) => text(el).includes(l)))).toEqual(LABELS.filter((l) => !enabledLabels.includes(l)));
+    expect(disabled.map((el) => LABELS.find((l) => text(el).includes(l)))).toEqual(PENDING_LABELS);
   });
 
-  test('section de un módulo aún sin pantalla (pedidos): nada marca aria-current (no hay enlace al que apuntar) y sigue habiendo 8 entradas', async () => {
+  test('section de un módulo aún sin pantalla (productos): nada marca aria-current (no hay enlace al que apuntar) y sigue habiendo 8 entradas', async () => {
+    const doc = await layout({ section: 'productos', title: 'Productos' });
+    const nav = doc.querySelector('nav[aria-label="Administración"]')!;
+    expect(nav.querySelectorAll('[aria-current="page"]').length).toBe(NONE_CURRENT);
+    expect(nav.querySelectorAll('li').length).toBe(EIGHT);
+    expect(nav.querySelectorAll('[href]').length).toBe(SHIPPED.length);
+  });
+
+  test('T-084: con section="pedidos", «Pedidos» es el enlace actual a /admin/pedidos y Panel deja de serlo', async () => {
     const doc = await layout({ section: 'pedidos', title: 'Pedidos' });
     const nav = doc.querySelector('nav[aria-label="Administración"]')!;
-    expect(nav.querySelectorAll('[aria-current="page"]').length).toBeLessThanOrEqual(ONE);
-    expect(nav.querySelectorAll('li').length).toBe(EIGHT);
-    expect(nav.querySelectorAll('[href]').length).toBe(ADMIN_NAV.filter((e) => e.enabled).length);
+    const current = [...nav.querySelectorAll('[aria-current="page"]')];
+    expect(current.length).toBe(ONE);
+    expect(current[0].getAttribute('href')).toBe('/admin/pedidos');
+    expect(text(current[0])).toContain('Pedidos');
   });
 
-  test('ADMIN_NAV: 8 entradas con el orden, las rutas y los textos del paquete; Panel siempre habilitado y los módulos sin pantalla (inventario…auditoría) deshabilitados (D-B1)', () => {
+  test('ADMIN_NAV: 8 entradas con el orden, las rutas y los textos del paquete; solo las pantallas entregadas habilitadas (D-B1)', () => {
     expect(ADMIN_NAV.map((e) => e.section)).toEqual(['panel', 'pedidos', 'productos', 'inventario', 'promociones', 'reportes', 'clientes', 'auditoria']);
     expect(ADMIN_NAV.map((e) => e.label)).toEqual(LABELS);
     expect(ADMIN_NAV.map((e) => e.href)).toEqual(['/admin', '/admin/pedidos', '/admin/productos', '/admin/inventario', '/admin/promociones', '/admin/reportes', '/admin/clientes', '/admin/auditoria']);
-    const enabled = ADMIN_NAV.filter((e) => e.enabled).map((e) => e.section);
-    expect(enabled).toContain('panel');
-    ['inventario', 'promociones', 'reportes', 'clientes', 'auditoria'].forEach((s) => expect(enabled).not.toContain(s));
+    expect(ADMIN_NAV.filter((e) => e.enabled).map((e) => e.section)).toEqual(SHIPPED);
     expect(new Set(ADMIN_NAV.map((e) => e.icon)).size).toBe(EIGHT);
   });
 

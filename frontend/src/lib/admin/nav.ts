@@ -16,7 +16,7 @@ export type NavEntry = { section: AdminSection; label: string; href: string; ico
 // D-B1: solo Panel está habilitado hasta que exista la pantalla de cada módulo (se activa aquí, una por tarea).
 export const ADMIN_NAV: readonly NavEntry[] = [
   { section: 'panel', label: 'Panel', href: '/admin', icon: 'dashboard', enabled: true },
-  { section: 'pedidos', label: 'Pedidos', href: '/admin/pedidos', icon: 'orders', enabled: false },
+  { section: 'pedidos', label: 'Pedidos', href: '/admin/pedidos', icon: 'orders', enabled: true },
   { section: 'productos', label: 'Productos', href: '/admin/productos', icon: 'watch', enabled: true },
   { section: 'inventario', label: 'Inventario', href: '/admin/inventario', icon: 'inventory', enabled: false },
   { section: 'promociones', label: 'Promociones', href: '/admin/promociones', icon: 'tag', enabled: false },

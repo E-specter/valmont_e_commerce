@@ -27,9 +27,9 @@ const FOREST = 'rgb(0, 35, 18)';
 const FOREST_DEEP = 'rgb(0, 26, 11)';
 const IVORY = 'rgb(255, 253, 228)';
 const ADMIN_LABELS = ['Panel', 'Pedidos', 'Productos', 'Inventario', 'Promociones', 'Reportes', 'Clientes', 'Auditoría'];
-// Entradas sin pantalla todavía (T-147 habilitó «Productos»; cada tarea posterior saca la suya de esta lista).
-const SOON = ['Pedidos', 'Inventario', 'Promociones', 'Reportes', 'Clientes', 'Auditoría'];
-const ENABLED_LINKS = ['Panel', 'Productos'];
+// Pantallas ya entregadas del menú: cada tarea del backoffice añade la suya (T-084 → Pedidos). El resto sigue «Pronto» (D-B1).
+const SHIPPED = ['Panel', 'Pedidos', 'Productos'];
+const SOON = ADMIN_LABELS.filter((l) => !SHIPPED.includes(l));
 const MENU_WORDS = ['Pedidos', 'Productos', 'Inventario', 'Promociones', 'Reportes', 'Clientes', 'Auditoría', 'Pronto'];
 const WIDTHS = [1280, 1440];
 const MAX_TABS = 24;
@@ -342,7 +342,7 @@ test.describe('backoffice · administrador', () => {
     expect(s.ring.toLowerCase()).not.toContain('#0f0f0f');
   });
 
-  test('navegación: 8 entradas en orden; Panel (página actual) y Productos son enlaces; las demás sin href con «Pronto»', async ({ page }) => {
+  test('navegación: 8 entradas en orden; Panel (página actual) y las pantallas entregadas son enlaces; el resto sin href con «Pronto»', async ({ page }) => {
     await openLayout(page, admin!);
     const items = nav(page).locator('li');
     expect(await items.count()).toBe(ADMIN_LABELS.length);
@@ -352,7 +352,7 @@ test.describe('backoffice · administrador', () => {
     await expect(panel).toHaveCount(1);
     await expect(panel).toHaveAttribute('href', '/admin');
     await expect(panel).toHaveAttribute('aria-current', 'page');
-    await expect(nav(page).locator('a[href]')).toHaveCount(ENABLED_LINKS.length);
+    await expect(nav(page).locator('a[href]')).toHaveCount(SHIPPED.length);
     await expect(nav(page).locator('[aria-disabled="true"]')).toHaveCount(SOON.length);
     await Promise.all(SOON.map((l) => expect(nav(page).locator('li', { hasText: l })).toContainText('Pronto')));
     await expect(nav(page).locator('[aria-current="page"]')).toHaveCount(1);
