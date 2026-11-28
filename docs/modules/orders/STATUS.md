@@ -20,7 +20,7 @@
 | T-081 | Cliente de API de orders (`frontend/src/lib/api/orders.ts`) y tipos | frontend-dev + qa-reviewer | contrato §7 aprobado; T-074…T-079 integradas | BACKLOG (no READY: sin contrato aprobado) |
 | T-082 | Pantalla de entrega y confirmación del pedido (checkout) | frontend-dev + qa-reviewer | T-081, T-111 (VIEWS.md y Figma), T-060 | BACKLOG (no READY: sin diseño) |
 | T-083 | Mis pedidos, detalle con historial, cancelar y "volver a comprar" (account) | frontend-dev + qa-reviewer | T-081, T-111 | BACKLOG (no READY: sin diseño) |
-| T-084 | Backoffice de pedidos: **listado** `/admin/pedidos` (el detalle y las transiciones pasan a **T-146**, división de frontend-lead en T-142; ambos con paquete completo en `docs/modules/ui/STATUS.md` §10.7) | frontend-dev + qa-reviewer | T-142, T-143, T-144 (ya no T-081 ni T-111: el diseño existe, T-140, y el cliente de API es `lib/api/admin-orders.ts` de T-144) | READY al integrar T-142…T-144 |
+| T-084 | Backoffice de pedidos: **listado** `/admin/pedidos` (el detalle y las transiciones pasan a **T-146**, división de frontend-lead en T-142; ambos con paquete completo en `docs/modules/ui/STATUS.md` §10.7) | frontend-dev + qa-reviewer | T-142, T-143, T-144 (ya no T-081 ni T-111: el diseño existe, T-140, y el cliente de API es `lib/api/admin-orders.ts` de T-144) | DONE (63e5182; detalle en T-146) |
 
 IDs reservados del módulo: T-070–T-089. En uso: T-070–T-084; **libres: T-085–T-089** (correcciones `fix`, o la división de las pantallas por frontend-lead).
 
