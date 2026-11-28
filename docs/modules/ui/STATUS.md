@@ -1094,7 +1094,7 @@ Plan completo en este documento. Estado: IN_REVIEW. Sin pruebas ejecutadas (plan
 | T-146 | Detalle de pedido, transiciones y diálogo «Cancelar y reembolsar» | frontend-dev + qa-reviewer | T-142, T-143, T-144 | DONE (101d720) |
 | T-147 | Formulario de producto (crear y editar), publicación, `Select`, `Textarea`, `RadioGroup`, `SpecsEditor` | frontend-dev + qa-reviewer | T-142, T-143, T-144 | DONE (824c83b) |
 | T-148 | Imágenes del producto: subida, `alt`, reordenar (D-B7), borrar, errores 413/415/409/503 | frontend-dev + qa-reviewer | T-147 | READY al integrar T-147 |
-| T-149 | Listado de productos `/admin/productos` (sin frame: patrón de pedidos) | frontend-dev + qa-reviewer | T-143, T-144; **D-AB2** | BLOCKED (decisión del usuario) |
+| T-149 | Listado de productos `/admin/productos` (sin frame: patrón de pedidos) | frontend-dev + qa-reviewer | T-143, T-144; **D-AB2** | DONE (c400a1c) |
 
 IDs T-142…T-149 reservados a esta pista (el Leader los confirma). **Sin paquete, a propósito:** inventario y promociones (contrato listo, sin diseño: H-B7), reportes (H-B1), clientes y auditoría (H-B3) y el endpoint de resumen (T-141, backend). Sus entradas del menú salen «Pronto».
 
@@ -1554,3 +1554,4 @@ Todos: RT-1…RT-12 y RT-B1…RT-B11 aplican; skills `frontend-module-implementa
 12. Commits: ninguno — preparado. Mensaje: `docs(ui): paquetes de implementación del backoffice (T-142)`.
 - **N-10 (D-050):** D-AB1 A, D-AB2 A (T-149 READY tras T-084), D-AB3 A (admin local para QA `qa-*` y `admin.demo@example.com` en review-up), D-AB4 A, D-AB5 rango T-142…T-149 confirmado.
 - **N-11 (QA de T-147, menor):** un PATCH con 409 `publish_requirements_unmet` sobre un producto publicado muestra un mensaje genérico; sería mejor listar los requisitos. `MSG_STATE_CHANGED` de `lib/admin/messages.ts` debe alinearse con el texto del 409 de T-146 («El estado del pedido cambió: se muestra el estado actual»).
+- **N-12 (QA de T-149):** la búsqueda `q` del backend de catalog es de texto completo (tsvector, `websearch_to_tsquery`): encuentra palabras y SKU completos, no prefijos. Si se quiere búsqueda por prefijo o subcadena, es un cambio de backend.
