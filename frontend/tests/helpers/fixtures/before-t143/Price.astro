@@ -1,0 +1,68 @@
+---
+import { formatMoney, type Money } from '../../../../src/lib/format';
+
+interface Props {
+  price: Money;
+  originalPrice?: Money | null;
+  discountAmount?: Money | null;
+  size?: 'sm' | 'md' | 'lg';
+  align?: 'start' | 'end';
+}
+// Solo muestra los importes del servidor tal como llegan (RN-09): no resta ni calcula.
+const { price, originalPrice = null, discountAmount = null, size = 'md', align = 'start' } = Astro.props;
+---
+
+<div class="price" data-size={size} data-align={align}>
+  <span class="current">{formatMoney(price)}</span>
+  {
+    originalPrice && (
+      <del class="original">
+        <span class="sr-only">Precio original </span>
+        {formatMoney(originalPrice)}
+      </del>
+    )
+  }
+  {discountAmount && <span class="saving">Ahorras {formatMoney(discountAmount)}</span>}
+</div>
+
+<style>
+  @layer components {
+    .price {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      column-gap: var(--space-8);
+      font-family: var(--font-heading);
+      font-weight: var(--weight-semibold);
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+    }
+    .price[data-align='end'] {
+      justify-content: flex-end;
+      text-align: end;
+    }
+    .current {
+      font-size: var(--text-body-editorial);
+      line-height: var(--leading-body-editorial);
+    }
+    .price[data-size='sm'] .current {
+      font-size: var(--text-body-ui);
+    }
+    .price[data-size='lg'] .current {
+      font-size: var(--text-h3);
+      font-weight: var(--weight-bold);
+      line-height: var(--leading-h3);
+    }
+    .original {
+      font-size: var(--text-body-ui);
+      font-weight: var(--weight-regular);
+      color: var(--text-secondary);
+    }
+    .saving {
+      font-family: var(--font-ui);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-semibold);
+      color: var(--color-forest-mid);
+    }
+  }
+</style>

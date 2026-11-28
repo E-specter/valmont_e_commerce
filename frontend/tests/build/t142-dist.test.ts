@@ -73,10 +73,11 @@ describe.skipIf(!built)('dist/client: el backoffice no llega al navegador', () =
     expect(files.filter((f) => pattern.test(readFileSync(f, 'utf8'))).map((f) => f.slice(CLIENT.length))).toEqual([]);
   });
 
+  // T-143: el CSS en línea de las páginas pequeñas ya lleva reglas `[data-context='backoffice']` de los ui/; lo que no debe haber es el ATRIBUTO en una etiqueta (espacio + data-context=).
   test('los HTML estáticos de la tienda no declaran data-context', () => {
     const htmls = files.filter((f) => f.endsWith('.html'));
     expect(htmls.length).toBeGreaterThan(0);
-    expect(htmls.filter((f) => readFileSync(f, 'utf8').includes('data-context')).map((f) => f.slice(CLIENT.length))).toEqual([]);
+    expect(htmls.filter((f) => readFileSync(f, 'utf8').includes(' data-context=')).map((f) => f.slice(CLIENT.length))).toEqual([]);
   });
 
   test('el CSS publicado trae el bloque del backoffice y la tienda conserva sus valores de :root', () => {

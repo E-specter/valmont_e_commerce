@@ -1,0 +1,130 @@
+---
+import Icon from './Icon.astro';
+
+interface Props {
+  label: string;
+  as?: 'a' | 'button' | 'span';
+  href?: string;
+  active?: boolean;
+  tone?: 'forest' | 'outline' | 'yellow' | 'mint' | 'red';
+  removeHref?: string;
+}
+const { label, as = 'a', href, active = false, tone = 'outline', removeHref } = Astro.props;
+const Tag = as;
+const attrs =
+  as === 'a'
+    ? { href, 'aria-current': active ? ('true' as const) : undefined }
+    : as === 'button'
+      ? { type: 'button' as const, 'aria-pressed': active ? ('true' as const) : undefined }
+      : { 'aria-disabled': 'true' as const }; // span: no interactivo (D-041 P-2)
+---
+
+<span
+  class="chip"
+  data-tone={tone}
+  data-active={active ? '' : undefined}
+  data-removable={removeHref ? '' : undefined}
+  data-as={as}
+>
+  <Tag class="main" {...attrs}>{label}</Tag>
+  {
+    removeHref && (
+      <a class="remove" href={removeHref} aria-label={`Quitar filtro ${label}`}>
+        <Icon name="x" size={16} />
+      </a>
+    )
+  }
+</span>
+
+<style>
+  @layer components {
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--stroke-control);
+      border-radius: var(--radius-pill);
+      background: transparent;
+      color: var(--text-primary);
+      font-family: var(--font-editorial);
+      font-size: var(--text-caption);
+      line-height: var(--leading-caption);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .chip[data-tone='forest'] {
+      background: var(--color-forest);
+      border-color: var(--color-forest);
+      color: var(--color-ivory);
+    }
+    .chip[data-tone='yellow'] {
+      background: var(--color-yellow);
+      border-color: var(--color-ink);
+    }
+    .chip[data-tone='mint'] {
+      background: var(--color-mint);
+      border-color: var(--color-forest);
+    }
+    .chip[data-tone='red'] {
+      background: var(--color-red-soft);
+      border-color: var(--color-red-strong);
+      color: var(--color-red-strong);
+    }
+    /* Activo: relleno forest + marfil y marca de verificación (no solo color) */
+    .chip[data-active] {
+      background: var(--color-forest);
+      border-color: var(--color-forest);
+      color: var(--color-ivory);
+    }
+    .chip[data-active] .main::before {
+      content: '\2713';
+      margin-inline-end: var(--space-4);
+    }
+    .main,
+    .remove {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      padding: var(--space-4) var(--space-12);
+      border: 0;
+      border-radius: var(--radius-pill);
+      background: none;
+      color: inherit;
+      font: inherit;
+      letter-spacing: inherit;
+      text-transform: inherit;
+      text-decoration: none;
+    }
+    /* Objetivo táctil >= 44 x 44 en el elemento interactivo; el margen negativo mantiene la píldora compacta */
+    :is(a, button).main,
+    .remove {
+      justify-content: center;
+      min-width: var(--touch-target);
+      min-height: var(--touch-target);
+      margin-block: calc((1lh + var(--space-8) - var(--touch-target)) / 2);
+    }
+    .chip[data-removable] .main {
+      padding-inline-end: var(--space-8);
+    }
+    .remove {
+      padding-inline: var(--space-4) var(--space-8);
+    }
+    :is(a, button).main {
+      cursor: pointer;
+    }
+    :is(a, button).main:hover,
+    .remove:hover {
+      text-decoration: underline;
+    }
+    .main:focus-visible,
+    .remove:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    /* No interactivo: borde discontinuo + atenuado (no solo color) */
+    .chip[data-as='span'] {
+      border-style: dashed;
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+</style>

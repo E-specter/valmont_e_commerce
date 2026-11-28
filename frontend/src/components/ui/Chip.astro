@@ -59,10 +59,12 @@ const attrs =
     .chip[data-tone='yellow'] {
       background: var(--color-yellow);
       border-color: var(--color-ink);
+      color: var(--color-ink);
     }
     .chip[data-tone='mint'] {
       background: var(--color-mint);
       border-color: var(--color-forest);
+      color: var(--color-ink);
     }
     .chip[data-tone='red'] {
       background: var(--color-red-soft);
@@ -74,6 +76,16 @@ const attrs =
       background: var(--color-forest);
       border-color: var(--color-forest);
       color: var(--color-ivory);
+    }
+    /* Backoffice: relleno claro fijo con texto fijo (VIEWS §12.3); en la tienda no aplica */
+    :global([data-context='backoffice']) .chip[data-tone='red'] {
+      border-color: var(--color-red);
+      color: var(--color-ink);
+    }
+    :global([data-context='backoffice']) .chip[data-active] {
+      background: var(--color-yellow);
+      border-color: var(--color-yellow);
+      color: var(--color-ink);
     }
     .chip[data-active] .main::before {
       content: '\2713';

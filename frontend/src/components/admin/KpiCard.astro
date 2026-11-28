@@ -1,0 +1,65 @@
+---
+interface Props {
+  label: string;
+  value?: string;
+  state?: 'data' | 'pending' | 'error';
+  hint?: string;
+  href?: string;
+}
+const { label, value, state = 'data', hint, href } = Astro.props;
+// `pending` = sin contrato; `error` = la carga falló. Ambos con texto, no solo con borde.
+const shown = state === 'data' ? (value ?? '') : state === 'pending' ? 'Sin contrato' : 'No disponible';
+const aria = state === 'data' ? undefined : `${label}: ${shown}`;
+const Tag = href && state === 'data' ? 'a' : 'div';
+---
+
+<Tag class="kpi" data-state={state} href={Tag === 'a' ? href : undefined} role={aria ? 'group' : undefined} aria-label={aria}>
+  <span class="label">{label}</span>
+  <span class="value">{shown}</span>
+  {hint && <span class="hint">{hint}</span>}
+</Tag>
+
+<style>
+  @layer components {
+    .kpi {
+      display: grid;
+      gap: var(--space-8);
+      align-content: start;
+      padding: var(--space-16);
+      border: 1px solid var(--stroke-default);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      text-decoration: none;
+    }
+    a.kpi:is(:hover, :focus-visible) {
+      border-color: var(--stroke-strong);
+    }
+    .kpi[data-state='pending'],
+    .kpi[data-state='error'] {
+      border-style: dashed;
+    }
+    .label {
+      font-size: var(--text-caption);
+    }
+    .value {
+      font-family: var(--font-heading);
+      font-size: var(--text-h3);
+      font-weight: var(--weight-bold);
+      line-height: var(--leading-h3);
+      color: var(--color-yellow);
+      font-variant-numeric: tabular-nums;
+    }
+    .kpi:not([data-state='data']) .value {
+      font-family: var(--font-ui);
+      font-size: var(--text-body-ui);
+      font-weight: var(--weight-regular);
+      color: var(--text-primary);
+    }
+    .hint {
+      color: var(--text-secondary);
+      font-size: var(--text-caption);
+    }
+  }
+</style>

@@ -1,0 +1,149 @@
+---
+import Icon from './Icon.astro';
+
+interface Props {
+  page: number;
+  pageSize: number;
+  total: number;
+  hrefFor: (page: number) => string;
+  siblings?: number;
+}
+const { page, pageSize, total, hrefFor, siblings = 1 } = Astro.props;
+
+const pages = Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
+const current = Math.min(Math.max(1, Math.trunc(page) || 1), pages);
+
+// Primera, última y la ventana alrededor de la actual; un hueco de una sola página se rellena
+// y uno mayor se marca con elipsis (no enfocable).
+const wanted = [...new Set([1, pages, ...Array.from({ length: siblings * 2 + 1 }, (_, i) => current - siblings + i)])]
+  .filter((n) => n >= 1 && n <= pages)
+  .sort((a, b) => a - b);
+const items: (number | 'gap')[] = [];
+wanted.forEach((n, i) => {
+  const prev = wanted[i - 1];
+  if (prev !== undefined && n - prev === 2) items.push(prev + 1);
+  else if (prev !== undefined && n - prev > 2) items.push('gap');
+  items.push(n);
+});
+---
+
+{
+  total > pageSize && (
+    <nav class="pagination" aria-label="Paginación">
+      <ul>
+        <li>
+          {current > 1 ? (
+            <a class="step" href={hrefFor(current - 1)} rel="prev">
+              <Icon name="arrow-left" size={16} />
+              <span>Anterior</span>
+            </a>
+          ) : (
+            <span class="step" aria-disabled="true">
+              <Icon name="arrow-left" size={16} />
+              <span>Anterior</span>
+            </span>
+          )}
+        </li>
+        {items.map((item) =>
+          item === 'gap' ? (
+            <li class="gap" aria-hidden="true">
+              <span>…</span>
+            </li>
+          ) : (
+            <li>
+              <a
+                class="num"
+                href={hrefFor(item)}
+                aria-current={item === current ? 'page' : undefined}
+                aria-label={`Página ${item}`}
+              >
+                {item}
+              </a>
+            </li>
+          )
+        )}
+        <li>
+          {current < pages ? (
+            <a class="step" href={hrefFor(current + 1)} rel="next">
+              <span>Siguiente</span>
+              <Icon name="arrow-right" size={16} />
+            </a>
+          ) : (
+            <span class="step" aria-disabled="true">
+              <span>Siguiente</span>
+              <Icon name="arrow-right" size={16} />
+            </span>
+          )}
+        </li>
+      </ul>
+    </nav>
+  )
+}
+
+<style>
+  @layer components {
+    ul {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: var(--space-8);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .num,
+    .step,
+    .gap span {
+      box-sizing: border-box;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-8);
+      min-width: var(--touch-target);
+      min-height: var(--touch-target);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-editorial);
+      font-size: var(--text-body-ui);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+    .num,
+    .step {
+      padding-inline: var(--space-12);
+      border: 1px solid var(--stroke-control);
+      background: var(--bg-surface);
+    }
+    a.num:hover,
+    a.step:hover {
+      background: var(--color-mint);
+    }
+    /* La página actual se distingue por relleno y borde, no solo por color */
+    .num[aria-current='page'] {
+      background: var(--color-yellow);
+      border-color: var(--color-ink);
+      font-weight: var(--weight-bold);
+    }
+    .step[aria-disabled='true'] {
+      border-style: dashed;
+      border-color: var(--stroke-default);
+      background: transparent;
+      color: var(--text-secondary);
+    }
+    @media (max-width: 799px) {
+      /* Oculto solo a la vista (como .sr-only): el texto sigue siendo el nombre accesible */
+      .step span {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+    }
+  }
+</style>

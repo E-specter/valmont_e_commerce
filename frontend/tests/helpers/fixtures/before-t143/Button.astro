@@ -1,0 +1,166 @@
+---
+import type { HTMLAttributes } from 'astro/types';
+import Icon from './Icon.astro';
+import type { IconName } from './icons';
+
+interface Props extends Omit<HTMLAttributes<'button'>, 'type' | 'disabled'> {
+  variant?: 'primary' | 'dark' | 'secondary' | 'mint';
+  size?: 'md' | 'lg';
+  href?: string;
+  type?: 'button' | 'submit' | 'reset';
+  loading?: boolean;
+  disabled?: boolean;
+  fullWidth?: boolean;
+  iconRight?: IconName;
+}
+const {
+  variant = 'primary',
+  size = 'md',
+  href,
+  type = 'button',
+  loading = false,
+  disabled = false,
+  fullWidth = false,
+  iconRight,
+  class: className,
+  ...rest
+} = Astro.props;
+const inactive = disabled || loading;
+// Un enlace deshabilitado pierde el href: no navega ni entra en el orden de tabulación.
+const attrs = href
+  ? {
+      href: inactive ? undefined : href,
+      'aria-disabled': inactive ? ('true' as const) : undefined,
+      role: inactive ? ('link' as const) : undefined,
+    }
+  : { type, disabled: inactive };
+const Tag = href ? 'a' : 'button';
+---
+
+<Tag
+  class:list={['btn', className]}
+  data-variant={variant}
+  data-size={size}
+  data-loading={loading ? '' : undefined}
+  data-full={fullWidth ? '' : undefined}
+  aria-busy={loading ? 'true' : undefined}
+  {...attrs}
+  {...rest}
+>
+  {loading && <span class="spinner" aria-hidden="true" />}
+  <span class="label"><slot /></span>
+  {loading && <span class="sr-only">Cargando</span>}
+  {iconRight && !loading && <Icon name={iconRight} size={20} />}
+</Tag>
+
+<style>
+  @layer components {
+    .btn {
+      --btn-bg: var(--color-yellow);
+      --btn-fg: var(--color-ink);
+      --btn-border: var(--color-ink);
+      --btn-bg-hover: var(--color-ink);
+      --btn-fg-hover: var(--color-yellow);
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-8);
+      min-height: var(--touch-target);
+      padding: var(--space-8) var(--space-24);
+      border: 1.5px solid var(--btn-border);
+      border-radius: var(--radius-pill);
+      background: var(--btn-bg);
+      color: var(--btn-fg);
+      font-family: var(--font-heading);
+      font-weight: var(--weight-semibold);
+      font-size: var(--text-body-ui);
+      line-height: 1;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      transition:
+        background-color var(--dur-state) var(--ease),
+        color var(--dur-state) var(--ease),
+        transform var(--dur-state) var(--ease);
+    }
+    .btn[data-size='lg'] {
+      min-height: calc(var(--space-48) + var(--space-8));
+      padding-inline: var(--space-32);
+    }
+    .btn[data-full] {
+      display: flex;
+      width: 100%;
+    }
+    .btn[data-variant='dark'] {
+      --btn-bg: var(--color-forest);
+      --btn-fg: var(--color-ivory);
+      --btn-border: var(--color-forest);
+      --btn-bg-hover: var(--color-forest-mid);
+      --btn-fg-hover: var(--color-ivory);
+    }
+    .btn[data-variant='secondary'] {
+      --btn-bg: transparent;
+      --btn-fg: var(--color-ink);
+      --btn-border: var(--color-ink);
+      --btn-bg-hover: var(--color-ink);
+      --btn-fg-hover: var(--color-ivory);
+    }
+    .btn[data-variant='mint'] {
+      --btn-bg: var(--color-mint);
+      --btn-fg: var(--color-ink);
+      --btn-border: var(--color-mint);
+      --btn-bg-hover: var(--color-mint-soft);
+      --btn-fg-hover: var(--color-ink);
+    }
+    /* .is-hover / .is-active / .is-focus: solo los usa /dev/ui-a para fijar el estado */
+    .btn:is(:hover, .is-hover) {
+      background: var(--btn-bg-hover);
+      color: var(--btn-fg-hover);
+    }
+    .btn:is(:active, .is-active) {
+      transform: translateY(1px);
+      background: var(--btn-bg-hover);
+      color: var(--btn-fg-hover);
+      text-decoration: underline;
+    }
+    .btn.is-focus {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    /* Deshabilitado: atenuado + borde discontinuo + cursor (no solo color) */
+    .btn:is(:disabled, [aria-disabled='true']) {
+      border-style: dashed;
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+      background: var(--btn-bg);
+      color: var(--btn-fg);
+      text-decoration: none;
+    }
+    .btn[data-loading] {
+      cursor: progress;
+      opacity: 1;
+    }
+    .spinner {
+      width: 1em;
+      height: 1em;
+      border: 2px solid currentColor;
+      border-inline-end-color: transparent;
+      border-radius: var(--radius-pill);
+      animation: btn-spin var(--dur-spin) linear infinite;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .spinner {
+        animation: none;
+        border-style: dotted; /* estático: sigue indicando actividad, y "Cargando" se anuncia igual */
+      }
+    }
+    @keyframes btn-spin {
+      to {
+        transform: rotate(1turn);
+      }
+    }
+  }
+</style>

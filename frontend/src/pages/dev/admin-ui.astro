@@ -1,0 +1,177 @@
+---
+// Muestrario de la base de UI del backoffice (T-143). Solo existe en desarrollo: en producción responde 404.
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Button from '../../components/ui/Button.astro';
+import ConfirmDialog from '../../components/ui/ConfirmDialog.astro';
+import DataTable, { type DataTableColumn } from '../../components/ui/DataTable.astro';
+import Notice from '../../components/ui/Notice.astro';
+import StatusPill from '../../components/ui/StatusPill.astro';
+import Timeline from '../../components/ui/Timeline.astro';
+import KpiCard from '../../components/admin/KpiCard.astro';
+import type { PillTone } from '../../components/ui/status-pill';
+
+export const prerender = false;
+
+if (!import.meta.env.DEV) {
+  return new Response(null, { status: 404 });
+}
+
+const pills: { label: string; tone: PillTone }[] = [
+  { label: 'Pendiente de pago', tone: 'pending' },
+  { label: 'Pagado', tone: 'paid' },
+  { label: 'En preparación', tone: 'active' },
+  { label: 'Enviado', tone: 'transit' },
+  { label: 'Entregado', tone: 'done' },
+  { label: 'Cancelado', tone: 'cancelled' },
+  { label: 'Expirado', tone: 'neutral' },
+];
+const columns: DataTableColumn[] = [
+  { key: 'number', header: 'Pedido' },
+  { key: 'status', header: 'Estado' },
+  { key: 'total', header: 'Total', align: 'end' },
+  { key: 'actions', header: 'Acciones', hideHeader: true },
+];
+const rows = [
+  { number: 'VAL-0001', tone: 'paid' as const, status: 'Pagado', total: 'S/ 84,500' },
+  { number: 'VAL-0002', tone: 'pending' as const, status: 'Pendiente de pago', total: 'S/ 12,300' },
+];
+const events = [
+  { title: 'Pedido pagado', at: '27/11/2026 15:04', actor: 'Sistema', current: true },
+  { title: 'Pedido creado', at: '27/11/2026 14:58', note: 'Entrega en Lima' },
+];
+---
+
+<BaseLayout title="Base de UI del backoffice (desarrollo)" noindex>
+  <div data-context="backoffice" class="on-dark stage">
+    <main id="contenido">
+      <h1>Base de UI del backoffice</h1>
+
+      <section aria-labelledby="s-btn">
+        <h2 id="s-btn">Button</h2>
+        <div class="row">
+          <Button size="sm">Primario</Button>
+          <Button size="sm" variant="secondary">Secundario</Button>
+          <Button size="sm" variant="danger">Peligro</Button>
+          <Button size="sm" variant="ghost">Fantasma</Button>
+          <Button size="sm" variant="danger" disabled>Deshabilitado</Button>
+          <Button size="sm" loading>Guardando</Button>
+        </div>
+      </section>
+
+      <section aria-labelledby="s-pill">
+        <h2 id="s-pill">StatusPill</h2>
+        <div class="row">{pills.map((p) => <StatusPill {...p} />)}</div>
+      </section>
+
+      <section aria-labelledby="s-kpi">
+        <h2 id="s-kpi">KpiCard</h2>
+        <div class="row">
+          <KpiCard label="Por preparar" value="12" hint="Pagados" href="#s-kpi" />
+          <KpiCard label="Ventas del período" state="pending" />
+          <KpiCard label="Stock bajo" state="error" />
+        </div>
+      </section>
+
+      <section aria-labelledby="s-notice">
+        <h2 id="s-notice">Notice</h2>
+        <div class="stack">
+          <Notice tone="warning" title="Título">Mensaje<Button slot="actions" size="sm" variant="ghost">Acción</Button></Notice>
+          <Notice tone="error" title="Título">Mensaje<Button slot="actions" size="sm" variant="ghost">Acción</Button></Notice>
+          <Notice tone="info" title="Título">Mensaje<Button slot="actions" size="sm" variant="ghost">Acción</Button></Notice>
+        </div>
+      </section>
+
+      <section aria-labelledby="s-table">
+        <h2 id="s-table">DataTable</h2>
+        <DataTable columns={columns} caption="Pedidos de ejemplo">
+          {
+            rows.map((r) => (
+              <tr>
+                <td>{r.number}</td>
+                <td><StatusPill label={r.status} tone={r.tone} /></td>
+                <td data-align="end">{r.total}</td>
+                <td><Button size="sm" variant="ghost" href="#s-table">Ver</Button></td>
+              </tr>
+            ))
+          }
+        </DataTable>
+      </section>
+
+      <section aria-labelledby="s-tl">
+        <h2 id="s-tl">Timeline</h2>
+        <Timeline label="Historial del pedido" items={events} />
+      </section>
+
+      <section aria-labelledby="s-dlg">
+        <h2 id="s-dlg">ConfirmDialog</h2>
+        <button type="button" class="open" commandfor="demo-dialog" command="show-modal">Cancelar pedido</button>
+        <ConfirmDialog
+          id="demo-dialog"
+          title="¿Cancelar el pedido?"
+          description="Se reembolsará el total de forma simulada."
+          confirmLabel="Cancelar pedido"
+          cancelLabel="Volver"
+          tone="danger"
+          action="#"
+        >
+          <input type="hidden" name="to" value="cancelado" />
+        </ConfirmDialog>
+        <ConfirmDialog id="open-dialog" title="Diálogo abierto" confirmLabel="Confirmar" open action="#" />
+      </section>
+
+      <section aria-labelledby="s-busy">
+        <h2 id="s-busy">form-busy</h2>
+        <form method="post" action="#" data-busy-on-submit>
+          <Button type="submit" size="sm">Guardar cambios</Button>
+        </form>
+      </section>
+    </main>
+  </div>
+</BaseLayout>
+
+<script>
+  import { initConfirmDialog } from '../../islands/confirm-dialog';
+  import { initFormBusy } from '../../islands/form-busy';
+  initConfirmDialog();
+  initFormBusy();
+</script>
+
+<style>
+  @layer components {
+    .stage {
+      min-height: 100vh;
+      padding: var(--space-32) var(--space-16);
+      background: var(--bg-page);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+    }
+    main {
+      display: grid;
+      gap: var(--space-32);
+      grid-template-columns: minmax(0, 1fr);
+      max-width: var(--content-max-bo);
+      margin-inline: auto;
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-12);
+      align-items: center;
+    }
+    .stack {
+      display: grid;
+      gap: var(--space-12);
+      max-width: 40rem;
+    }
+    .open {
+      min-height: var(--size-control-sm);
+      padding-inline: var(--space-16);
+      border: 1px solid var(--stroke-control);
+      border-radius: var(--radius-pill);
+      background: transparent;
+      color: var(--text-primary);
+      font: inherit;
+      cursor: pointer;
+    }
+  }
+</style>

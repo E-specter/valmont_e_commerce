@@ -29,6 +29,17 @@ const declarations = (source: string, props: string[]): string[] =>
     .map((d) => d.trim())
     .filter((d) => props.some((p) => d.startsWith(`${p}:`)));
 
+
+/** Quita las reglas `:global([data-context=...]) ... { ... }` (contexto backoffice) para analizar solo lo que ve la tienda. */
+const MARK = ':global([data-context';
+function storeOnly(source: string): string {
+  const start = source.indexOf(MARK);
+  if (start === -ONE) return source;
+  const open = source.indexOf('{', start);
+  const close = source.indexOf('}', open);
+  return storeOnly(source.slice(NONE, start) + source.slice(close + ONE));
+}
+
 /** Archivos `.astro` y `.ts` de `src/` (ruta relativa a `frontend/`). */
 function walk(dir: string): string[] {
   return readdirSync(join(FRONTEND, dir)).flatMap((name) => {
@@ -128,7 +139,8 @@ describe('T-118 · RT-1 ampliado: movimiento, foco y superficies planas', () => 
   });
 
   test.each(COMPONENTS)('%s no usa amarillo ni menta como color de texto (BRIEF §2: nunca sobre marfil)', (name) => {
-    const bad = declarations(src(name), ['color']).filter((d) => ['var(--color-yellow)', 'var(--color-mint)'].includes(compact(d).replace('color:', '')));
+    // T-143: la regla de «nunca sobre marfil» es de la tienda; lo declarado bajo `[data-context='backoffice']` (fondo verde oscuro) no entra.
+    const bad = declarations(storeOnly(src(name)), ['color']).filter((d) => ['var(--color-yellow)', 'var(--color-mint)'].includes(compact(d).replace('color:', '')));
     expect(bad).toEqual([]);
   });
 });

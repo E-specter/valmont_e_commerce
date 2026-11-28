@@ -1,0 +1,70 @@
+---
+import type { PillTone } from './status-pill';
+
+interface Props {
+  label: string;
+  tone: PillTone;
+}
+const { label, tone } = Astro.props;
+---
+
+<!-- Punto + texto: el estado nunca se comunica solo con color (VIEWS §12.4) -->
+<span class="pill" data-tone={tone}><span class="dot" aria-hidden="true"></span>{label}</span>
+
+<style>
+  @layer components {
+    .pill {
+      --pill-bg: transparent;
+      --pill-fg: var(--text-primary);
+      --pill-border: var(--pill-fg);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-8);
+      min-height: var(--size-pill);
+      padding-inline: var(--space-12);
+      border: 1px solid var(--pill-border);
+      border-radius: var(--radius-pill);
+      background: var(--pill-bg);
+      color: var(--pill-fg);
+      font-family: var(--font-ui);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-medium);
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .dot {
+      flex: none;
+      width: var(--size-dot);
+      height: var(--size-dot);
+      border-radius: var(--radius-pill);
+      background: currentColor;
+    }
+    .pill[data-tone='pending'] {
+      --pill-fg: var(--color-yellow);
+    }
+    .pill[data-tone='paid'] {
+      --pill-bg: var(--color-mint);
+      --pill-fg: var(--color-ink);
+    }
+    .pill[data-tone='active'] {
+      --pill-bg: var(--color-yellow);
+      --pill-fg: var(--color-ink);
+    }
+    .pill[data-tone='transit'] {
+      --pill-bg: var(--bg-surface-raised);
+      --pill-fg: var(--color-mint);
+    }
+    .pill[data-tone='done'] {
+      --pill-bg: var(--color-ivory);
+      --pill-fg: var(--color-ink);
+    }
+    .pill[data-tone='cancelled'] {
+      --pill-bg: var(--color-plum);
+      --pill-fg: var(--color-ivory);
+    }
+    .pill[data-tone='neutral'] {
+      --pill-fg: var(--text-secondary);
+      --pill-border: var(--stroke-control);
+    }
+  }
+</style>

@@ -1,0 +1,57 @@
+---
+interface Props {
+  variant?: 'line' | 'block' | 'card';
+  lines?: number;
+  width?: string;
+  height?: string;
+}
+const { variant = 'line', lines = 1, width, height } = Astro.props;
+const count = variant === 'line' ? Math.max(1, Math.floor(lines)) : 1;
+const style = { '--sk-w': width, '--sk-h': height };
+---
+
+<div class="skeleton" data-variant={variant} style={style} aria-hidden="true">
+  {Array.from({ length: count }, (_, i) => <span class="bar" data-last={count > 1 && i === count - 1 ? '' : undefined} />)}
+</div>
+
+<style>
+  @layer components {
+    .skeleton {
+      display: grid;
+      gap: var(--space-8);
+      width: var(--sk-w, 100%);
+    }
+    .bar {
+      display: block;
+      height: var(--sk-h, 1em);
+      border-radius: var(--radius-sm);
+      background: var(--stroke-soft);
+      animation: sk-pulse var(--dur-spin) var(--ease) infinite alternate;
+    }
+    .bar[data-last] {
+      width: 60%;
+    }
+    [data-variant='block'] .bar {
+      height: var(--sk-h, var(--space-64));
+      border-radius: var(--radius-md);
+    }
+    [data-variant='card'] .bar {
+      height: var(--sk-h, calc(var(--space-80) * 3));
+      border: 1px solid var(--stroke-soft);
+      border-radius: var(--radius-md);
+    }
+    @keyframes sk-pulse {
+      from {
+        opacity: 0.5;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .bar {
+        animation: none;
+      }
+    }
+  }
+</style>

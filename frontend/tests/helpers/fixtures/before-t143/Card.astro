@@ -1,0 +1,54 @@
+---
+import type { HTMLAttributes } from 'astro/types';
+
+interface Props extends HTMLAttributes<'div'> {
+  as?: 'div' | 'article' | 'section' | 'li';
+  tone?: 'surface' | 'ink' | 'forest';
+  padding?: 'sm' | 'md' | 'lg';
+  outline?: 'strong' | 'soft';
+}
+const { as: Tag = 'div', tone = 'surface', padding = 'md', outline = 'strong', class: className, ...rest } = Astro.props;
+---
+
+<Tag
+  class:list={['card', tone !== 'surface' && 'on-dark', className]}
+  data-tone={tone}
+  data-padding={padding}
+  data-outline={outline}
+  {...rest}
+>
+  <slot />
+</Tag>
+
+<style>
+  @layer components {
+    .card {
+      box-sizing: border-box;
+      min-width: 0;
+      border: 1px solid var(--stroke-strong);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      padding: var(--space-16);
+    }
+    .card[data-padding='sm'] {
+      padding: var(--space-12);
+    }
+    .card[data-padding='lg'] {
+      padding: var(--space-32);
+    }
+    .card[data-outline='soft'] {
+      border-color: var(--stroke-soft);
+    }
+    .card[data-tone='ink'] {
+      background: var(--color-ink);
+      color: var(--text-on-dark);
+      border-color: var(--stroke-on-dark);
+    }
+    .card[data-tone='forest'] {
+      background: var(--bg-inverse);
+      color: var(--text-on-dark);
+      border-color: var(--stroke-on-dark);
+    }
+  }
+</style>

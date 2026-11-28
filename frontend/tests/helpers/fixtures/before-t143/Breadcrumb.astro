@@ -1,0 +1,67 @@
+---
+interface Props {
+  items: { label: string; href?: string }[];
+}
+const { items } = Astro.props;
+const last = items.length - 1;
+---
+
+<nav class="breadcrumb" aria-label="Migas de pan">
+  <ol>
+    {
+      items.map((item, i) => (
+        <li>
+          {i === last || !item.href ? (
+            <span aria-current={i === last ? 'page' : undefined}>{item.label}</span>
+          ) : (
+            <a href={item.href}>{item.label}</a>
+          )}
+        </li>
+      ))
+    }
+  </ol>
+</nav>
+
+<style>
+  @layer components {
+    ol {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      font-family: var(--font-editorial);
+      font-size: var(--text-body-ui);
+      line-height: var(--leading-caption);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    li {
+      display: inline-flex;
+      align-items: center;
+    }
+    /* El separador es decorativo: el texto alternativo vacío lo oculta a los lectores de pantalla */
+    li + li::before {
+      content: '>' / '';
+      padding-inline: var(--space-8);
+      color: var(--text-secondary);
+    }
+    a,
+    span {
+      display: inline-flex;
+      align-items: center;
+      min-width: var(--touch-target);
+      min-height: var(--touch-target);
+    }
+    a {
+      color: var(--text-primary);
+      text-decoration: underline;
+      text-underline-offset: 0.25em;
+    }
+    span[aria-current] {
+      overflow-wrap: anywhere;
+      color: var(--text-secondary);
+    }
+  }
+</style>

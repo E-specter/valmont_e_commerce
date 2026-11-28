@@ -1,0 +1,25 @@
+{
+ "elements": 105,
+ "total": "6de2e4958e0e5dd0",
+ "regions": {
+  "body:0>a:0": "1:ad900eceeabf7dbe",
+  "body:0>div:0": "1:fea06d428d544ae0",
+  "body:0>div:0>footer:0": "1:8c6f7fd44b498d06",
+  "body:0>div:0>footer:0>div:0": "1:d442ff7aefef9309",
+  "body:0>div:0>footer:0>div:0>address:0": "5:e3b0d630465ae055",
+  "body:0>div:0>footer:0>div:0>nav:0": "12:f12504b9a25d3536",
+  "body:0>div:0>footer:0>div:0>p:0": "1:9a2801eceffaf92f",
+  "body:0>div:0>footer:0>div:0>p:1": "1:0de3fdacf0c90008",
+  "body:0>div:0>footer:0>div:1": "1:a8bd2d394c314ee2",
+  "body:0>div:0>header:0": "1:8280b5081650c20f",
+  "body:0>div:0>header:0>div:0": "1:22dd220fc66b76a6",
+  "body:0>div:0>header:0>div:0>div:0": "4:7a1db2697cef74ec",
+  "body:0>div:0>header:0>div:0>div:1": "13:d9aad40f7d03d6b8",
+  "body:0>div:0>header:0>div:0>div:2": "18:1949cabd0cc06030",
+  "body:0>div:0>header:0>div:1": "1:99c1abfdc7adbce6",
+  "body:0>div:0>main:0": "1:3b170146724b4b32",
+  "body:0>div:0>main:0>div:0": "1:8a4158ae7b5a89b6",
+  "body:0>div:0>main:0>div:0>div:0": "37:c265295fa40b5776",
+  "body:0>div:0>main:0>div:0>header:0": "4:bddcbd392590dfce"
+ }
+}

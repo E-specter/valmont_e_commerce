@@ -1,0 +1,75 @@
+---
+import Button from './Button.astro';
+
+interface Props {
+  id: string;
+  title: string;
+  description?: string;
+  confirmLabel: string;
+  cancelLabel?: string;
+  tone?: 'danger' | 'primary';
+  open?: boolean;
+  action?: string;
+}
+const { id, title, description, confirmLabel, cancelLabel = 'Cancelar', tone = 'primary', open = false, action } =
+  Astro.props;
+---
+
+<!-- Abre con <button commandfor={id} command="show-modal">; con `open`, la isla confirm-dialog lo abre en modal -->
+<dialog
+  id={id}
+  class="dialog"
+  aria-labelledby={`${id}-title`}
+  aria-describedby={description ? `${id}-desc` : undefined}
+  open={open}
+>
+  <form method="post" action={action} class="form">
+    <h2 id={`${id}-title`} class="title">{title}</h2>
+    {description && <p id={`${id}-desc`} class="desc">{description}</p>}
+    <slot />
+    <div class="buttons">
+      <Button type="submit" formmethod="dialog" formnovalidate variant="ghost" size="sm">{cancelLabel}</Button>
+      <Button type="submit" variant={tone === 'danger' ? 'danger' : 'primary'} size="sm">{confirmLabel}</Button>
+    </div>
+  </form>
+</dialog>
+
+<style>
+  @layer components {
+    .dialog {
+      width: min(30rem, calc(100% - var(--space-32)));
+      margin: auto;
+      padding: var(--space-24);
+      border: 1px solid var(--stroke-control);
+      border-radius: var(--radius-dialog);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      box-shadow: var(--shadow-overlay);
+    }
+    .dialog::backdrop {
+      background: var(--overlay-forest-strong);
+    }
+    .form {
+      display: grid;
+      gap: var(--space-16);
+    }
+    .title {
+      margin: 0;
+      font-family: var(--font-heading);
+      font-size: var(--text-h3);
+      line-height: var(--leading-h3);
+    }
+    .desc {
+      margin: 0;
+      color: var(--text-secondary);
+      line-height: var(--leading-body-ui);
+    }
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: var(--space-8);
+    }
+  }
+</style>

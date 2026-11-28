@@ -693,6 +693,21 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-143 (base de UI del backoffice) — 2026-11-27 — frontend-dev
+1. Tarea: T-143. Estado: IN_REVIEW (pendiente de QA).
+2. Hecho: `StatusPill`+`status-pill.ts`, `DataTable`, `Timeline`, `ConfirmDialog` (`<dialog>`, `commandfor`/`command="show-modal"`, cancelar con `formmethod="dialog"`), `admin/KpiCard`, islas `confirm-dialog` y `form-busy`, `Button` (`danger`, `ghost`, `sm`), `Notice` (ya tenía slot `actions`; añadido el aspecto Alert en backoffice), `pages/dev/admin-ui.astro`.
+3. Auditoría de roles (sustituidos, idénticos en tienda por ser `--text-primary` = ink): `TextLink` (color), `IconButton` (2), `Field` (borde y sombra de foco), `Button` secundario (fg/borde). Con `[data-context=backoffice]` solo en `Button` secundario (borde de control) y `Notice` (tarjeta + contorno 1 px por tono), vía `:global`, sin efecto en la tienda.
+4. Auditoría, NO sustituibles sin cambiar la tienda (siguen con `--color-*`): `Availability`, `Badge`, `Card` (tono ink), `Checkbox`, `Checkerboard`, `Chip`, `Field` (fondo/error), `IconButton` (variantes), `Pagination`, `Price`, `Wordmark`, `Button` primario/dark/mint. Son colores de marca/estado sin rol equivalente; `Chip`, `Checkbox`, `Pagination` y `Badge` en backoffice (T-084/T-146) necesitarán revisión o roles nuevos (pedir a T-142). `Button dark` no se ve sobre el fondo del backoffice (no se usa ahí).
+5. Tokens de 3.5 usados sin existir aún en esta rama (los aporta T-142): `--size-control-sm`, `--size-th`, `--size-row`, `--size-row-lg`, `--size-pill`, `--content-max-bo`, `--radius-dialog`, `--bg-surface-raised`, `--stroke-control` (ya existe). Sin ellos `/dev/admin-ui` se ve mal hasta integrar T-142.
+6. `admin-ui` usa `<div data-context="backoffice" class="on-dark">` en vez de `BaseLayout context` (aún no existe); con T-142 puede cambiarse sin más.
+7. Decisiones: `KpiCard` `pending`/`error` llevan `role="group"` y `aria-label` («Etiqueta: Sin contrato/No disponible»); `DataTable` lleva `role="region"` + `tabindex=0` + `caption` `sr-only`; las celdas numéricas piden `data-align="end"` en el `<td>`. Overlay del diálogo `--overlay-forest-strong` (92 %, el contrato dice 75 %: sin token de 75 %, se anota).
+8. Figma: `193:21` (una consulta; respuesta dispersa: solo iconos + captura, usada como referencia visual de Alert/Pill/KpiCard). `200:639` no consultado (lo cubre T-146 y VIEWS §12).
+9. Comprobado: `npm run check` → 0 errors. NO EJECUTADO: pruebas ni build (D-033).
+10. Pendiente para QA: la unión `PillTone` debe igualar la de `lib/admin/status.ts`; contrastes de §12.7 (el tono `pending` amarillo sobre transparente depende del fondo de tarjeta).
+11. Riesgos: tienda intacta por construcción (cambios aditivos o con el mismo valor calculado); falta verificarlo con la prueba de estilos de QA.
+12. Git: ninguno — preparado. Mensaje: `feat(ui): componentes base del backoffice (T-143)`.
+
+
 #### Traspaso T-142 (marco del backoffice) — 2026-11-27 — frontend-dev
 1. Tarea: T-142 (D-049, D-050). Estado: IN_REVIEW (pendiente de QA).
 2. Hecho: 3.5 en `tokens.css` (13 tokens + bloque `[data-context='backoffice']` al final, `:root` intacto); `BaseLayout` con `context`; `AdminLayout` (sidebar 260 con popover por debajo de 1025 px, topbar 72, migas, cabecera con slot `actions`); `NavItem`, `UserMenu`; `lib/admin/nav.ts` (solo Panel habilitado, resto «Pronto» sin `href`); `lib/server/admin.ts` (3.6); `/admin` en `PROTECTED_PREFIXES`; `formatDateTimeNumeric`; 17 iconos; `/admin/sin-permiso` (403), `/admin/no-disponible` (503), `/dev/admin-layout` (404 fuera de desarrollo).

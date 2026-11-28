@@ -4,8 +4,8 @@ import Icon from './Icon.astro';
 import type { IconName } from './icons';
 
 interface Props extends Omit<HTMLAttributes<'button'>, 'type' | 'disabled'> {
-  variant?: 'primary' | 'dark' | 'secondary' | 'mint';
-  size?: 'md' | 'lg';
+  variant?: 'primary' | 'dark' | 'secondary' | 'mint' | 'danger' | 'ghost';
+  size?: 'sm' | 'md' | 'lg';
   href?: string;
   type?: 'button' | 'submit' | 'reset';
   loading?: boolean;
@@ -89,6 +89,10 @@ const Tag = href ? 'a' : 'button';
       min-height: calc(var(--space-48) + var(--space-8));
       padding-inline: var(--space-32);
     }
+    .btn[data-size='sm'] {
+      min-height: var(--size-control-sm);
+      padding-inline: var(--space-16);
+    }
     .btn[data-full] {
       display: flex;
       width: 100%;
@@ -102,8 +106,8 @@ const Tag = href ? 'a' : 'button';
     }
     .btn[data-variant='secondary'] {
       --btn-bg: transparent;
-      --btn-fg: var(--color-ink);
-      --btn-border: var(--color-ink);
+      --btn-fg: var(--text-primary);
+      --btn-border: var(--text-primary);
       --btn-bg-hover: var(--color-ink);
       --btn-fg-hover: var(--color-ivory);
     }
@@ -113,6 +117,25 @@ const Tag = href ? 'a' : 'button';
       --btn-border: var(--color-mint);
       --btn-bg-hover: var(--color-mint-soft);
       --btn-fg-hover: var(--color-ink);
+    }
+    /* Contexto backoffice: el borde del secundario pasa al de control (Figma 193:146) */
+    :global([data-context='backoffice']) .btn[data-variant='secondary'] {
+      --btn-border: var(--stroke-control);
+    }
+    /* Peligro: contorno rojo (el rojo claro dentro del backoffice); el relleno al pasar usa el fondo de página */
+    .btn[data-variant='danger'] {
+      --btn-bg: transparent;
+      --btn-fg: var(--color-red-strong);
+      --btn-border: var(--color-red-strong);
+      --btn-bg-hover: var(--color-red-strong);
+      --btn-fg-hover: var(--bg-page);
+    }
+    .btn[data-variant='ghost'] {
+      --btn-bg: transparent;
+      --btn-fg: var(--text-primary);
+      --btn-border: transparent;
+      --btn-bg-hover: var(--bg-surface);
+      --btn-fg-hover: var(--text-primary);
     }
     /* .is-hover / .is-active / .is-focus: solo los usa /dev/ui-a para fijar el estado */
     .btn:is(:hover, .is-hover) {

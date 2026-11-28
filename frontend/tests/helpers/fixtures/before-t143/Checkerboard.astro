@@ -1,0 +1,37 @@
+---
+interface Props {
+  palette?: 'storefront' | 'auth';
+  cell?: 16 | 24 | 32;
+  rows?: 1 | 2;
+}
+const { palette = 'storefront', cell = 24, rows = 1 } = Astro.props;
+---
+
+<div class="checkerboard" data-palette={palette} data-cell={cell} data-rows={rows} aria-hidden="true"></div>
+
+<style>
+  @layer components {
+    .checkerboard {
+      --cell: var(--space-24);
+      --c1: var(--color-ink);
+      --c2: var(--color-ivory);
+      width: 100%;
+      height: calc(var(--cell) * var(--rows, 1));
+      background: repeating-conic-gradient(var(--c1) 0 25%, var(--c2) 0 50%) 0 0 / calc(var(--cell) * 2)
+        calc(var(--cell) * 2);
+    }
+    .checkerboard[data-cell='16'] {
+      --cell: var(--space-16);
+    }
+    .checkerboard[data-cell='32'] {
+      --cell: var(--space-32);
+    }
+    .checkerboard[data-rows='2'] {
+      --rows: 2;
+    }
+    .checkerboard[data-palette='auth'] {
+      --c1: var(--color-forest);
+      --c2: var(--color-mint);
+    }
+  }
+</style>

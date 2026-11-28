@@ -1,0 +1,87 @@
+---
+export interface DataTableColumn {
+  key: string;
+  header: string;
+  align?: 'start' | 'end' | 'center';
+  width?: string;
+  hideHeader?: boolean;
+}
+interface Props {
+  columns: readonly DataTableColumn[];
+  caption: string;
+  density?: 'md' | 'lg';
+}
+const { columns, caption, density = 'md' } = Astro.props;
+---
+
+<!-- Región desplazable y enfocable: con muchas columnas se desplaza aquí, no la página -->
+<div class="scroll" role="region" aria-label={caption} tabindex="0">
+  <table class="table" data-density={density}>
+    <caption class="sr-only">{caption}</caption>
+    <thead>
+      <tr>
+        {
+          columns.map((c) => (
+            <th scope="col" data-align={c.align ?? 'start'} style={c.width ? `width:${c.width}` : undefined}>
+              {c.hideHeader ? <span class="sr-only">{c.header}</span> : c.header}
+            </th>
+          ))
+        }
+      </tr>
+    </thead>
+    <tbody><slot /></tbody>
+  </table>
+</div>
+
+<style>
+  @layer components {
+    .scroll {
+      overflow-x: auto;
+      border: 1px solid var(--stroke-default);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+    }
+    .scroll:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-ui);
+      font-size: var(--text-body-ui);
+      color: var(--text-primary);
+    }
+    th {
+      height: var(--size-th);
+      padding-inline: var(--space-16);
+      background: var(--bg-surface-dark);
+      color: var(--color-mint);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-semibold);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      text-align: start;
+      white-space: nowrap;
+    }
+    .table :global(tbody tr) {
+      height: var(--size-row);
+      border-top: 1px solid var(--stroke-soft);
+    }
+    .table[data-density='lg'] :global(tbody tr) {
+      height: var(--size-row-lg);
+    }
+    .table :global(td) {
+      padding-inline: var(--space-16);
+    }
+    th[data-align='end'],
+    .table :global(td[data-align='end']) {
+      text-align: end;
+      font-variant-numeric: tabular-nums;
+    }
+    th[data-align='center'],
+    .table :global(td[data-align='center']) {
+      text-align: center;
+    }
+  }
+</style>

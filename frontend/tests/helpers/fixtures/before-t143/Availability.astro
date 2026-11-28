@@ -1,0 +1,51 @@
+---
+import { availabilityLabel, type Availability } from './availability';
+
+interface Props {
+  availability: Availability;
+  showLabel?: boolean;
+}
+const { availability, showLabel = true } = Astro.props;
+---
+
+<span class="availability" data-status={availability.status}>
+  <span class="dot" aria-hidden="true"></span>
+  <span class:list={[!showLabel && 'sr-only']}>{availabilityLabel(availability)}</span>
+</span>
+
+<style>
+  @layer components {
+    .availability {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-8);
+      font-family: var(--font-ui);
+      font-size: var(--text-body-ui);
+      line-height: var(--leading-body-ui);
+      color: var(--text-primary);
+    }
+    /* Punto de 10 px; la forma y el texto distinguen el estado, no solo el color */
+    .dot {
+      flex: none;
+      box-sizing: border-box;
+      width: var(--size-dot);
+      height: var(--size-dot);
+      border: var(--stroke-dot) solid var(--color-forest-mid);
+      border-radius: var(--radius-pill);
+      background: var(--color-forest-mid);
+    }
+    [data-status='low_stock'] .dot {
+      border-color: var(--color-ink);
+      background: var(--color-yellow);
+    }
+    [data-status='out_of_stock'] .dot {
+      border-color: var(--color-red-strong);
+      border-radius: var(--radius-xs);
+      background: var(--color-red-strong);
+    }
+    [data-status='on_request'] .dot {
+      border-color: var(--color-ink);
+      background: transparent;
+    }
+  }
+</style>

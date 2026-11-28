@@ -1,0 +1,37 @@
+---
+import { ICONS, type IconName } from './icons';
+
+interface Props {
+  name: IconName;
+  size?: 16 | 20 | 24 | 32;
+  label?: string;
+}
+const { name, size = 20, label } = Astro.props;
+---
+
+<svg
+  class="icon"
+  width={size}
+  height={size}
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2.16"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  focusable="false"
+  data-icon={name}
+  {...label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': 'true' }}
+>
+  {ICONS[name].map((d) => <path d={d} />)}
+</svg>
+
+<style>
+  @layer components {
+    .icon {
+      flex: none;
+      display: inline-block;
+      vertical-align: middle;
+    }
+  }
+</style>

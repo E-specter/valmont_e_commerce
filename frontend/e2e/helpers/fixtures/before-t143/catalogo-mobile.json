@@ -1,0 +1,33 @@
+{
+ "elements": 386,
+ "total": "5406f779e599856d",
+ "regions": {
+  "body:0>a:0": "1:d1a2135110632822",
+  "body:0>div:0": "1:fcc88a21c0deb7e5",
+  "body:0>div:0>footer:0": "1:a2408bd4dc906aa0",
+  "body:0>div:0>footer:0>div:0": "1:69c96d5d91f91b22",
+  "body:0>div:0>footer:0>div:0>address:0": "5:288a86e09936ce43",
+  "body:0>div:0>footer:0>div:0>nav:0": "12:9aadc71fcb82763b",
+  "body:0>div:0>footer:0>div:0>p:0": "1:c4619bb4dce7f20a",
+  "body:0>div:0>footer:0>div:0>p:1": "1:f274f0821b80a1ac",
+  "body:0>div:0>footer:0>div:1": "1:2bd2c3175a1c8ca4",
+  "body:0>div:0>header:0": "1:b812361145fc3cb3",
+  "body:0>div:0>header:0>div:0": "1:22a69a01c9ee3b9e",
+  "body:0>div:0>header:0>div:0>div:0": "4:27d8b6d87a707ce0",
+  "body:0>div:0>header:0>div:0>div:1": "13:c6cf2f9f27d21896",
+  "body:0>div:0>header:0>div:0>div:2": "18:8b490ae9e1e389a5",
+  "body:0>div:0>header:0>div:1": "1:fdfa6fd7224565c5",
+  "body:0>div:0>main:0": "1:a1d8bf083e1e0288",
+  "body:0>div:0>main:0>div:0": "1:4c6c6c2189299282",
+  "body:0>div:0>main:0>div:0>aside:0": "11:864f6c42e3e9c326",
+  "body:0>div:0>main:0>div:0>div:0": "69:c6553531cb098d3e",
+  "body:0>div:0>main:0>header:0": "1:c5f4b53f352a4e1c",
+  "body:0>div:0>main:0>header:0>div:0": "2:00f17be1855a292b",
+  "body:0>div:0>main:0>header:0>h1:0": "1:3e139d0354658ad1",
+  "body:0>div:0>main:0>header:0>p:0": "1:52f81d4a31bdf1d4",
+  "body:0>div:0>main:0>nav:0": "1:b31f6ebd48248650",
+  "body:0>div:0>main:0>nav:0>ol:0": "6:d7b1380ed40cffbd",
+  "body:0>div:0>main:0>section:0": "1:0732b275f4e9d75b",
+  "body:0>div:0>main:0>section:0>div:0": "229:5afe37aeab3b7136"
+ }
+}
