@@ -25,6 +25,16 @@ case "$(uname -s)" in
 esac
 sleep 2
 
+# T-150 (D-050 D-AB3): administrador de revisión, solo local e idempotente. La service_role se lee en memoria,
+# se pasa solo al proceso hijo y no se imprime ni se escribe en ningún archivo.
+sr="$(npx --no-install supabase status -o env 2>/dev/null | tr -d '\r' | sed -n 's/^SERVICE_ROLE_KEY="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' | head -n1 || true)"
+if [ -n "$sr" ]; then
+  (cd backend && SUPABASE_SERVICE_ROLE_KEY="$sr" uv run python -m valmont.scripts.review_admin) || echo "Admin de revisión: no se pudo crear." >&2
+else
+  echo "Admin de revisión: supabase status sin SERVICE_ROLE_KEY." >&2
+fi
+unset sr
+
 (cd frontend && npm install --no-audit --no-fund --silent)
 # T-126: la sesión SSR exige SUPABASE_ANON_KEY. Se genera frontend/.env una sola vez (nunca se sobrescribe)
 # y solo con la clave anónima: jamás la service_role. La salida de `supabase status` no se imprime.
@@ -53,3 +63,4 @@ echo "main @ $(git log -1 --format='%h %s')"
 up http://127.0.0.1:8000/health && echo "API      http://127.0.0.1:8000/docs" || echo "API      NO RESPONDE (log: valmont-backend.log en %TEMP% o $logs)"
 up http://localhost:4321 && echo "Tienda   http://localhost:4321" || echo "Tienda   NO RESPONDE (cd frontend && npx astro dev logs)"
 echo "Studio   http://127.0.0.1:54323 (Table Editor → esquema app) · Mailpit http://127.0.0.1:54324"
+echo "Admin    admin.demo@example.com (contraseña: REVIEW_ADMIN_PASSWORD en backend/.env)"

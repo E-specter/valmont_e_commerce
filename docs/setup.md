@@ -99,6 +99,7 @@ Qué se ve en cada servicio:
 - **Mailpit** (http://127.0.0.1:54324): solo llegan los correos que envía Auth (confirmación de registro, recuperación). Un usuario creado con la API de administración y `email_confirm: true` no genera correo.
 - **API** (http://127.0.0.1:8000/docs): para las rutas protegidas, "Authorize" con el `access_token` de un usuario (`POST /auth/v1/token?grant_type=password` en http://127.0.0.1:54321).
 - **Tienda** (http://localhost:4321): hasta que se implementen las pantallas de `docs/design_ui/VIEWS.md`, solo existe la portada esqueleto.
+- **Administrador de revisión (T-150, D-050 D-AB3):** `review-up.sh` crea `admin.demo@example.com` (solo local; su contraseña se genera sola y está en `REVIEW_ADMIN_PASSWORD` de `backend/.env`, no versionado) con `role='admin'` para revisar el backoffice. Lo hace `uv run python -m valmont.scripts.review_admin`, que se niega fuera de local o con `ENVIRONMENT=prod`, y es idempotente. Revertir: `update app.profiles set role='customer' …` por su `user_id`, o borrar el usuario en Auth.
 - **Datos de demostración:** `seed_dev` (catálogo, arriba). Para ver pedidos, crea uno por la API con un cliente confirmado (carrito → `POST /api/v1/orders` con `Idempotency-Key`).
 
 ### Herramientas de agentes
