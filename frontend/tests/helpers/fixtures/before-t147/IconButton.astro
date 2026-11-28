@@ -1,0 +1,106 @@
+---
+import type { HTMLAttributes } from 'astro/types';
+import Icon from './Icon.astro';
+import type { IconName } from './icons';
+
+interface Props extends Omit<HTMLAttributes<'button'>, 'type' | 'disabled'> {
+  icon: IconName;
+  label: string;
+  variant?: 'plain' | 'outline';
+  size?: 32 | 44 | 56;
+  pressed?: boolean;
+  href?: string;
+  type?: 'button' | 'submit';
+  disabled?: boolean;
+}
+const { icon, label, variant = 'outline', size = 44, pressed, href, type = 'button', disabled = false, class: className, ...rest } =
+  Astro.props;
+if (!label?.trim()) throw new Error('IconButton requiere `label` (nombre accesible).');
+const iconSize = size === 32 ? 16 : size === 44 ? 20 : 24;
+const Tag = href ? 'a' : 'button';
+const attrs = href
+  ? {
+      href: disabled ? undefined : href,
+      'aria-disabled': disabled ? ('true' as const) : undefined,
+      role: disabled ? ('link' as const) : undefined,
+    }
+  : { type, disabled, 'aria-pressed': pressed === undefined ? undefined : (String(pressed) as 'true' | 'false') };
+---
+
+<Tag class:list={['iconbtn', className]} data-variant={variant} data-size={size} aria-label={label} title={label} {...attrs} {...rest}>
+  <Icon name={icon} size={iconSize} />
+</Tag>
+
+<style>
+  @layer components {
+    .iconbtn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      inline-size: calc(var(--size) * 1px);
+      block-size: calc(var(--size) * 1px);
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: var(--radius-pill);
+      background: transparent;
+      color: var(--text-primary);
+      text-decoration: none;
+      cursor: pointer;
+      transition:
+        background-color var(--dur-state) var(--ease),
+        color var(--dur-state) var(--ease);
+    }
+    .iconbtn[data-size='32'] {
+      --size: 32;
+    }
+    .iconbtn[data-size='44'] {
+      --size: 44;
+    }
+    .iconbtn[data-size='56'] {
+      --size: 56;
+    }
+    .iconbtn[data-variant='outline'] {
+      background: var(--bg-surface);
+      border-color: var(--color-forest);
+    }
+    /* Área táctil mínima de 44 px aunque el dibujo sea de 32 */
+    .iconbtn::after {
+      content: '';
+      position: absolute;
+      inset-block-start: 50%;
+      inset-inline-start: 50%;
+      inline-size: max(100%, var(--touch-target));
+      block-size: max(100%, var(--touch-target));
+      transform: translate(-50%, -50%);
+    }
+    .iconbtn:is(:hover, .is-hover) {
+      background: var(--color-yellow);
+      color: var(--color-ink);
+    }
+    .iconbtn:is(:active, .is-active) {
+      background: var(--color-ink);
+      color: var(--color-yellow);
+    }
+    .iconbtn.is-focus {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    /* Pulsado: relleno invertido y el icono se rellena (forma, no solo color) */
+    .iconbtn[aria-pressed='true'] {
+      background: var(--color-forest);
+      border-color: var(--color-forest);
+      color: var(--color-ivory);
+    }
+    .iconbtn[aria-pressed='true'] :global(svg) {
+      fill: currentColor;
+    }
+    .iconbtn:is(:disabled, [aria-disabled='true']) {
+      border-style: dashed;
+      opacity: 0.55;
+      cursor: not-allowed;
+      background: transparent;
+      color: var(--text-primary);
+    }
+  }
+</style>

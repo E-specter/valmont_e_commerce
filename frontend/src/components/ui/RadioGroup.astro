@@ -1,0 +1,105 @@
+---
+import Icon from './Icon.astro';
+
+interface Props {
+  name: string;
+  legend: string;
+  options: readonly { value: string; label: string; hint?: string }[];
+  value?: string;
+  error?: string;
+  required?: boolean;
+}
+const { name, legend, options, value, error, required } = Astro.props;
+const errorId = error ? `${name}-error` : undefined;
+---
+
+<fieldset id={name} class="group" aria-describedby={errorId} aria-invalid={error ? 'true' : undefined}>
+  <legend>{legend}{required && <span aria-hidden="true"> *</span>}</legend>
+  {
+    options.map((o, i) => (
+      <label class="option">
+        <input type="radio" name={name} value={o.value} checked={o.value === value} required={required && i === 0} />
+        <span class="text">
+          <span class="label">{o.label}</span>
+          {o.hint && <span class="hint">{o.hint}</span>}
+        </span>
+      </label>
+    ))
+  }
+  {
+    error && (
+      <p class="error" id={errorId}>
+        <Icon name="alert-triangle" size={16} />
+        <span>{error}</span>
+      </p>
+    )
+  }
+</fieldset>
+
+<style>
+  @layer components {
+    .group {
+      display: grid;
+      gap: var(--space-4);
+      margin: 0;
+      padding: 0;
+      border: 0;
+      min-inline-size: 0;
+    }
+    legend {
+      padding: 0;
+      margin-block-end: var(--space-8);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-bold);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .option {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-12);
+      min-height: var(--touch-target);
+      cursor: pointer;
+    }
+    input {
+      appearance: none;
+      flex: none;
+      inline-size: var(--space-24);
+      block-size: var(--space-24);
+      margin: calc((var(--touch-target) - var(--space-24)) / 2) 0 0;
+      border: 1.5px solid var(--stroke-strong);
+      border-radius: var(--radius-pill);
+      background: transparent;
+      cursor: pointer;
+    }
+    /* Marcado: borde grueso y punto central, no solo color */
+    input:checked {
+      border-width: 3px;
+      background: radial-gradient(circle, var(--color-mint) 0 40%, transparent 45%);
+    }
+    input:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    .text {
+      display: grid;
+      padding-block: var(--space-12);
+    }
+    .label {
+      font-size: var(--text-body-ui);
+      line-height: var(--leading-body-ui);
+    }
+    .hint {
+      color: var(--text-secondary);
+      font-size: var(--text-caption);
+    }
+    .error {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-8);
+      color: var(--color-red-strong);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-medium);
+    }
+  }
+</style>

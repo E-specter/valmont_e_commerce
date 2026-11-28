@@ -101,7 +101,7 @@ describe('AdminLayout · marco completo', () => {
     expect(items.map((li, i) => text(li).startsWith(LABELS[i]))).toEqual(LABELS.map(() => true));
   });
 
-  test('section="panel": Panel es un enlace a /admin con aria-current="page"; los otros 7 no tienen href y dicen «Pronto»', async () => {
+  test('section="panel": Panel es un enlace a /admin con aria-current="page"; las que aún no tienen pantalla no tienen href y dicen «Pronto» (T-147 habilita Productos)', async () => {
     const doc = await layout({ section: 'panel' });
     const nav = doc.querySelector('nav[aria-label="Administración"]')!;
     const current = [...nav.querySelectorAll('[aria-current]')];
@@ -110,15 +110,16 @@ describe('AdminLayout · marco completo', () => {
     expect(current[0].tagName).toBe('A');
     expect(current[0].getAttribute('href')).toBe('/admin');
     expect(text(current[0])).toContain('Panel');
-    expect(nav.querySelectorAll('a[href]').length).toBe(ONE);
+    const enabledLabels = ADMIN_NAV.filter((e) => e.enabled).map((e) => e.label);
+    expect(nav.querySelectorAll('a[href]').length).toBe(enabledLabels.length);
     const disabled = [...nav.querySelectorAll('[aria-disabled="true"]')];
-    expect(disabled.length).toBe(SEVEN);
+    expect(disabled.length).toBe(EIGHT - enabledLabels.length);
     disabled.forEach((el) => {
       expect(el.hasAttribute('href')).toBe(false);
       expect(el.hasAttribute('tabindex')).toBe(false);
       expect(text(el)).toContain('Pronto');
     });
-    expect(disabled.map((el) => LABELS.find((l) => text(el).includes(l)))).toEqual(MENU_ONLY);
+    expect(disabled.map((el) => LABELS.find((l) => text(el).includes(l)))).toEqual(LABELS.filter((l) => !enabledLabels.includes(l)));
   });
 
   test('section de un módulo aún sin pantalla (pedidos): nada marca aria-current (no hay enlace al que apuntar) y sigue habiendo 8 entradas', async () => {
@@ -126,14 +127,16 @@ describe('AdminLayout · marco completo', () => {
     const nav = doc.querySelector('nav[aria-label="Administración"]')!;
     expect(nav.querySelectorAll('[aria-current="page"]').length).toBeLessThanOrEqual(ONE);
     expect(nav.querySelectorAll('li').length).toBe(EIGHT);
-    expect(nav.querySelectorAll('[href]').length).toBeLessThanOrEqual(ONE);
+    expect(nav.querySelectorAll('[href]').length).toBe(ADMIN_NAV.filter((e) => e.enabled).length);
   });
 
-  test('ADMIN_NAV: 8 entradas con el orden, las rutas y los textos del paquete; solo Panel habilitado (D-B1)', () => {
+  test('ADMIN_NAV: 8 entradas con el orden, las rutas y los textos del paquete; Panel siempre habilitado y los módulos sin pantalla (inventario…auditoría) deshabilitados (D-B1)', () => {
     expect(ADMIN_NAV.map((e) => e.section)).toEqual(['panel', 'pedidos', 'productos', 'inventario', 'promociones', 'reportes', 'clientes', 'auditoria']);
     expect(ADMIN_NAV.map((e) => e.label)).toEqual(LABELS);
     expect(ADMIN_NAV.map((e) => e.href)).toEqual(['/admin', '/admin/pedidos', '/admin/productos', '/admin/inventario', '/admin/promociones', '/admin/reportes', '/admin/clientes', '/admin/auditoria']);
-    expect(ADMIN_NAV.filter((e) => e.enabled).map((e) => e.section)).toEqual(['panel']);
+    const enabled = ADMIN_NAV.filter((e) => e.enabled).map((e) => e.section);
+    expect(enabled).toContain('panel');
+    ['inventario', 'promociones', 'reportes', 'clientes', 'auditoria'].forEach((s) => expect(enabled).not.toContain(s));
     expect(new Set(ADMIN_NAV.map((e) => e.icon)).size).toBe(EIGHT);
   });
 

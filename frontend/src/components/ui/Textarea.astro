@@ -1,0 +1,89 @@
+---
+import Icon from './Icon.astro';
+
+interface Props {
+  id: string;
+  name: string;
+  label: string;
+  value?: string;
+  rows?: number;
+  maxlength?: number;
+  required?: boolean;
+  error?: string;
+  hint?: string;
+}
+const { id, name, label, value = '', rows = 5, maxlength, required, error, hint } = Astro.props;
+const hintId = hint ? `${id}-hint` : undefined;
+const errorId = error ? `${id}-error` : undefined;
+const describedby = [hintId, errorId].filter(Boolean).join(' ') || undefined;
+---
+
+<div class="field" data-invalid={error ? '' : undefined}>
+  <label for={id}>{label}{required && <span aria-hidden="true"> *</span>}</label>
+  <textarea id={id} name={name} rows={rows} maxlength={maxlength} required={required} aria-invalid={error ? 'true' : undefined} aria-describedby={describedby}>{value}</textarea>
+  {hint && <p class="hint" id={hintId}>{hint}</p>}
+  {
+    error && (
+      <p class="error" id={errorId}>
+        <Icon name="alert-triangle" size={16} />
+        <span>{error}</span>
+      </p>
+    )
+  }
+</div>
+
+<style>
+  @layer components {
+    .field {
+      display: grid;
+      gap: var(--space-8);
+    }
+    label {
+      font-size: var(--text-caption);
+      font-weight: var(--weight-bold);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    textarea {
+      inline-size: 100%;
+      min-height: calc(var(--touch-target) * 2);
+      padding: var(--space-12) var(--space-16);
+      border: 1px solid var(--stroke-control);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font: inherit;
+      font-size: var(--text-body-ui);
+      line-height: var(--leading-body-ui);
+      resize: vertical;
+      transition: border-color var(--dur-state) var(--ease);
+    }
+    textarea:hover {
+      border-color: var(--stroke-strong);
+    }
+    textarea:focus {
+      border-color: var(--text-primary);
+      box-shadow: 0 0 0 1px var(--text-primary);
+    }
+    textarea:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    textarea[aria-invalid='true'] {
+      border-color: var(--color-red-strong);
+      box-shadow: 0 0 0 1px var(--color-red-strong);
+    }
+    .hint {
+      color: var(--text-secondary);
+      font-size: var(--text-caption);
+    }
+    .error {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-8);
+      color: var(--color-red-strong);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-medium);
+    }
+  }
+</style>

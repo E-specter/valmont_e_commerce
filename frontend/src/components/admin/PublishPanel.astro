@@ -1,0 +1,80 @@
+---
+// Tarjeta lateral de publicación (bo/05). Dos formularios POST a la propia página; el rol y los
+// requisitos los decide el backend, aquí solo se muestran los que faltan (`details.missing`).
+import Button from '../ui/Button.astro';
+import Card from '../ui/Card.astro';
+import Notice from '../ui/Notice.astro';
+import StatusPill from '../ui/StatusPill.astro';
+import type { ProductStatus } from '../../lib/api/admin-catalog';
+import { MSG_PUBLISH_MISSING } from '../../lib/admin/messages';
+import { MSG_PUBLISH_BLOCKED } from '../../lib/admin/product-form';
+import { productPill } from '../../lib/admin/status';
+
+interface Props {
+  productId: string;
+  status: ProductStatus;
+  missing?: readonly string[];
+  error?: string;
+}
+const { productId, status, missing = [], error } = Astro.props;
+const pill = productPill(status);
+const published = status === 'published';
+const action = `/admin/productos/${encodeURIComponent(productId)}`;
+---
+
+<Card as="section" aria-labelledby="publicacion-titulo">
+<div class="panel">
+  <h2 id="publicacion-titulo" class="title">Publicación</h2>
+  <p class="state">
+    <StatusPill label={pill.label} tone={pill.tone} />
+    <span class="visibility">{published ? 'Visible en la tienda' : 'Visible solo para administradores'}</span>
+  </p>
+  {
+    missing.length > 0 && (
+      <Notice tone="warning" title="No se puede publicar todavía">
+        <p>{MSG_PUBLISH_BLOCKED}</p>
+        <ul>
+          {missing.map((m) => <li>{MSG_PUBLISH_MISSING[m] ?? m}</li>)}
+        </ul>
+      </Notice>
+    )
+  }
+  {error && <Notice tone="error">{error}</Notice>}
+  <Button type="submit" form="product-form" fullWidth>Guardar cambios</Button>
+  <form method="post" action={action} data-busy-on-submit>
+    <input type="hidden" name="_action" value={published ? 'unpublish' : 'publish'} />
+    <Button type="submit" variant="secondary" fullWidth>{published ? 'Despublicar' : 'Publicar'}</Button>
+  </form>
+  <Button href={action} variant="ghost" fullWidth>Descartar cambios</Button>
+</div>
+</Card>
+
+<style>
+  @layer components {
+    .panel {
+      display: grid;
+      gap: var(--space-16);
+    }
+    .title {
+      margin: 0;
+      font-family: var(--font-ui);
+      font-size: var(--text-body-ui);
+      font-weight: var(--weight-bold);
+    }
+    .state {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-12);
+      margin: 0;
+    }
+    .visibility {
+      color: var(--text-secondary);
+      font-size: var(--text-caption);
+    }
+    ul {
+      margin: var(--space-8) 0 0;
+      padding-inline-start: var(--space-24);
+    }
+  }
+</style>

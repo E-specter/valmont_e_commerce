@@ -1,0 +1,160 @@
+---
+// Pares etiqueta/valor (hasta `max`). Sin JavaScript se pintan las existentes y 2 vacías; la isla
+// `specs-editor` añade y quita filas. Los pares vacíos los descarta el servidor de la página.
+import Icon from '../ui/Icon.astro';
+
+interface Props {
+  specs: readonly { label: string; value: string }[];
+  errors?: Record<number, string>;
+  max?: number;
+}
+const { specs, errors = {}, max = 40 } = Astro.props;
+const blanks = Math.max(0, Math.min(2, max - specs.length));
+const rows = [...specs, ...Array.from({ length: blanks }, () => ({ label: '', value: '' }))];
+---
+
+<div class="specs" data-specs-editor data-max={max}>
+  <ul class="rows" role="list" data-specs-rows>
+    {
+      rows.map((r, i) => (
+        <li class="row">
+          <div class="pair">
+            <label class="cell"><span>Característica</span>
+              <input type="text" name="spec_label" value={r.label} maxlength={80} data-spec-label autocomplete="off"
+                aria-label={`Característica ${i + 1}`} aria-invalid={errors[i] ? 'true' : undefined} aria-describedby={errors[i] ? `spec-error-${i}` : undefined} />
+            </label>
+            <label class="cell"><span>Valor</span>
+              <input type="text" name="spec_value" value={r.value} maxlength={200} data-spec-value autocomplete="off"
+                aria-label={`Valor ${i + 1}`} aria-invalid={errors[i] ? 'true' : undefined} aria-describedby={errors[i] ? `spec-error-${i}` : undefined} />
+            </label>
+            <button type="button" class="remove" data-specs-remove data-specs-js hidden aria-label={`Quitar especificación ${i + 1}`}>
+              <Icon name="trash" size={20} />
+            </button>
+          </div>
+          {
+            errors[i] && (
+              <p class="error" id={`spec-error-${i}`}>
+                <Icon name="alert-triangle" size={16} />
+                <span>{errors[i]}</span>
+              </p>
+            )
+          }
+        </li>
+      ))
+    }
+  </ul>
+  <button type="button" class="add" data-specs-add data-specs-js hidden>
+    <Icon name="plus" size={20} />
+    <span>Agregar especificación</span>
+  </button>
+  <p class="sr-only" role="status" aria-live="polite" data-specs-live></p>
+</div>
+
+<style>
+  @layer components {
+    .specs {
+      display: grid;
+      gap: var(--space-12);
+    }
+    .rows {
+      display: grid;
+      gap: var(--space-12);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .pair {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+      gap: var(--space-12);
+      align-items: end;
+    }
+    @media (max-width: 36rem) {
+      .pair {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+      .pair .cell:first-child {
+        grid-column: 1 / -1;
+      }
+    }
+    .cell {
+      display: grid;
+      gap: 6px;
+    }
+    .cell > span {
+      color: var(--text-secondary);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-bold);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    input {
+      inline-size: 100%;
+      min-height: var(--touch-target);
+      padding: var(--space-12) var(--space-16);
+      border: 1px solid var(--stroke-control);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font: inherit;
+      font-size: var(--text-body-ui);
+    }
+    input:hover {
+      border-color: var(--stroke-strong);
+    }
+    input:focus-visible,
+    button:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    input[aria-invalid='true'] {
+      border-color: var(--color-red-strong);
+      box-shadow: 0 0 0 1px var(--color-red-strong);
+    }
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-8);
+      min-block-size: var(--touch-target);
+      min-inline-size: var(--touch-target);
+      border: 1px solid var(--stroke-control);
+      border-radius: var(--radius-md);
+      background: transparent;
+      color: var(--text-primary);
+      font: inherit;
+      font-size: var(--text-body-ui);
+      font-weight: var(--weight-semibold);
+      cursor: pointer;
+    }
+    button[hidden] {
+      display: none;
+    }
+    button:hover:not(:disabled) {
+      border-color: var(--stroke-strong);
+      background: var(--bg-surface-raised);
+    }
+    button:disabled {
+      border-style: dashed;
+      color: var(--text-secondary);
+      cursor: not-allowed;
+    }
+    .remove {
+      border-radius: var(--radius-pill);
+    }
+    .add {
+      justify-self: start;
+      border-radius: var(--radius-pill);
+      padding-inline: var(--space-16);
+    }
+    .error {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-8);
+      margin: var(--space-4) 0 0;
+      color: var(--color-red-strong);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-medium);
+    }
+  }
+</style>

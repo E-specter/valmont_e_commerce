@@ -1,0 +1,73 @@
+---
+// Crear producto (T-147). SSR con POST y PRG (D-050): el servidor valida el formato, el backend decide el resto.
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import ProductForm from '../../../components/admin/ProductForm.astro';
+import { createProduct, getAdminAttributes, listAdminCategories } from '../../../lib/api/admin-catalog';
+import { ApiError } from '../../../lib/api/http';
+import { MSG_UNAVAILABLE } from '../../../lib/admin/messages';
+import { EMPTY_PRODUCT_VALUES, readProductForm, saveErrors, parseFormLists, validateProductForm, type ProductFormErrors } from '../../../lib/admin/product-form';
+import { adminErrorResponse, checkAdminOrigin, requireAdmin, seeOther } from '../../../lib/server/admin';
+
+export const prerender = false;
+
+const NO_STORE = { 'Cache-Control': 'private, no-store' };
+const UNPROCESSABLE = 422;
+const UNAVAILABLE = 503;
+const CLIENT_ERROR = 400;
+const SERVER_ERROR = 500;
+const isPost = Astro.request.method === 'POST';
+Astro.response.headers.set('Cache-Control', NO_STORE['Cache-Control']);
+
+if (isPost && !checkAdminOrigin(Astro.request, Astro.url)) {
+  return new Response('Origen no permitido', { status: 403, headers: NO_STORE });
+}
+const gate = await requireAdmin(Astro);
+if (!gate.ok) return gate.response;
+const { api, profile } = gate.ctx;
+
+let values = EMPTY_PRODUCT_VALUES;
+let errors: ProductFormErrors = {};
+if (isPost) {
+  let fd: FormData;
+  try {
+    fd = await Astro.request.clone().formData();
+  } catch {
+    return new Response('Tipo de contenido no admitido', { status: 415, headers: NO_STORE });
+  }
+  values = readProductForm(fd);
+  const checked = validateProductForm(values);
+  if (checked.ok) {
+    try {
+      const created = await createProduct(api, checked.input);
+      return seeOther(`/admin/productos/${encodeURIComponent(created.id)}?creado=1`);
+    } catch (e) {
+      const early = await adminErrorResponse(Astro, e);
+      if (early) return early;
+      errors = saveErrors(e) ?? { form: MSG_UNAVAILABLE };
+      Astro.response.status = e instanceof ApiError && e.status >= CLIENT_ERROR && e.status < SERVER_ERROR ? e.status : UNAVAILABLE;
+    }
+  } else {
+    errors = checked.errors;
+    Astro.response.status = UNPROCESSABLE;
+  }
+}
+
+let lists: ReturnType<typeof parseFormLists>;
+try {
+  const [categories, attrs] = await Promise.all([listAdminCategories(api), getAdminAttributes(api)]);
+  lists = parseFormLists(categories, attrs);
+} catch (e) {
+  return (await adminErrorResponse(Astro, e)) ?? Astro.rewrite('/admin/no-disponible');
+}
+if (!lists) return Astro.rewrite('/admin/no-disponible');
+---
+
+<AdminLayout
+  title="Nuevo producto"
+  section="productos"
+  crumbs={[{ label: 'Productos', href: '/admin/productos' }, { label: 'Nuevo producto' }]}
+  userName={profile.full_name}
+  description="Se crea como borrador: publícalo cuando esté completo."
+>
+  <ProductForm mode="create" values={values} errors={errors} {...lists} />
+</AdminLayout>

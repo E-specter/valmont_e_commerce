@@ -1,0 +1,72 @@
+---
+import type { HTMLAttributes } from 'astro/types';
+
+interface Props extends HTMLAttributes<'span'> {
+  kind?: 'status' | 'product' | 'count';
+  tone?: 'yellow' | 'forest' | 'outline' | 'plum' | 'mint' | 'red';
+}
+// El badge de producto es amarillo por diseño (BRIEF §7); sin `tone`, status y count son outline.
+const { kind = 'status', tone, class: className, ...rest } = Astro.props;
+const resolved = tone ?? (kind === 'product' ? 'yellow' : 'outline');
+---
+
+<span class:list={['badge', className]} data-kind={kind} data-tone={resolved} {...rest}><slot /></span>
+
+<style>
+  @layer components {
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      padding: var(--space-4) var(--space-12);
+      border: 1px solid var(--color-ink);
+      border-radius: var(--radius-pill);
+      font-family: var(--font-editorial);
+      font-size: var(--text-caption);
+      line-height: var(--leading-caption);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .badge[data-kind='product'] {
+      border-radius: var(--radius-xs);
+      padding: var(--space-4) var(--space-8);
+      font-family: var(--font-ui);
+      font-weight: var(--weight-bold);
+    }
+    .badge[data-kind='count'] {
+      min-width: 1.75em;
+      padding-inline: var(--space-8);
+      font-variant-numeric: tabular-nums;
+    }
+    .badge[data-tone='outline'] {
+      background: transparent;
+      color: var(--text-primary);
+    }
+    .badge[data-tone='yellow'] {
+      background: var(--color-yellow);
+      color: var(--color-ink);
+    }
+    .badge[data-tone='forest'] {
+      background: var(--color-forest);
+      border-color: var(--color-forest);
+      color: var(--color-white);
+    }
+    .badge[data-tone='plum'] {
+      background: var(--color-plum);
+      border-color: var(--color-plum);
+      color: var(--color-white);
+    }
+    .badge[data-tone='mint'] {
+      background: var(--color-mint);
+      border-color: var(--color-forest);
+      color: var(--color-ink);
+    }
+    .badge[data-tone='red'] {
+      background: var(--color-red-strong);
+      border-color: var(--color-red-strong);
+      color: var(--color-white);
+    }
+  }
+</style>

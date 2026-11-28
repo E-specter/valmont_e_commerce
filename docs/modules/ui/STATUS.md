@@ -693,6 +693,16 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-147 (implementación) — 2026-11-27 — frontend-dev
+1. Estado: IN_REVIEW. Hecho: `/admin/productos/nuevo` y `/admin/productos/[product_id]` (SSR, POST+PRG; `_action` save|publish|unpublish), `ProductForm`, `SpecsEditor`, `PublishPanel`, `ui/{Select,Textarea,RadioGroup}`, islas `specs-editor` y `unsaved-changes`, `lib/admin/product-form.ts` (firmas del paquete + `saveErrors`, `EMPTY_PRODUCT_VALUES`, `MSG_*` del formulario) y `productos` habilitado en `nav.ts`.
+2. Seguridad: `Origin` 403 antes de la guardia, `formData()` en `try` (415), 303 `private, no-store`, UUID inválido → rewrite `/404` sin llamada, sin mutación por GET, `status`/`id`/`images` nunca se leen del cuerpo.
+3. Decisiones: `ProductForm` añade el slot `panel` (aside con `PublishPanel`); `images` queda fuera del `<form>` (sin formularios anidados) y en crear muestra «Guarda el producto para añadir imágenes»; `?creado=1` · `?guardado=1|sin-cambios` para el aviso; el mapeo 422 `amount`→precio y `label|value`→especificaciones; el error de pares incompletos va en la fila 1.
+4. Figma `201:748` (fileKey `xRC4mg5JmdqlZ6mbv97kGO`, 1 consulta): ajustado (categoría en Datos, etiquetas, política de venta, especificaciones con contador y papelera redonda, panel de 340 px con Guardar/Publicar/Descartar). Desviaciones: sin tarjeta «Registro» ni checklist ✓/✗ (el panel solo conoce `missing` tras un intento; firma cerrada), pill de estado junto al título (AdminLayout protegido; va en el panel), sin alerta de error de imágenes (T-148), crear usa Guardar en el pie del formulario.
+5. Verificación: `npm run check → 0 errors, 0 warnings, 4 hints`; `grep -rn "lib/server" src/components src/islands` → vacío. NO EJECUTADO: pruebas ni build (D-028, D-033).
+6. Riesgos: `hidden` de los botones de la isla depende de `button[hidden]{display:none}`; diámetro con un decimal solo se valida en formato; plazo según política lo valida el backend (422).
+7. Siguiente: qa-reviewer (unitarias, Container API, páginas, E2E, axe, captura a 1440); T-148 rellena el slot `images`.
+12. Commits: ninguno — preparado. Mensaje: `feat(ui): formulario de producto y publicación del backoffice (T-147)`.
+
 #### Traspaso T-146 (detalle de pedido del backoffice) — 2026-11-27 — frontend-dev
 1. Tarea: T-146. Estado: IN_REVIEW (pendiente de QA).
 2. Hecho: `pages/admin/pedidos/[order_id].astro` (GET|POST SSR, PRG) y `components/admin/{OrderLines,OrderSummaryCard,OrderDelivery,OrderActions}.astro` con las firmas del paquete. Reutiliza AdminLayout, StatusPill, Timeline, ConfirmDialog, DataTable, DefinitionList, Field, Notice, islas confirm-dialog y form-busy.

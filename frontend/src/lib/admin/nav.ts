@@ -17,7 +17,7 @@ export type NavEntry = { section: AdminSection; label: string; href: string; ico
 export const ADMIN_NAV: readonly NavEntry[] = [
   { section: 'panel', label: 'Panel', href: '/admin', icon: 'dashboard', enabled: true },
   { section: 'pedidos', label: 'Pedidos', href: '/admin/pedidos', icon: 'orders', enabled: false },
-  { section: 'productos', label: 'Productos', href: '/admin/productos', icon: 'watch', enabled: false },
+  { section: 'productos', label: 'Productos', href: '/admin/productos', icon: 'watch', enabled: true },
   { section: 'inventario', label: 'Inventario', href: '/admin/inventario', icon: 'inventory', enabled: false },
   { section: 'promociones', label: 'Promociones', href: '/admin/promociones', icon: 'tag', enabled: false },
   { section: 'reportes', label: 'Reportes', href: '/admin/reportes', icon: 'chart', enabled: false },
