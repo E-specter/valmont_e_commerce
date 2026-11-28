@@ -1,0 +1,114 @@
+---
+import Button from '../ui/Button.astro';
+import Card from '../ui/Card.astro';
+import ConfirmDialog from '../ui/ConfirmDialog.astro';
+import Field from '../ui/Field.astro';
+import Notice from '../ui/Notice.astro';
+import type { OrderStatus } from '../../lib/api/admin-orders';
+import { ORDER_STATUS_LABEL, cancelCopy, transitionLabel, transitionTargets } from '../../lib/admin/status';
+
+interface Props {
+  orderId: string;
+  status: OrderStatus;
+  canTransitionTo: readonly OrderStatus[];
+  deliveryMethod: 'shipping' | 'pickup';
+  values?: { note?: string; carrier?: string; tracking_code?: string };
+  errors?: { form?: string; note?: string; carrier?: string; tracking_code?: string };
+  cancelOpen?: boolean;
+}
+const { orderId, status, canTransitionTo, deliveryMethod, values = {}, errors = {}, cancelOpen = false } = Astro.props;
+// D-B4: solo se pintan los destinos que el servidor ofreció; el cliente no deduce transiciones.
+const targets = transitionTargets(canTransitionTo);
+const advance = targets.filter((t) => t !== 'cancelado');
+const canCancel = targets.includes('cancelado');
+const copy = cancelCopy(status);
+const dialogId = `cancelar-${orderId}`;
+---
+
+<Card as="section" aria-labelledby="acciones-title" class="actions">
+  <h2 id="acciones-title">Acciones</h2>
+  <p class="state">Estado actual: {ORDER_STATUS_LABEL[status]}.</p>
+  {errors.form && <Notice tone="error">{errors.form}</Notice>}
+  {targets.length === 0 && <p class="none">Este pedido ya no admite acciones.</p>}
+  {
+    advance.map((to) => (
+      <form method="post" class="form" data-busy-on-submit>
+        <input type="hidden" name="_action" value="transition" />
+        <input type="hidden" name="to" value={to} />
+        {to === 'enviado' && deliveryMethod === 'shipping' && (
+          <>
+            <Field id="carrier" name="carrier" label="Transportista (opcional)" maxlength={60} value={values.carrier ?? ''} error={errors.carrier} hint="Hasta 60 caracteres" />
+            <Field id="tracking_code" name="tracking_code" label="Código de seguimiento (opcional)" maxlength={60} value={values.tracking_code ?? ''} error={errors.tracking_code} hint="Hasta 60 caracteres" />
+          </>
+        )}
+        <Button type="submit" fullWidth>{transitionLabel(to, status)}</Button>
+      </form>
+    ))
+  }
+  {
+    canCancel && (
+      <>
+        <Button type="button" variant="danger" fullWidth commandfor={dialogId} command="show-modal">
+          {transitionLabel('cancelado', status)}
+        </Button>
+        <ConfirmDialog id={dialogId} title={copy.title} description={copy.body} confirmLabel={copy.confirm} cancelLabel="Volver" tone="danger" open={cancelOpen}>
+          <input type="hidden" name="_action" value="transition" />
+          <input type="hidden" name="to" value="cancelado" />
+          <Field id="cancel-note" name="note" label="Motivo de la cancelación (obligatorio)" required maxlength={500} value={values.note ?? ''} error={errors.note} />
+        </ConfirmDialog>
+      </>
+    )
+  }
+  {
+    canCancel && status !== 'pendiente_pago' && (
+      <p class="hint">Cancelar un pedido pagado reembolsa el total de forma simulada.</p>
+    )
+  }
+</Card>
+
+<script>
+  import { initConfirmDialog } from '../../islands/confirm-dialog';
+  import { initFormBusy } from '../../islands/form-busy';
+  initConfirmDialog();
+  initFormBusy();
+  // El formulario del diálogo es de ConfirmDialog: se marca aquí, sin tocar el envío de «Volver» (method=dialog).
+  document.querySelectorAll<HTMLFormElement>('dialog form').forEach((form) => {
+    form.addEventListener('submit', (e) => {
+      const btn = (e as SubmitEvent).submitter;
+      if (!(btn instanceof HTMLButtonElement) || btn.formMethod === 'dialog') return;
+      queueMicrotask(() => {
+        form.setAttribute('aria-busy', 'true');
+        btn.setAttribute('data-loading', '');
+        btn.disabled = true;
+      });
+    });
+  });
+</script>
+
+<style>
+  @layer components {
+    .actions {
+      display: grid;
+      gap: var(--space-16);
+    }
+    h2 {
+      margin: 0;
+      font-family: var(--font-ui);
+      font-size: var(--text-body-ui);
+      font-weight: var(--weight-semibold);
+    }
+    .state,
+    .none,
+    .hint {
+      margin: 0;
+      color: var(--text-secondary);
+    }
+    .hint {
+      font-size: var(--text-caption);
+    }
+    .form {
+      display: grid;
+      gap: var(--space-16);
+    }
+  }
+</style>

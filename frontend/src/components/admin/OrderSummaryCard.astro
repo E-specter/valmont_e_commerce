@@ -1,0 +1,94 @@
+---
+import type { Money } from '../../lib/format';
+import { formatDateTimeNumeric, formatMoney } from '../../lib/format';
+
+interface Props {
+  subtotal: Money;
+  shipping: Money;
+  total: Money;
+  refund: { amount: Money; at: string } | null;
+  paidAt: string | null;
+}
+const { subtotal, shipping, total, refund, paidAt } = Astro.props;
+// Importes del servidor, sin cálculo en el cliente (RN-09).
+---
+
+<div class="summary">
+  <dl class="totals">
+    <div class="row"><dt>Subtotal</dt><dd>{formatMoney(subtotal)}</dd></div>
+    <div class="row"><dt>Envío</dt><dd>{formatMoney(shipping)}</dd></div>
+    <div class="row row--total"><dt>{paidAt ? 'Total pagado' : 'Total'}</dt><dd>{formatMoney(total)}</dd></div>
+  </dl>
+  {
+    refund && (
+      <section class="refund" aria-labelledby="refund-title">
+        <h3 id="refund-title">Reembolso</h3>
+        <p>
+          <strong>{formatMoney(refund.amount)}</strong> reembolsado el <time datetime={refund.at}>{formatDateTimeNumeric(refund.at)}</time> (simulado).
+        </p>
+        <p class="stock-note">
+          El stock no se repone automáticamente: si la pieza vuelve a la tienda, registra una devolución en Inventario.
+        </p>
+      </section>
+    )
+  }
+</div>
+
+<style>
+  @layer components {
+    .summary {
+      display: grid;
+      gap: var(--space-16);
+      margin-block-start: var(--space-16);
+      font-family: var(--font-ui);
+      font-size: var(--text-body-ui);
+    }
+    .totals {
+      display: grid;
+      gap: var(--space-8);
+      justify-self: end;
+      inline-size: min(100%, 19rem);
+      margin: 0;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--space-24);
+      font-variant-numeric: tabular-nums;
+    }
+    dt {
+      color: var(--text-secondary);
+    }
+    dd {
+      margin: 0;
+      color: var(--text-primary);
+    }
+    .row--total dt {
+      color: var(--text-primary);
+      font-weight: var(--weight-semibold);
+    }
+    .row--total dd {
+      color: var(--color-yellow);
+      font-family: var(--font-heading);
+      font-size: var(--text-h3);
+      font-weight: var(--weight-semibold);
+    }
+    .refund {
+      padding: var(--space-12) var(--space-16);
+      border: 1px solid var(--color-mint);
+      border-radius: var(--radius-md);
+    }
+    .refund h3 {
+      margin: 0 0 var(--space-4);
+      font-size: var(--text-body-ui);
+    }
+    .refund p {
+      margin: 0;
+    }
+    .stock-note {
+      margin-block-start: var(--space-8);
+      color: var(--text-secondary);
+      font-size: var(--text-caption);
+    }
+  }
+</style>

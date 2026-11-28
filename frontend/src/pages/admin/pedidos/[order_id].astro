@@ -1,0 +1,236 @@
+---
+// Detalle de pedido del backoffice (T-146, STATUS ui §10.7). SSR; las mutaciones son POST de esta página (PRG, D-050).
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import OrderActions from '../../../components/admin/OrderActions.astro';
+import OrderDelivery from '../../../components/admin/OrderDelivery.astro';
+import OrderLines from '../../../components/admin/OrderLines.astro';
+import OrderSummaryCard from '../../../components/admin/OrderSummaryCard.astro';
+import Button from '../../../components/ui/Button.astro';
+import Card from '../../../components/ui/Card.astro';
+import Icon from '../../../components/ui/Icon.astro';
+import Notice from '../../../components/ui/Notice.astro';
+import StatusPill from '../../../components/ui/StatusPill.astro';
+import Timeline from '../../../components/ui/Timeline.astro';
+import { ApiError } from '../../../lib/api/http';
+import { getAdminOrder, transitionOrder, type AdminOrderDetail, type TransitionTarget } from '../../../lib/api/admin-orders';
+import { fieldErrors } from '../../../lib/admin/errors';
+import { MSG_FIELD_INVALID, MSG_NOTE_REQUIRED, MSG_UNAVAILABLE } from '../../../lib/admin/messages';
+import { parseOrderQuery, orderQueryString } from '../../../lib/admin/order-query';
+import { orderPill, ORDER_STATUS_LABEL } from '../../../lib/admin/status';
+import { formatDateOnly, formatDateTimeNumeric } from '../../../lib/format';
+import { adminErrorResponse, checkAdminOrigin, isUuid, requireAdmin, seeOther } from '../../../lib/server/admin';
+
+export const prerender = false;
+
+const NO_STORE = 'private, no-store';
+const MSG_UPDATED = 'Pedido actualizado';
+const MSG_STATE_NOW = 'El estado del pedido cambió: se muestra el estado actual.';
+const MSG_BAD_ACTION = 'No se reconoce la acción solicitada.';
+const TARGETS: readonly string[] = ['en_preparacion', 'enviado', 'listo_para_recojo', 'entregado', 'cancelado'];
+const ACTOR: Record<string, string> = { customer: 'Cliente', admin: 'Administrador', system: 'Sistema' };
+
+const { request, url, params } = Astro;
+Astro.response.headers.set('Cache-Control', NO_STORE);
+
+// Un identificador que no es UUID no llega a la API.
+const orderId = params.order_id ?? '';
+if (!isUuid(orderId)) return Astro.rewrite('/404');
+
+const gate = await requireAdmin(Astro);
+if (!gate.ok) return gate.response;
+const { api, profile } = gate.ctx;
+
+// `volver` nunca es URL ni ruta: se reconstruye con la lista blanca de T-144 y el destino lo monto yo.
+const backQuery = orderQueryString(parseOrderQuery(new URLSearchParams(url.searchParams.get('volver') ?? '')).query);
+const backHref = `/admin/pedidos${backQuery ? `?${backQuery}` : ''}#o-${orderId}`;
+
+type FormErrors = { form?: string; note?: string; carrier?: string; tracking_code?: string };
+let errors: FormErrors = {};
+let values: { note?: string; carrier?: string; tracking_code?: string } = {};
+let cancelOpen = false;
+let stateChanged = false;
+
+if (request.method === 'POST') {
+  if (!checkAdminOrigin(request, url)) return new Response(null, { status: 403, headers: { 'Cache-Control': NO_STORE } });
+  let data: FormData;
+  try {
+    // clone(): si el backend responde 404/403, `Astro.rewrite` exige la petición original sin consumir.
+    data = await request.clone().formData();
+  } catch {
+    return new Response(null, { status: 415, headers: { 'Cache-Control': NO_STORE } });
+  }
+  const str = (k: string) => (typeof data.get(k) === 'string' ? (data.get(k) as string).trim() : '');
+  const to = str('to');
+  values = { note: str('note'), carrier: str('carrier'), tracking_code: str('tracking_code') };
+  cancelOpen = to === 'cancelado';
+
+  if (str('_action') !== 'transition' || !TARGETS.includes(to)) {
+    Astro.response.status = 422;
+    errors.form = MSG_BAD_ACTION;
+  } else if (to === 'cancelado' && !values.note) {
+    Astro.response.status = 422;
+    errors.note = MSG_NOTE_REQUIRED;
+  } else {
+    // Solo `to`, `note`, `carrier` y `tracking_code`; transportista y seguimiento solo al enviar.
+    const body: Parameters<typeof transitionOrder>[2] = {
+      to: to as TransitionTarget,
+      ...(values.note ? { note: values.note } : {}),
+      ...(to === 'enviado' && values.carrier ? { carrier: values.carrier } : {}),
+      ...(to === 'enviado' && values.tracking_code ? { tracking_code: values.tracking_code } : {}),
+    };
+    try {
+      await transitionOrder(api, orderId, body);
+      const next = new URLSearchParams({ actualizado: '1', ...(backQuery ? { volver: backQuery } : {}) });
+      return seeOther(`${url.pathname}?${next}`);
+    } catch (e) {
+      const handled = await adminErrorResponse(Astro, e);
+      if (handled) return handled;
+      if (e instanceof ApiError && e.status === 409 && e.code === 'invalid_transition') {
+        Astro.response.status = 409;
+        stateChanged = true;
+        cancelOpen = false;
+        values = {};
+      } else if (e instanceof ApiError && e.status === 422) {
+        Astro.response.status = 422;
+        errors = fieldErrors(e, ['note', 'carrier', 'tracking_code']);
+        if (Object.keys(errors).length === 0) errors.form = MSG_FIELD_INVALID;
+      } else {
+        Astro.response.status = 503;
+        errors.form = MSG_UNAVAILABLE;
+      }
+    }
+  }
+}
+
+// Lectura del detalle (tras un POST fallido o un 409 es la relectura del estado actual).
+let order: AdminOrderDetail | null = null;
+try {
+  const got: unknown = await getAdminOrder(api, orderId);
+  // Un 200 con otra forma (null, {}, texto, arreglo) es un fallo del servicio, no un pedido.
+  const o = got as Partial<AdminOrderDetail> | null;
+  const valid =
+    !!o && typeof o === 'object' && !Array.isArray(o) && typeof o.id === 'string' && typeof o.status === 'string' &&
+    Array.isArray(o.lines) && Array.isArray(o.history) && Array.isArray(o.can_transition_to) &&
+    !!o.delivery && typeof o.delivery === 'object';
+  if (valid) order = got as AdminOrderDetail;
+  else Astro.response.status = 503;
+} catch (e) {
+  const handled = await adminErrorResponse(Astro, e);
+  if (handled) return handled;
+  Astro.response.status = 503;
+}
+
+const updated = request.method === 'GET' && url.searchParams.get('actualizado') === '1';
+const timeline = order
+  ? [...order.history].reverse().map((h, i) => ({
+      title: ORDER_STATUS_LABEL[h.status],
+      at: formatDateTimeNumeric(h.at),
+      actor: ACTOR[h.actor] ?? h.actor,
+      note: h.note,
+      current: i === 0, // el historial llega del más antiguo al más reciente
+    }))
+  : [];
+const pill = order ? orderPill(order.status) : null;
+const meta = order
+  ? [
+      `Creado el ${formatDateTimeNumeric(order.created_at)}`,
+      order.paid_at ? `Pagado el ${formatDateTimeNumeric(order.paid_at)}` : null,
+      order.estimated_delivery_on ? `Entrega estimada: ${formatDateOnly(order.estimated_delivery_on)}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  : undefined;
+---
+
+<AdminLayout
+  title={order ? `Pedido ${order.number}` : 'Pedido'}
+  section="pedidos"
+  crumbs={[{ label: 'Pedidos', href: '/admin/pedidos' }, { label: order ? order.number : 'Pedido' }]}
+  userName={profile.full_name}
+  description={meta}
+>
+  <a slot="actions" class="back" href={backHref}><Icon name="back" size={16} />Volver a pedidos</a>
+
+  {
+    !order ? (
+      <Notice tone="error" title="No pudimos cargar el pedido">
+        <p>{MSG_UNAVAILABLE}</p>
+        <Button slot="actions" href={`${url.pathname}${url.search}`} variant="mint">
+          Reintentar
+        </Button>
+      </Notice>
+    ) : (
+      <div class="detail">
+        <div class="status-row">{pill && <StatusPill label={pill.label} tone={pill.tone} />}</div>
+        {updated && <Notice tone="success">{MSG_UPDATED}</Notice>}
+        {stateChanged && <Notice tone="warning">{MSG_STATE_NOW}</Notice>}
+        <div class="columns">
+          <div class="main">
+            <Card as="section" aria-labelledby="articulos-title">
+              <h2 id="articulos-title">Artículos ({order.lines.length})</h2>
+              <OrderLines lines={order.lines} />
+              <OrderSummaryCard subtotal={order.subtotal} shipping={order.shipping} total={order.total} refund={order.refund} paidAt={order.paid_at} />
+            </Card>
+            <Card as="section" aria-labelledby="historial-title">
+              <h2 id="historial-title">Historial de estados</h2>
+              <Timeline label="Historial de estados" items={timeline} />
+            </Card>
+          </div>
+          <aside class="side" aria-label="Acciones y entrega">
+            <OrderActions
+              orderId={order.id}
+              status={order.status}
+              canTransitionTo={order.can_transition_to}
+              deliveryMethod={order.delivery.delivery_method}
+              values={values}
+              errors={errors}
+              cancelOpen={cancelOpen}
+            />
+            <OrderDelivery delivery={order.delivery} userId={order.user_id} />
+          </aside>
+        </div>
+      </div>
+    )
+  }
+</AdminLayout>
+
+<style>
+  @layer components {
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-8);
+      min-block-size: var(--touch-target);
+      color: var(--color-mint);
+      font-weight: var(--weight-semibold);
+      text-decoration: underline;
+      text-underline-offset: 0.25em;
+    }
+    .detail {
+      display: grid;
+      gap: var(--space-24);
+    }
+    .columns {
+      display: grid;
+      gap: var(--space-24);
+      align-items: start;
+    }
+    .main,
+    .side {
+      display: grid;
+      gap: var(--space-24);
+      min-inline-size: 0;
+    }
+    h2 {
+      margin: 0 0 var(--space-12);
+      font-family: var(--font-ui);
+      font-size: var(--text-body-ui);
+      font-weight: var(--weight-semibold);
+    }
+    @media (min-width: 1025px) {
+      .columns {
+        grid-template-columns: minmax(0, 1fr) 380px;
+      }
+    }
+  }
+</style>

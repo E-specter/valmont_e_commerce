@@ -693,6 +693,20 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-146 (detalle de pedido del backoffice) — 2026-11-27 — frontend-dev
+1. Tarea: T-146. Estado: IN_REVIEW (pendiente de QA).
+2. Hecho: `pages/admin/pedidos/[order_id].astro` (GET|POST SSR, PRG) y `components/admin/{OrderLines,OrderSummaryCard,OrderDelivery,OrderActions}.astro` con las firmas del paquete. Reutiliza AdminLayout, StatusPill, Timeline, ConfirmDialog, DataTable, DefinitionList, Field, Notice, islas confirm-dialog y form-busy.
+3. Seguridad: `order_id` no UUID → `rewrite('/404')` antes de cualquier llamada; `Origin` ajeno → 403; `formData()` en `try` → 415; éxito → 303 `no-store` a `?actualizado=1`; 409 `invalid_transition` → relee el detalle y avisa (409); 422 → `fieldErrors` (note, carrier, tracking_code); cancelar sin motivo → 422 local sin llamar; `to` fuera de los 5 destinos → 422 sin llamar; cuerpo solo `to`, `note`, `carrier`, `tracking_code` (los dos últimos solo con `enviado`).
+4. `?volver=` (aviso del Leader, T-084): nunca se usa como URL ni ruta; se pasa por `parseOrderQuery` + `orderQueryString` y el destino se monta como `/admin/pedidos` + `?` + consulta resultante (+ `#o-{id}`); inválido o ausente → `/admin/pedidos`. El mismo valor saneado se reenvía en el 303.
+5. Figma: `199:542` y `200:639`, una consulta cada uno. Desviaciones: importes con `formatMoney` (D-B6 B, sin `.00`); el bloque «Qué acciones aparecen» de Figma no se pinta (D-B4); el motivo es un `Field` de una línea (no hay `Textarea` hasta T-147); `Card` sin la cabecera a 20 px (padding de `Card` md); cabecera de línea «Dto. unitario» (el servidor da el descuento por unidad). `paid_at` rotula el total como «Total pagado».
+6. Historial: llega del más antiguo; se invierte y el primero (más reciente) es `current`. Cuenta = `user_id` abreviado (8 + «…», D-AB4).
+7. Nota: el formulario del diálogo es de `ConfirmDialog` (sin `data-busy-on-submit`); `OrderActions` añade un guardián de envío doble que ignora «Volver» (`method=dialog`).
+8. `lib/admin/nav.ts` sin tocar: «Pedidos» sigue deshabilitado hasta T-084 (el detalle usa `section="pedidos"`).
+9. Análisis estático: `npm run check` → 0 errors, 0 warnings, 4 hints (preexistentes en tests/e2e). `NO EJECUTADO: pruebas ni build (D-028, D-033)`.
+10. Pendiente de QA: Container API, página con `fetch` simulado, E2E y capturas 1440.
+11. Riesgos: no se verificó en navegador; el tamaño del diálogo (30rem de ConfirmDialog) es menor que los 520 px de Figma.
+12. Commits: ninguno — preparado. Rutas: `frontend/src/pages/admin/pedidos/[order_id].astro`, `frontend/src/components/admin/{OrderLines,OrderSummaryCard,OrderDelivery,OrderActions}.astro`, `docs/modules/ui/STATUS.md`. Mensaje: `feat(ui): detalle de pedido con transiciones y cancelación (T-146)`.
+
 #### Traspaso T-143 (base de UI del backoffice) — 2026-11-27 — frontend-dev
 1. Tarea: T-143. Estado: IN_REVIEW (pendiente de QA).
 2. Hecho: `StatusPill`+`status-pill.ts`, `DataTable`, `Timeline`, `ConfirmDialog` (`<dialog>`, `commandfor`/`command="show-modal"`, cancelar con `formmethod="dialog"`), `admin/KpiCard`, islas `confirm-dialog` y `form-busy`, `Button` (`danger`, `ghost`, `sm`), `Notice` (ya tenía slot `actions`; añadido el aspecto Alert en backoffice), `pages/dev/admin-ui.astro`.

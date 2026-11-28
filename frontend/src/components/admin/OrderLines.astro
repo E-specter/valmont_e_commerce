@@ -1,0 +1,82 @@
+---
+import DataTable, { type DataTableColumn } from '../ui/DataTable.astro';
+import Icon from '../ui/Icon.astro';
+import type { AdminOrderLine } from '../../lib/api/admin-orders';
+import { formatMoney } from '../../lib/format';
+
+interface Props {
+  lines: readonly AdminOrderLine[];
+}
+const { lines } = Astro.props;
+
+const columns: DataTableColumn[] = [
+  { key: 'image', header: 'Imagen', hideHeader: true, width: '88px' },
+  { key: 'product', header: 'Producto' },
+  { key: 'qty', header: 'Cant.', align: 'end' },
+  { key: 'price', header: 'Precio', align: 'end' },
+  { key: 'discount', header: 'Dto. unitario', align: 'end' },
+  { key: 'total', header: 'Total', align: 'end' },
+];
+// El importe de cada línea viene del servidor: aquí solo se formatea.
+const fulfilment = (l: AdminOrderLine) =>
+  l.fulfillment === 'made_to_order' ? `Bajo pedido${l.lead_time_days ? ` · ${l.lead_time_days} días` : ''}` : 'En stock';
+---
+
+<DataTable columns={columns} caption="Artículos del pedido" density="lg">
+  {
+    lines.map((l) => (
+      <tr>
+        <td>
+          <span class="thumb">
+            {l.image ? <img src={l.image.url} alt={l.image.alt} width="56" height="56" loading="lazy" /> : <Icon name="image" size={20} />}
+          </span>
+        </td>
+        <td>
+          <span class="name">{l.name}</span>
+          <span class="meta">{l.sku}</span>
+          <span class="meta meta--accent">{fulfilment(l)}</span>
+        </td>
+        <td data-align="end">{l.quantity}</td>
+        <td data-align="end">{formatMoney(l.unit_price)}</td>
+        <td data-align="end">{l.discount_amount.amount > 0 ? `−${formatMoney(l.discount_amount)}` : '—'}</td>
+        <td data-align="end">{formatMoney(l.line_total)}</td>
+      </tr>
+    ))
+  }
+</DataTable>
+
+<style>
+  @layer components {
+    .thumb {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      inline-size: 56px;
+      block-size: 56px;
+      overflow: hidden;
+      border-radius: var(--radius-sm);
+      background: var(--bg-surface-raised);
+      color: var(--color-mint);
+    }
+    .thumb img {
+      inline-size: 100%;
+      block-size: 100%;
+      object-fit: cover;
+    }
+    .name,
+    .meta {
+      display: block;
+      overflow-wrap: anywhere;
+    }
+    .name {
+      font-weight: var(--weight-semibold);
+    }
+    .meta {
+      color: var(--text-secondary);
+      font-size: var(--text-caption);
+    }
+    .meta--accent {
+      color: var(--color-mint);
+    }
+  }
+</style>

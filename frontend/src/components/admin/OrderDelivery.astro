@@ -1,0 +1,46 @@
+---
+import Card from '../ui/Card.astro';
+import DefinitionList from '../ui/DefinitionList.astro';
+import type { AdminDelivery } from '../../lib/api/admin-orders';
+import { formatDateTimeNumeric } from '../../lib/format';
+
+interface Props {
+  delivery: AdminDelivery;
+  userId: string;
+}
+const { delivery: d, userId } = Astro.props;
+// D-AB4: la cuenta se identifica por su id abreviado (el correo no viene en el detalle).
+const account = `${userId.slice(0, 8)}…`;
+const address = [d.address_line, d.district, d.province, d.department].filter(Boolean).join(', ');
+const items = [
+  { term: 'Método', description: d.delivery_method === 'pickup' ? 'Recojo en tienda' : 'Envío a domicilio' },
+  { term: 'Destinatario', description: d.recipient_name },
+  { term: 'Teléfono', description: d.phone },
+  ...(d.pickup_store
+    ? [{ term: 'Tienda de recojo', description: `${d.pickup_store.name}, ${d.pickup_store.address} (${d.pickup_store.hours})` }]
+    : address
+      ? [{ term: 'Dirección', description: address }]
+      : []),
+  ...(d.reference ? [{ term: 'Referencia', description: d.reference }] : []),
+  ...(d.carrier ? [{ term: 'Transportista', description: d.carrier }] : []),
+  ...(d.tracking_code ? [{ term: 'Seguimiento', description: d.tracking_code }] : []),
+  ...(d.shipped_at ? [{ term: 'Enviado el', description: formatDateTimeNumeric(d.shipped_at) }] : []),
+  { term: 'Cuenta del cliente', description: account },
+];
+---
+
+<Card as="section" aria-labelledby="entrega-title">
+  <h2 id="entrega-title">Entrega</h2>
+  <DefinitionList items={items} />
+</Card>
+
+<style>
+  @layer components {
+    h2 {
+      margin: 0 0 var(--space-8);
+      font-family: var(--font-ui);
+      font-size: var(--text-body-ui);
+      font-weight: var(--weight-semibold);
+    }
+  }
+</style>
