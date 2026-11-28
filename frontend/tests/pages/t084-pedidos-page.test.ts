@@ -1,6 +1,7 @@
 import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import Pedidos from '../../src/pages/admin/pedidos/index.astro';
+import { ADMIN_NAV } from '../../src/lib/admin/nav';
 import { ORDER_STATUSES } from '../../src/lib/admin/status';
 import { parseHtml } from '../helpers/render';
 import { ST } from '../helpers/t142';
@@ -46,7 +47,6 @@ const NONE = 0;
 const ONE = 1;
 const TWO = 2;
 const THREE = 3;
-const FIVE = 5;
 const TOTAL_45 = 45;
 const LONG_Q = 150;
 const MAX_Q = 100;
@@ -120,13 +120,13 @@ describe('GET /admin/pedidos · 200 con datos', () => {
     expect(be.others()).toHaveLength(NONE);
   });
 
-  test('«Pedidos» del menú es un enlace a /admin/pedidos con aria-current="page"; los otros 6 siguen «Pronto»', async () => {
+  test('«Pedidos» del menú es un enlace a /admin/pedidos con aria-current="page"; las entradas sin pantalla siguen «Pronto»', async () => {
     installAdminBackend({ list: () => json(pageOf([summary()])) });
     const { doc } = await get();
     const nav = doc.querySelector('nav[aria-label="Administración"]');
     const current = nav?.querySelector('a[href="/admin/pedidos"]');
     expect(current?.getAttribute('aria-current')).toBe('page');
-    expect(nav?.querySelectorAll('[aria-disabled="true"]')).toHaveLength(FIVE + ONE);
+    expect(nav?.querySelectorAll('[aria-disabled="true"]')).toHaveLength(ADMIN_NAV.filter((e) => !e.enabled).length);
   });
 
   test('el total y las fechas llegan formateados; el enlace del número lleva a /admin/pedidos/{id}', async () => {

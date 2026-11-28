@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 import { liveEnv, type LiveEnv } from '../tests/helpers/supabase-live';
+import { ADMIN_NAV } from '../src/lib/admin/nav';
 import { formatMoney } from '../src/lib/format';
 import { API, browserCookies, createQaUser, deleteQaUser, setRole, type QaUser } from './helpers/admin';
 import { expectNoA11yViolations } from './helpers/axe';
@@ -762,7 +763,7 @@ test.describe('listado de pedidos · administrador real y pedidos sembrados por 
       await expect(nav.getByRole('link', { name: 'Pedidos' })).toHaveAttribute('aria-current', 'page');
       await expect(nav.getByRole('link', { name: 'Pedidos' })).toHaveAttribute('href', PATH);
       await expect(nav.getByRole('link', { name: 'Panel' })).not.toHaveAttribute('aria-current', 'page');
-      await expect(nav.locator('[aria-disabled="true"]').filter({ hasText: 'Pronto' })).toHaveCount(['Inventario', 'Promociones', 'Reportes', 'Clientes', 'Auditoría', 'Productos'].length);
+      await expect(nav.locator('[aria-disabled="true"]').filter({ hasText: 'Pronto' })).toHaveCount(ADMIN_NAV.filter((e) => !e.enabled).length);
     });
 
     test('las migas y el marco: Backoffice › Pedidos, «Ver tienda» y menú de usuario', async ({ page }) => {

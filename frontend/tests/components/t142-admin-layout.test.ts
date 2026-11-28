@@ -125,8 +125,8 @@ describe('AdminLayout · marco completo', () => {
     expect(disabled.map((el) => LABELS.find((l) => text(el).includes(l)))).toEqual(PENDING_LABELS);
   });
 
-  test('section de un módulo aún sin pantalla (productos): nada marca aria-current (no hay enlace al que apuntar) y sigue habiendo 8 entradas', async () => {
-    const doc = await layout({ section: 'productos', title: 'Productos' });
+  test('section de un módulo aún sin pantalla (inventario): nada marca aria-current (no hay enlace al que apuntar) y sigue habiendo 8 entradas', async () => {
+    const doc = await layout({ section: 'inventario', title: 'Inventario' });
     const nav = doc.querySelector('nav[aria-label="Administración"]')!;
     expect(nav.querySelectorAll('[aria-current="page"]').length).toBe(NONE_CURRENT);
     expect(nav.querySelectorAll('li').length).toBe(EIGHT);
