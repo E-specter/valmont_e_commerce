@@ -1,0 +1,293 @@
+---
+// Imágenes del producto (bo/05, `201:748`): miniaturas con texto alternativo, «Subir»/«Bajar» (siempre,
+// WCAG 2.5.7), arrastrar y soltar (isla image-sort), eliminar con confirmación y subida con FileDropzone.
+// Cada acción es un POST a la propia página (`_action` image-*); sin JavaScript todo sigue funcionando
+// salvo el arrastre. El `alt` se pinta como texto; el nombre del archivo del cliente no se usa.
+import Button from '../ui/Button.astro';
+import ConfirmDialog from '../ui/ConfirmDialog.astro';
+import Field from '../ui/Field.astro';
+import FileDropzone from '../ui/FileDropzone.astro';
+import Icon from '../ui/Icon.astro';
+import Notice from '../ui/Notice.astro';
+import type { ProductImage } from '../../lib/api/admin-catalog';
+import { MSG_STORAGE_UNAVAILABLE, MSG_UNAVAILABLE } from '../../lib/admin/messages';
+
+interface Props {
+  productId: string;
+  images: readonly ProductImage[];
+  published: boolean;
+  errors?: { form?: string; file?: string; alt?: string; imageId?: string };
+  max?: number;
+  altValue?: string;
+}
+const { images, published, errors = {}, max, altValue = '' } = Astro.props;
+
+const MAX_ALT = 150;
+const MAX_BYTES = 5 * 1024 * 1024;
+const MSG_EMPTY = 'Este producto aún no tiene imágenes.';
+const MSG_EMPTY_PUBLISHED = 'Un producto publicado necesita al menos una imagen.';
+const MSG_FULL = 'Se alcanzó el máximo de imágenes: elimina una para subir otra.';
+const MSG_UPLOAD_HINT = 'JPEG, PNG o WebP, hasta 5 MiB. Se convierte a WebP y se quitan los metadatos.';
+const full = max !== undefined && images.length >= max;
+// Solo rutas relativas o http(s): cualquier otro esquema no se carga.
+const safeSrc = (u: string) => (/^(https?:\/\/|\/(?!\/))/i.test(u) ? u : undefined);
+const forImage = (id: string) => (errors.imageId === id ? errors.alt : undefined);
+const uploadAlt = errors.imageId ? undefined : errors.alt;
+const links = [
+  errors.file && { href: '#img-file', text: `Imagen: ${errors.file}` },
+  errors.alt && { href: errors.imageId ? `#img-alt-${errors.imageId}` : '#img-new-alt', text: `Texto alternativo: ${errors.alt}` },
+].filter((l): l is { href: string; text: string } => Boolean(l));
+const retry = errors.form === MSG_STORAGE_UNAVAILABLE || errors.form === MSG_UNAVAILABLE;
+---
+
+<div class="manager" data-image-manager>
+  {
+    (errors.form || links.length > 0) && (
+      <div id="imagenes-errores" class="summary" role="alert" tabindex="-1" autofocus data-image-errors>
+        <strong>{errors.form ?? 'Revisa la imagen.'}</strong>
+        {retry && <Button href="#img-file" variant="secondary" size="sm">Reintentar</Button>}
+        {links.length > 0 && <ul>{links.map((l) => <li><a href={l.href}>{l.text}</a></li>)}</ul>}
+      </div>
+    )
+  }
+  {
+    images.length === 0 ? (
+      <p class="empty">{published ? MSG_EMPTY_PUBLISHED : MSG_EMPTY}</p>
+    ) : (
+      <ol class="list" role="list" data-image-list>
+        {
+          images.map((img, i) => (
+            <li class="item" data-image-id={img.id}>
+              <span class="handle" aria-hidden="true"><Icon name="drag" size={24} /></span>
+              <span class="thumb">
+                {safeSrc(img.url) ? <img src={safeSrc(img.url)} alt={img.alt} width="56" height="56" loading="lazy" decoding="async" /> : <Icon name="image" size={24} />}
+              </span>
+              <div class="body">
+                <p class="pos">
+                  Imagen <span data-image-pos>{i + 1}</span> de {images.length}
+                  <span class="main" data-image-main hidden={i !== 0}>Principal</span>
+                </p>
+                <form method="post" class="alt" data-busy-on-submit>
+                  <input type="hidden" name="_action" value="image-alt" />
+                  <input type="hidden" name="image_id" value={img.id} />
+                  <Field id={`img-alt-${img.id}`} name="alt" label="Texto alternativo" value={img.alt} required maxlength={MAX_ALT} error={forImage(img.id)} autocomplete="off" />
+                  <Button type="submit" variant="secondary" size="sm">Guardar texto</Button>
+                </form>
+              </div>
+              <div class="ctl">
+                {(['up', 'down'] as const).map((dir) => (
+                  <form method="post" data-busy-on-submit>
+                    <input type="hidden" name="_action" value="image-move" />
+                    <input type="hidden" name="image_id" value={img.id} />
+                    <input type="hidden" name="direction" value={dir} />
+                    <Button type="submit" variant="ghost" size="sm" aria-label={`${dir === 'up' ? 'Subir' : 'Bajar'} imagen ${i + 1}`} data-image-move={dir}>
+                      {dir === 'up' ? 'Subir' : 'Bajar'}
+                    </Button>
+                  </form>
+                ))}
+                <Button type="button" variant="danger" size="sm" commandfor={`img-del-${img.id}`} command="show-modal" aria-label={`Eliminar imagen ${i + 1}`}>
+                  Eliminar
+                </Button>
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+    )
+  }
+  {
+    images.length > 1 && (
+      <form method="post" hidden data-image-order-form>
+        <input type="hidden" name="_action" value="image-order" />
+        <input type="hidden" name="ids" value={images.map((i) => i.id).join(',')} />
+      </form>
+    )
+  }
+  <p class="sr-only" role="status" aria-live="polite" data-image-live></p>
+  {
+    images.map((img, i) => (
+      <ConfirmDialog
+        id={`img-del-${img.id}`}
+        title="Eliminar imagen"
+        description={`Se quitará la imagen ${i + 1} del producto. No se puede deshacer.`}
+        confirmLabel="Eliminar"
+        cancelLabel="Volver"
+        tone="danger"
+      >
+        <input type="hidden" name="_action" value="image-delete" />
+        <input type="hidden" name="image_id" value={img.id} />
+      </ConfirmDialog>
+    ))
+  }
+  {
+    full ? (
+      <Notice tone="info">{MSG_FULL}</Notice>
+    ) : (
+      <form method="post" enctype="multipart/form-data" class="upload" data-busy-on-submit>
+        <input type="hidden" name="_action" value="image-upload" />
+        <FileDropzone id="img-file" name="file" label="Imagen" accept="image/jpeg,image/png,image/webp" maxBytes={MAX_BYTES} hint={MSG_UPLOAD_HINT} error={errors.file} />
+        <Field id="img-new-alt" name="alt" label="Texto alternativo" required maxlength={MAX_ALT} value={altValue} error={uploadAlt} hint="Describe la imagen para quien no la ve. Hasta 150 caracteres." autocomplete="off" />
+        <div><Button type="submit">Subir imagen</Button></div>
+      </form>
+    )
+  }
+</div>
+
+<script>
+  import { initConfirmDialog } from '../../islands/confirm-dialog';
+  import { initFormBusy } from '../../islands/form-busy';
+  import { initImageSort } from '../../islands/image-sort';
+
+  initConfirmDialog();
+  initFormBusy();
+  initImageSort();
+  document.getElementById('imagenes-errores')?.focus();
+</script>
+
+<style>
+  @layer components {
+    .manager {
+      display: grid;
+      gap: var(--space-16);
+    }
+    .manager > :global(*),
+    .item,
+    .body {
+      min-inline-size: 0;
+    }
+    .summary {
+      display: grid;
+      gap: var(--space-8);
+      justify-items: start;
+      padding: var(--space-12) var(--space-16);
+      border: 1px solid var(--color-red-strong);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+    }
+    .summary:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    .summary ul {
+      margin: 0;
+      padding-inline-start: var(--space-24);
+    }
+    .summary a {
+      color: inherit;
+      text-underline-offset: 0.2em;
+    }
+    .empty {
+      margin: 0;
+      color: var(--text-secondary);
+    }
+    .list {
+      display: grid;
+      gap: var(--space-12);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-12);
+      align-items: start;
+      padding: var(--space-12);
+      border: 1px solid var(--stroke-soft);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+    }
+    .thumb {
+      justify-self: start;
+    }
+    @media (min-width: 40rem) {
+      .item {
+        grid-template-columns: auto auto minmax(0, 1fr);
+      }
+      .thumb {
+        justify-self: auto;
+      }
+    }
+    .item.is-dragging {
+      opacity: 0.5;
+    }
+    /* El asa solo aparece cuando la isla está lista: sin JavaScript no hay arrastre. */
+    .handle {
+      display: none;
+      align-self: center;
+      color: var(--text-secondary);
+      cursor: grab;
+    }
+    @media (min-width: 40rem) {
+      :global([data-image-sort-ready]) .handle {
+        display: inline-flex;
+      }
+    }
+    .thumb {
+      display: grid;
+      place-items: center;
+      inline-size: 56px;
+      block-size: 56px;
+      overflow: hidden;
+      border-radius: var(--radius-sm);
+      background: var(--bg-page);
+      color: var(--text-secondary);
+    }
+    .thumb img {
+      inline-size: 100%;
+      block-size: 100%;
+      object-fit: cover;
+    }
+    .body {
+      display: grid;
+      gap: var(--space-8);
+      min-inline-size: 0;
+    }
+    .pos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-8);
+      align-items: center;
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: var(--text-caption);
+    }
+    .main {
+      padding: 2px var(--space-8);
+      border: 1px solid var(--stroke-strong);
+      border-radius: var(--radius-pill);
+      color: var(--text-primary);
+      font-weight: var(--weight-bold);
+    }
+    .main[hidden] {
+      display: none;
+    }
+    .alt {
+      display: grid;
+      gap: var(--space-8);
+    }
+    .alt :global(.btn) {
+      justify-self: start;
+    }
+    .ctl {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-8);
+    }
+    .upload {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      min-inline-size: 0;
+      gap: var(--space-16);
+      padding-block-start: var(--space-16);
+      border-block-start: 1px solid var(--stroke-soft);
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .item {
+        transition: opacity var(--dur-state) var(--ease);
+      }
+    }
+  }
+</style>

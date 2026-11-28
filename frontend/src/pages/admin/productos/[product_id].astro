@@ -1,21 +1,27 @@
 ---
 // Editar producto y publicarlo (T-147). SSR con POST y PRG (D-050); `_action` = save | publish | unpublish.
-// La sección de imágenes (slot `images`) es de T-148.
+// Imágenes (slot `images`, T-148): `_action` = image-upload | image-alt | image-move | image-order | image-delete.
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import ProductForm from '../../../components/admin/ProductForm.astro';
 import TextLink from '../../../components/ui/TextLink.astro';
 import PublishPanel from '../../../components/admin/PublishPanel.astro';
+import ImageManager from '../../../components/admin/ImageManager.astro';
 import {
+  deleteImage,
   getAdminAttributes,
   getAdminProduct,
   listAdminCategories,
   publishProduct,
+  reorderImages,
   unpublishProduct,
+  updateImageAlt,
   updateProduct,
+  uploadProductImage,
   type AdminProduct,
+  type ProductImage,
 } from '../../../lib/api/admin-catalog';
 import { ApiError } from '../../../lib/api/http';
-import { MSG_UNAVAILABLE } from '../../../lib/admin/messages';
+import { MSG_LAST_IMAGE, MSG_STORAGE_UNAVAILABLE, MSG_UNAVAILABLE } from '../../../lib/admin/messages';
 import {
   diffProduct,
   readProductForm,
@@ -26,6 +32,7 @@ import {
   type ProductFormErrors,
 } from '../../../lib/admin/product-form';
 import { adminErrorResponse, checkAdminOrigin, isUuid, requireAdmin, seeOther } from '../../../lib/server/admin';
+import { apiFor } from '../../../lib/server/session';
 
 export const prerender = false;
 
@@ -35,7 +42,26 @@ const UNAVAILABLE = 503;
 const CLIENT_ERROR = 400;
 const SERVER_ERROR = 500;
 const PUBLISH_UNMET = 'publish_requirements_unmet';
+const CONFLICT = 409;
+const TOO_LARGE = 413;
+const UNSUPPORTED = 415;
+const MIB = 1024 * 1024;
+const MAX_FILE_BYTES = 5 * MIB;
+const MAX_BODY_BYTES = 6 * MIB; // límite del multipart del backend (T-018a)
+const UPLOAD_TIMEOUT_MS = 20_000;
+const MAX_ALT = 150;
+const IMAGE_ACTIONS = ['image-upload', 'image-alt', 'image-move', 'image-order', 'image-delete'];
+const MSG_FILE_BIG = 'El archivo supera los 5 MiB';
+const MSG_FILE_TYPE = 'Formato no admitido: usa JPEG, PNG o WebP';
+const MSG_FILE_UNREADABLE = 'No se pudo leer la imagen. Prueba con otro archivo.';
+const MSG_FILE_PIXELS = 'La imagen tiene demasiados píxeles. Reduce su tamaño e inténtalo de nuevo.';
+const MSG_FILE_ANIMATED = 'No se admiten imágenes animadas.';
+const MSG_FILE_MISSING = 'Elige una imagen.';
+const MSG_ALT_INVALID = 'El texto alternativo debe tener entre 1 y 150 caracteres.';
+const MSG_IMAGES_CHANGED = 'Las imágenes cambiaron. Revisa la lista e inténtalo de nuevo.';
+type ImageErrors = { form?: string; file?: string; alt?: string; imageId?: string };
 const isPost = Astro.request.method === 'POST';
+const contentLength = Number(Astro.request.headers.get('content-length'));
 Astro.response.headers.set('Cache-Control', NO_STORE['Cache-Control']);
 
 const productId = Astro.params.product_id ?? '';
@@ -64,12 +90,120 @@ if (!p || typeof p !== 'object' || typeof p.id !== 'string' || typeof p.name !==
   return Astro.rewrite('/admin/no-disponible');
 }
 
+// Las imágenes llegan del servicio: una forma inesperada es un fallo del servicio (503), nunca un 500.
+const isImage = (i: unknown): i is ProductImage =>
+  typeof i === 'object' && i !== null && typeof (i as ProductImage).id === 'string' && typeof (i as ProductImage).url === 'string' && typeof (i as ProductImage).alt === 'string';
+if (!Array.isArray(p.images) || !p.images.every(isImage)) return Astro.rewrite('/admin/no-disponible');
+const images: ProductImage[] = p.images;
+
 let values = toProductValues(product);
 let errors: ProductFormErrors = {};
 let missing: string[] = [];
 let panelError: string | undefined;
+let imageErrors: ImageErrors = {};
+let imageAlt = '';
 
-if (isPost) {
+/** Errores de la API de imágenes a texto en español, en el campo que corresponde; nunca el `msg` del backend. */
+function imageFailure(e: unknown, imageId?: string): { errors: ImageErrors; status: number } {
+  if (!(e instanceof ApiError)) return { errors: { form: MSG_UNAVAILABLE }, status: UNAVAILABLE };
+  const at = (errs: ImageErrors) => ({ errors: errs, status: e.status });
+  if (e.status === TOO_LARGE) return at({ file: MSG_FILE_BIG });
+  if (e.status === UNSUPPORTED) return at({ file: MSG_FILE_TYPE });
+  if (e.status === CONFLICT && e.code === 'last_image') return at({ form: MSG_LAST_IMAGE });
+  if (e.status === UNPROCESSABLE) {
+    if (e.code === 'image_dimensions_exceeded') return at({ file: MSG_FILE_PIXELS });
+    if (e.code === 'animated_image') return at({ file: MSG_FILE_ANIMATED });
+    if (e.code === 'invalid_image') return at({ file: MSG_FILE_UNREADABLE });
+    return at({ alt: MSG_ALT_INVALID, imageId });
+  }
+  if (e.code === 'storage_unavailable') return { errors: { form: MSG_STORAGE_UNAVAILABLE }, status: UNAVAILABLE };
+  if (e.status === CONFLICT) return at({ form: MSG_IMAGES_CHANGED });
+  return { errors: { form: MSG_UNAVAILABLE }, status: e.status >= CLIENT_ERROR && e.status < SERVER_ERROR ? e.status : UNAVAILABLE };
+}
+
+/** Ejecuta una llamada de imágenes: 303 si sale bien; si no, deja `imageErrors` y el estado para pintar la página. */
+async function runImage(call: () => Promise<unknown>, valid: (r: unknown) => boolean, imageId?: string): Promise<Response | null> {
+  try {
+    if (valid(await call())) return seeOther(`${here}#imagenes-titulo`);
+    imageErrors = { form: MSG_UNAVAILABLE };
+    Astro.response.status = UNAVAILABLE;
+  } catch (e) {
+    const early = await adminErrorResponse(Astro, e);
+    if (early) return early;
+    const out = imageFailure(e, imageId);
+    imageErrors = out.errors;
+    Astro.response.status = out.status;
+  }
+  return null;
+}
+
+const cleanAlt = (fd: FormData) => String(fd.get('alt') ?? '').trim();
+const altOk = (alt: string) => alt.length >= 1 && alt.length <= MAX_ALT;
+const hasId = (r: unknown) => typeof (r as ProductImage | null)?.id === 'string';
+
+async function handleImage(action: string, fd: FormData): Promise<Response | null> {
+  if (action === 'image-upload') {
+    const file = fd.get('file');
+    const alt = cleanAlt(fd);
+    imageAlt = alt;
+    const errs: ImageErrors = {};
+    if (!(file instanceof File) || file.size === 0) errs.file = MSG_FILE_MISSING;
+    else if (file.size > MAX_FILE_BYTES) errs.file = MSG_FILE_BIG;
+    if (!altOk(alt)) errs.alt = MSG_ALT_INVALID;
+    if (errs.file || errs.alt || !(file instanceof File)) {
+      imageErrors = errs;
+      Astro.response.status = errs.file === MSG_FILE_BIG ? TOO_LARGE : UNPROCESSABLE;
+      return null;
+    }
+    // El nombre del archivo del cliente no se usa: se reenvía con un nombre fijo.
+    const upload = new File([file], 'imagen', { type: file.type });
+    const slow = apiFor(Astro.locals, { timeoutMs: UPLOAD_TIMEOUT_MS });
+    return runImage(() => uploadProductImage(slow, productId, upload, alt), hasId);
+  }
+  if (action === 'image-order') {
+    const ids = String(fd.get('ids') ?? '').split(',');
+    const current = images.map((i) => i.id);
+    // Exactamente el conjunto actual, sin repetidos ni ajenos.
+    if (!ids.every(isUuid) || ids.length !== current.length || new Set(ids).size !== ids.length || !ids.every((i) => current.includes(i))) {
+      imageErrors = { form: MSG_IMAGES_CHANGED };
+      Astro.response.status = CONFLICT;
+      return null;
+    }
+    if (ids.join(',') === current.join(',')) return seeOther(`${here}#imagenes-titulo`);
+    return runImage(() => reorderImages(api, productId, ids), Array.isArray);
+  }
+  const imageId = String(fd.get('image_id') ?? '');
+  if (!isUuid(imageId)) return new Response('Acción no válida', { status: CLIENT_ERROR, headers: NO_STORE });
+  if (action === 'image-alt') {
+    const alt = cleanAlt(fd);
+    if (!altOk(alt)) {
+      imageErrors = { alt: MSG_ALT_INVALID, imageId };
+      Astro.response.status = UNPROCESSABLE;
+      return null;
+    }
+    return runImage(() => updateImageAlt(api, productId, imageId, alt), hasId, imageId);
+  }
+  if (action === 'image-delete') return runImage(() => deleteImage(api, productId, imageId), () => true, imageId);
+  // image-move: el servidor calcula el nuevo orden y envía el conjunto completo.
+  const dir = fd.get('direction');
+  const from = images.findIndex((i) => i.id === imageId);
+  if (from < 0 || (dir !== 'up' && dir !== 'down')) {
+    imageErrors = { form: MSG_IMAGES_CHANGED };
+    Astro.response.status = CONFLICT;
+    return null;
+  }
+  const to = dir === 'up' ? from - 1 : from + 1;
+  if (to < 0 || to >= images.length) return seeOther(`${here}#imagenes-titulo`);
+  const ids = images.map((i) => i.id);
+  [ids[from], ids[to]] = [ids[to], ids[from]];
+  return runImage(() => reorderImages(api, productId, ids), Array.isArray, imageId);
+}
+
+if (isPost && contentLength > MAX_BODY_BYTES) {
+  // Antes de leer el cuerpo.
+  imageErrors = { file: MSG_FILE_BIG };
+  Astro.response.status = TOO_LARGE;
+} else if (isPost) {
   let fd: FormData;
   try {
     fd = await Astro.request.clone().formData();
@@ -108,6 +242,9 @@ if (isPost) {
       else panelError = saveErrors(e)?.form ?? MSG_UNAVAILABLE;
       Astro.response.status = statusOf(e);
     }
+  } else if (typeof action === 'string' && IMAGE_ACTIONS.includes(action)) {
+    const early = await handleImage(action, fd);
+    if (early) return early;
   } else {
     return new Response('Acción no válida', { status: CLIENT_ERROR, headers: NO_STORE });
   }
@@ -135,6 +272,7 @@ if (!lists) return Astro.rewrite('/admin/no-disponible');
 >
   <TextLink href="/admin/productos" tone="ivory">Volver a productos</TextLink>
   <ProductForm mode="edit" values={values} errors={errors} saved={saved} {...lists}>
+    <ImageManager slot="images" productId={product.id} images={images} published={product.status === 'published'} errors={imageErrors} altValue={imageAlt} />
     <PublishPanel slot="panel" productId={product.id} status={product.status} missing={missing} error={panelError} />
   </ProductForm>
 </AdminLayout>

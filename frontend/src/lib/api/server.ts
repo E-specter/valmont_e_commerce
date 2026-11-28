@@ -4,7 +4,7 @@ import { ApiError, parseResponse, toQueryString, type Transport } from './http';
 const TIMEOUT_MS = 8000;
 
 /** Transporte del servidor de Astro: base API_BASE_URL + '/api/v1'. El token solo se añade si el llamador lo pasa. */
-export function serverTransport(opts: { accessToken?: string | null } = {}): Transport {
+export function serverTransport(opts: { accessToken?: string | null; timeoutMs?: number } = {}): Transport {
   return async <T>(req: Parameters<Transport>[0]): Promise<T> => {
     // Solo rutas relativas a la API: nunca una URL absoluta ni '//host'.
     if (!req.path.startsWith('/') || req.path.startsWith('//')) {
@@ -15,10 +15,16 @@ export function serverTransport(opts: { accessToken?: string | null } = {}): Tra
 
     const headers: Record<string, string> = { ...req.headers, Accept: 'application/json' };
     if (opts.accessToken) headers.Authorization = `Bearer ${opts.accessToken}`;
-    if (req.body !== undefined) headers['Content-Type'] = 'application/json';
+    // FormData: sin Content-Type propio, para que fetch ponga el multipart con su límite.
+    const isForm = req.body instanceof FormData;
+    if (isForm) {
+      for (const k of Object.keys(headers)) if (k.toLowerCase() === 'content-type') delete headers[k];
+    } else if (req.body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     let timedOut = false;
-    const timer = AbortSignal.timeout(TIMEOUT_MS);
+    const timer = AbortSignal.timeout(opts.timeoutMs ?? TIMEOUT_MS);
     timer.addEventListener('abort', () => (timedOut = true));
     const signal = req.signal ? AbortSignal.any([req.signal, timer]) : timer;
 
@@ -27,7 +33,7 @@ export function serverTransport(opts: { accessToken?: string | null } = {}): Tra
       const res = await fetch(url, {
         method: req.method,
         headers,
-        body: req.body !== undefined ? JSON.stringify(req.body) : undefined,
+        body: isForm ? (req.body as FormData) : req.body !== undefined ? JSON.stringify(req.body) : undefined,
         signal,
       });
       return await parseResponse<T>(res);

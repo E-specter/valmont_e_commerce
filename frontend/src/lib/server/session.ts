@@ -4,8 +4,8 @@ import type { Transport } from '../api/http';
 import { serverTransport } from '../api/server';
 
 /** Transporte de la API con el Bearer de la sesión (si la hay). */
-export function apiFor(locals: App.Locals): Transport {
-  return serverTransport({ accessToken: locals.session?.accessToken });
+export function apiFor(locals: App.Locals, opts: { timeoutMs?: number } = {}): Transport {
+  return serverTransport({ accessToken: locals.session?.accessToken, timeoutMs: opts.timeoutMs });
 }
 
 /** Valida la cookie (verificación del JWT, renovación si caducó) y devuelve la sesión o null. */

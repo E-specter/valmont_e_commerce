@@ -1,0 +1,111 @@
+---
+// Zona de archivo: un <input type="file"> nativo dentro de un recuadro punteado; soltar un archivo sobre él
+// funciona sin JavaScript. El tipo y el tamaño los valida el servidor; `maxBytes` solo se muestra y se anota.
+import Icon from './Icon.astro';
+
+interface Props {
+  id: string;
+  name: string;
+  label: string;
+  accept: string;
+  maxBytes: number;
+  hint?: string;
+  error?: string;
+}
+const { id, name, label, accept, maxBytes, hint, error } = Astro.props;
+const hintId = hint ? `${id}-hint` : undefined;
+const errorId = error ? `${id}-error` : undefined;
+const describedby = [hintId, errorId].filter(Boolean).join(' ') || undefined;
+---
+
+<div class="dz" data-invalid={error ? '' : undefined}>
+  <label for={id}>{label}<span aria-hidden="true"> *</span></label>
+  <div class="zone">
+    <Icon name="upload" size={24} />
+    <input id={id} type="file" name={name} accept={accept} data-max-bytes={maxBytes} required aria-invalid={error ? 'true' : undefined} aria-describedby={describedby} />
+  </div>
+  {hint && <p class="hint" id={hintId}>{hint}</p>}
+  {
+    error && (
+      <p class="error" id={errorId}>
+        <Icon name="alert-triangle" size={16} />
+        <span>{error}</span>
+      </p>
+    )
+  }
+</div>
+
+<style>
+  @layer components {
+    .dz {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      min-inline-size: 0;
+      gap: var(--space-8);
+    }
+    label {
+      font-size: var(--text-caption);
+      font-weight: var(--weight-bold);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .zone {
+      display: flex;
+      min-inline-size: 0;
+      align-items: center;
+      gap: var(--space-12);
+      padding: var(--space-16);
+      border: 1.5px dashed var(--stroke-control);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+    }
+    .zone:hover,
+    .zone:focus-within {
+      border-color: var(--stroke-strong);
+    }
+    input {
+      flex: 1;
+      min-inline-size: 0;
+      max-inline-size: 100%;
+      min-block-size: var(--touch-target);
+      color: var(--text-primary);
+      font: inherit;
+      font-size: var(--text-body-ui);
+    }
+    input::file-selector-button {
+      min-block-size: var(--touch-target);
+      margin-inline-end: var(--space-12);
+      padding: var(--space-8) var(--space-16);
+      border: 1px solid var(--stroke-control);
+      border-radius: var(--radius-pill);
+      background: transparent;
+      color: var(--text-primary);
+      font: inherit;
+      font-weight: var(--weight-semibold);
+      cursor: pointer;
+    }
+    input:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    .dz[data-invalid] .zone {
+      border-color: var(--color-red-strong);
+    }
+    .hint {
+      margin: 0;
+      overflow-wrap: anywhere;
+      color: var(--text-secondary);
+      font-size: var(--text-caption);
+    }
+    .error {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-8);
+      margin: 0;
+      color: var(--color-red-strong);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-medium);
+    }
+  }
+</style>

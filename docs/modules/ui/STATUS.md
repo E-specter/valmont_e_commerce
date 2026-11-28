@@ -693,6 +693,20 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-148 (imágenes del producto) — 2026-11-27 — frontend-dev
+1. Estado: IN_REVIEW (pendiente de QA). Rama `t148-ui` (desde 7477bd6).
+2. Hecho: slot `images` de `[product_id].astro` con `_action` image-upload | image-alt | image-move | image-order | image-delete; `admin/ImageManager`, `ui/FileDropzone`, isla `image-sort` (firmas del paquete).
+3. Transporte: `serverTransport({accessToken, timeoutMs})` (8 s por defecto) y `apiFor(locals, {timeoutMs})`; `FormData` se envía tal cual, sin `Content-Type` (se descarta el que venga) ni `JSON.stringify`; JSON y validación de `path` sin cambios. La subida usa 20 s.
+4. Seguridad: `Origin` 403 antes de todo; `Content-Length` > 6 MiB → 413 antes de leer el cuerpo; `request.clone().formData()` en `try` (415); 303 `no-store` a `#imagenes-titulo`; `image_id`/`ids` UUID; `image-order` exige exactamente el conjunto actual (si no, 409 sin llamar); respuesta o `images` de forma inesperada → 503; sin mutación por GET.
+5. Errores (sin `msg` del backend): 413 y archivo > 5 MiB «El archivo supera los 5 MiB»; 415 «Formato no admitido: usa JPEG, PNG o WebP»; 422 `invalid_image`/`image_dimensions_exceeded`/`animated_image` en el campo del archivo; otro 422 en el `alt`; 409 `last_image` con `MSG_LAST_IMAGE`; 503 `storage_unavailable` con «Reintentar».
+6. Decisiones: el `alt` se recorta y se valida 1–150 antes de llamar; el archivo se reenvía como `imagen` (el nombre del cliente no se usa); «Subir/Bajar» siempre presentes, en el borde son un 303 sin llamada; el servidor calcula el orden de `image-move`; arrastre HTML5 sobre la fila (`draggable` se desactiva mientras se edita un campo), `aria-live` «Imagen movida a la posición N», asa visible solo con la isla lista; `max` sin límite por defecto.
+7. Figma: sin nueva consulta (`201:748` ya consultado en T-147); miniaturas de 56 px de VIEWS §12.2.
+8. Sin blocker. Riesgos: el `alt` tecleado no se conserva tras un error de subida (la firma de `ImageManager` no lo admite); la subida de 5 MiB en 20 s sin verificar (escalar si falla).
+9. Estático: `npm run check → 0 errors, 0 warnings, 9 hints` (los avisos son de `tests/` ajenos). `NO EJECUTADO: pruebas ni build (D-028, D-033)`.
+10. Pruebas obligatorias: las del paquete T-148 (transporte, Container API, `happy-dom` de `image-sort`, página, E2E, axe, build).
+11. Archivos: `frontend/src/pages/admin/productos/[product_id].astro`, `components/admin/ImageManager.astro`, `components/ui/FileDropzone.astro`, `islands/image-sort.ts`, `lib/api/server.ts`, `lib/server/session.ts`, este STATUS.
+12. Commit: ninguno — preparado. Mensaje: `feat(ui): imágenes del producto en el backoffice (T-148)`.
+
 #### Traspaso T-149 (listado de productos `/admin/productos`) — 2026-11-27 — frontend-dev
 1. Estado final: IN_REVIEW (D-AB2 = A). Sin frame de Figma; patrón de `/admin/pedidos`.
 2. Cambios: `pages/admin/productos/index.astro` y `components/admin/ProductsTable.astro` (Props `{ items: readonly AdminProduct[] }`). `nav.ts` ya tenía Productos habilitado.
