@@ -693,6 +693,20 @@ export function formatDateOnly(isoDate: string): string;                        
 
 ## 8. Traspasos
 
+#### Traspaso T-149 (listado de productos `/admin/productos`) — 2026-11-27 — frontend-dev
+1. Estado final: IN_REVIEW (D-AB2 = A). Sin frame de Figma; patrón de `/admin/pedidos`.
+2. Cambios: `pages/admin/productos/index.astro` y `components/admin/ProductsTable.astro` (Props `{ items: readonly AdminProduct[] }`). `nav.ts` ya tenía Productos habilitado.
+3. Consulta: `GET /catalog/admin/products?status&q&page&page_size=20` vía `listAdminProducts`; lista cerrada (status draft|published, q ≤ 100, page 1-4 dígitos); `q` y `status` se conservan en paginación.
+4. Contrato: el OpenAPI/`AdminProduct` no trae stock ni filtro de categoría: no se muestran (no se inventan).
+5. Estados: 503 + «Reintentar» (error o forma inesperada), 422 en `q`, página fuera de rango, vacío con y sin filtros, 401/403 por `adminErrorResponse`, `no-store`.
+6. Columnas: miniatura (sin imagen: placeholder con aria-label), nombre y SKU enlazados a `/admin/productos/{id}`, categoría, precio `formatMoney`, `productPill`, actualizado. Botón «Nuevo producto» en la cabecera y en el vacío sin filtros.
+7. Reutiliza AdminLayout, DataTable, StatusPill, Pagination, EmptyState, Notice, Chip, Field, Button. El formulario de filtros va en la página (no había archivo permitido para un componente aparte).
+8. Análisis estático: `npm run check` → 0 errors, 0 warnings, 9 hints (preexistentes en tests).
+9. NO EJECUTADO: pruebas y build (D-028, D-033).
+10. Revisión visual: `/admin/productos` con un borrador y un publicado; pantalla derivada para la segunda pasada de diseño (H-B7).
+11. Riesgos: la miniatura usa `main_image.url` tal cual, como `ProductCard`.
+12. Commit: ninguno — preparado. Propuesto: `feat(ui): listado de productos del backoffice (T-149)`.
+
 #### Traspaso T-145 (panel `/admin` + acceso del administrador) — 2026-11-27 — frontend-dev
 1. Tarea: T-145, más (a) enlace «Ir al backoffice» en `/cuenta` y (b) destino `/admin` tras ingresar (autorizados por el Leader).
 2. Estado: IN_REVIEW. 3. Rama `t145-ui` (desde e38ab9b).

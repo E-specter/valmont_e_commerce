@@ -1,0 +1,87 @@
+---
+// Tabla del listado de productos. Datos por props; el precio y las fechas se formatean, nunca se calculan (RN-09).
+import DataTable, { type DataTableColumn } from '../ui/DataTable.astro';
+import StatusPill from '../ui/StatusPill.astro';
+import { productPill } from '../../lib/admin/status';
+import { formatDateTimeNumeric, formatMoney } from '../../lib/format';
+import type { AdminProduct } from '../../lib/api/admin-catalog';
+
+interface Props {
+  items: readonly AdminProduct[];
+}
+const { items } = Astro.props;
+
+const columns: DataTableColumn[] = [
+  { key: 'image', header: 'Imagen' },
+  { key: 'name', header: 'Producto' },
+  { key: 'category', header: 'Categoría' },
+  { key: 'price', header: 'Precio', align: 'end' },
+  { key: 'status', header: 'Estado' },
+  { key: 'updated', header: 'Actualizado' },
+];
+---
+
+<DataTable columns={columns} caption="Productos">
+  {
+    items.map((p) => {
+      const pill = productPill(p.status);
+      return (
+        <tr id={`p-${p.id}`}>
+          <td class="thumb">
+            {p.main_image?.url ? (
+              <img src={p.main_image.url} alt={p.main_image.alt} width="48" height="48" loading="lazy" decoding="async" />
+            ) : (
+              <span class="no-image" role="img" aria-label={`Sin imagen de ${p.name}`} />
+            )}
+          </td>
+          <td class="name">
+            <a href={`/admin/productos/${encodeURIComponent(p.id)}`}>{p.name}</a>
+            <small>{p.sku}</small>
+          </td>
+          <td>{p.category.name}</td>
+          <td data-align="end">{formatMoney(p.price)}</td>
+          <td><StatusPill label={pill.label} tone={pill.tone} /></td>
+          <td class="updated">{formatDateTimeNumeric(p.updated_at)}</td>
+        </tr>
+      );
+    })
+  }
+</DataTable>
+
+<style>
+  @layer components {
+    .thumb img,
+    .no-image {
+      display: block;
+      inline-size: 3rem;
+      block-size: 3rem;
+      border-radius: var(--radius-sm);
+      object-fit: cover;
+      background: var(--bg-surface);
+      border: 1px solid var(--stroke-default);
+    }
+    .name a {
+      min-block-size: var(--touch-target);
+      display: inline-flex;
+      align-items: center;
+      color: var(--text-primary);
+      font-weight: var(--weight-semibold);
+      text-decoration: none;
+    }
+    .name a:hover {
+      text-decoration: underline;
+    }
+    .name a:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    .name small {
+      display: block;
+      color: var(--text-secondary);
+      font-size: var(--text-caption);
+    }
+    .updated {
+      white-space: nowrap;
+    }
+  }
+</style>

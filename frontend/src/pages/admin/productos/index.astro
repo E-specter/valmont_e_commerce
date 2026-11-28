@@ -1,0 +1,177 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import ProductsTable from '../../../components/admin/ProductsTable.astro';
+import Button from '../../../components/ui/Button.astro';
+import Chip from '../../../components/ui/Chip.astro';
+import EmptyState from '../../../components/ui/EmptyState.astro';
+import Field from '../../../components/ui/Field.astro';
+import Notice from '../../../components/ui/Notice.astro';
+import Pagination from '../../../components/ui/Pagination.astro';
+import { fieldErrors } from '../../../lib/admin/errors';
+import { productPill } from '../../../lib/admin/status';
+import { ApiError, type Page } from '../../../lib/api/http';
+import { listAdminProducts, type AdminProduct, type ProductStatus } from '../../../lib/api/admin-catalog';
+import { adminErrorResponse, requireAdmin } from '../../../lib/server/admin';
+
+export const prerender = false;
+
+const MSG_LOAD_FAILED = 'No se pudieron cargar los productos';
+const MSG_LOAD_HINT = 'Revisa tu conexión e inténtalo de nuevo. Si el problema continúa, avisa a soporte.';
+const MSG_EMPTY_FILTERED = 'No hay productos con estos filtros';
+const MSG_EMPTY_FILTERED_HINT = 'Prueba con otro estado o con otro nombre o SKU.';
+const MSG_NO_PAGE = 'Esta página no existe';
+const MSG_NO_PAGE_HINT = 'Hay productos, pero no en esta página. Vuelve a la primera.';
+const MSG_EMPTY = 'Aún no hay productos';
+const MSG_EMPTY_HINT = 'Crea el primero con «Nuevo producto».';
+
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+
+const gate = await requireAdmin(Astro);
+if (!gate.ok) return gate.response;
+const { api, profile } = gate.ctx;
+
+const PATH = '/admin/productos';
+const PAGE_SIZE = 20;
+const STATUSES: readonly ProductStatus[] = ['draft', 'published'];
+
+// Lista cerrada de claves: todo lo demás se descarta.
+const sp = Astro.url.searchParams;
+const rawStatus = sp.get('status');
+const status = STATUSES.find((s) => s === rawStatus);
+const q = sp.get('q')?.trim().slice(0, 100) || undefined;
+// Entero de 1 a 4 dígitos: acepta "12"; rechaza "-1" y "1e3".
+const rawPage = sp.get('page');
+const pageN = rawPage !== null && /^\d{1,4}$/.test(rawPage) ? parseInt(rawPage, 10) : 0;
+const page = pageN >= 1 ? pageN : undefined;
+
+type Q = { status?: ProductStatus; q?: string; page?: number };
+const withQuery = (v: Q) => {
+  const s = new URLSearchParams(
+    Object.entries({ page: v.page && v.page > 1 ? String(v.page) : undefined, q: v.q, status: v.status }).filter(
+      (e): e is [string, string] => Boolean(e[1]),
+    ),
+  ).toString();
+  return s ? `${PATH}?${s}` : PATH;
+};
+
+let result: Page<AdminProduct> | null = null;
+let errors: { q?: string } | null = null;
+let failed = false;
+try {
+  result = await listAdminProducts(api, { status, q, page, page_size: PAGE_SIZE });
+  // Un 200 con otra forma es un fallo del servicio, nunca un 500 de la página.
+  if (!result || !Array.isArray(result.items) || typeof result.total !== 'number') throw new ApiError(0, 'invalid_response', '');
+} catch (e) {
+  const handled = await adminErrorResponse(Astro, e);
+  if (handled) return handled;
+  if (e instanceof ApiError && e.status === 422) {
+    errors = fieldErrors(e, ['q']);
+  } else {
+    failed = true;
+    Astro.response.status = 503;
+  }
+}
+
+const hasFilters = Boolean(status || q);
+const hrefForStatus = (s: ProductStatus | null) => withQuery({ q, status: s ?? undefined });
+const hrefForPage = (n: number) => withQuery({ q, status, page: n });
+---
+
+<AdminLayout title="Productos" section="productos" userName={profile.full_name} description="Gestiona el catálogo, incluidos los borradores.">
+  <Button slot="actions" href="/admin/productos/nuevo">Nuevo producto</Button>
+  {
+    failed ? (
+      <Notice tone="error" title={MSG_LOAD_FAILED}>
+        <p>{MSG_LOAD_HINT}</p>
+        <Button slot="actions" href={Astro.url.pathname + Astro.url.search} variant="secondary" size="sm">Reintentar</Button>
+      </Notice>
+    ) : (
+      <>
+        <form class="filters" method="get" action={PATH} role="search" aria-label="Filtrar productos">
+          {status && <input type="hidden" name="status" value={status} />}
+          <div class="row">
+            <div class="search">
+              <Field id="f-q" name="q" type="search" label="Nombre o SKU" value={q} maxlength={100} error={errors?.q} tone="dark" />
+            </div>
+            <div class="actions">
+              <Button type="submit">Aplicar</Button>
+              <Button href={PATH} variant="ghost">Limpiar filtros</Button>
+            </div>
+          </div>
+          <nav class="states" aria-label="Filtrar por estado">
+            <span class="label">Estado</span>
+            <Chip label="Todos" href={hrefForStatus(null)} active={!status} />
+            {STATUSES.map((s) => <Chip label={productPill(s).label} href={hrefForStatus(s)} active={status === s} />)}
+          </nav>
+        </form>
+        {result && result.items.length > 0 && <ProductsTable items={result.items} />}
+        {
+          result && result.items.length === 0 && result.total > 0 && (
+            <EmptyState icon="search" title={MSG_NO_PAGE} description={MSG_NO_PAGE_HINT}>
+              <Button slot="action" href={withQuery({ q, status })} variant="secondary">Ir a la página 1</Button>
+            </EmptyState>
+          )
+        }
+        {
+          result && result.items.length === 0 && result.total === 0 && (
+            <EmptyState
+              icon="search"
+              title={hasFilters ? MSG_EMPTY_FILTERED : MSG_EMPTY}
+              description={hasFilters ? MSG_EMPTY_FILTERED_HINT : MSG_EMPTY_HINT}
+            >
+              {hasFilters ? (
+                <Button slot="action" href={PATH} variant="secondary">Limpiar filtros</Button>
+              ) : (
+                <Button slot="action" href="/admin/productos/nuevo">Nuevo producto</Button>
+              )}
+            </EmptyState>
+          )
+        }
+        {result && <Pagination page={result.page} pageSize={result.page_size} total={result.total} hrefFor={hrefForPage} />}
+      </>
+    )
+  }
+</AdminLayout>
+
+<style>
+  @layer components {
+    .filters {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-16);
+      padding: var(--space-16) var(--space-24);
+      border: 1px solid var(--stroke-default);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: var(--space-16);
+    }
+    .search {
+      flex: 1 1 18rem;
+      min-inline-size: 0;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-8);
+      margin-block-start: calc(var(--space-24) + var(--space-4));
+    }
+    .states {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-8);
+    }
+    .label {
+      color: var(--color-mint);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-bold);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+  }
+</style>
